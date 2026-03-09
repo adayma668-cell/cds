@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f0f7f4;
+  --foreground: #1a2332;
+  --primary: #06c286;
+  --primary-dark: #05a874;
+  --primary-light: #e8faf3;
+  --accent: #003296;
+  --accent-dark: #002270;
+  --accent-light: #e6ecf7;
+  --card: #ffffff;
+  --card-border: #d4e4dc;
+  --muted: #5f7a6e;
+  --danger: #dc2626;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-light: var(--accent-light);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-muted: var(--muted);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+::selection {
+  background: rgba(6, 194, 134, 0.2);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(6, 194, 134, 0.15) !important;
+}
+
+/* ---- Fade-in Animations ---- */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+main {
+  animation: fadeIn 0.35s ease-out;
+}
+
+main > * {
+  animation: fadeInUp 0.45s ease-out both;
+}
+
+main > *:nth-child(1) { animation-delay: 0.04s; }
+main > *:nth-child(2) { animation-delay: 0.1s; }
+main > *:nth-child(3) { animation-delay: 0.16s; }
+main > *:nth-child(4) { animation-delay: 0.22s; }
+main > *:nth-child(5) { animation-delay: 0.28s; }
+main > *:nth-child(6) { animation-delay: 0.34s; }
+main > *:nth-child(7) { animation-delay: 0.38s; }
+main > *:nth-child(8) { animation-delay: 0.42s; }
+main > *:nth-child(9) { animation-delay: 0.46s; }
+main > *:nth-child(10) { animation-delay: 0.50s; }
+
+nav {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ---- Live Background Orbs ---- */
+
+@keyframes drift1 {
+  0% { transform: translate(0, 0) scale(1); }
+  15% { transform: translate(80px, -50px) scale(1.12); }
+  35% { transform: translate(-40px, 70px) scale(0.9); }
+  55% { transform: translate(60px, 30px) scale(1.08); }
+  75% { transform: translate(-70px, -40px) scale(0.95); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes drift2 {
+  0% { transform: translate(0, 0) scale(1); }
+  20% { transform: translate(-70px, 50px) scale(0.92); }
+  40% { transform: translate(50px, -80px) scale(1.1); }
+  60% { transform: translate(-30px, -30px) scale(1.05); }
+  80% { transform: translate(60px, 40px) scale(0.93); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes drift3 {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  25% { transform: translate(50px, 60px) scale(1.15) rotate(3deg); }
+  50% { transform: translate(-60px, -20px) scale(0.88) rotate(-2deg); }
+  75% { transform: translate(30px, -50px) scale(1.06) rotate(1deg); }
+  100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.85; }
+}
+
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.7;
+  will-change: transform, opacity;
+}
+
+.bg-orb-1 {
+  width: 420px;
+  height: 420px;
+  background: rgba(6, 194, 134, 0.32);
+  top: -100px;
+  right: 8%;
+  animation: drift1 8s ease-in-out infinite, pulse 4s ease-in-out infinite;
+}
+
+.bg-orb-2 {
+  width: 350px;
+  height: 350px;
+  background: rgba(0, 50, 150, 0.22);
+  bottom: 10%;
+  left: 3%;
+  animation: drift2 10s ease-in-out infinite, pulse 5s ease-in-out infinite 1s;
+}
+
+.bg-orb-3 {
+  width: 280px;
+  height: 280px;
+  background: rgba(6, 194, 134, 0.25);
+  top: 45%;
+  left: 55%;
+  animation: drift3 7s ease-in-out infinite, pulse 3.5s ease-in-out infinite 0.5s;
+}
+
+.bg-orb-4 {
+  width: 380px;
+  height: 380px;
+  background: rgba(0, 50, 150, 0.18);
+  top: 5%;
+  left: -6%;
+  animation: drift2 9s ease-in-out infinite reverse, pulse 4.5s ease-in-out infinite 2s;
+}
+
+.bg-orb-5 {
+  width: 200px;
+  height: 200px;
+  background: rgba(6, 194, 134, 0.2);
+  bottom: 25%;
+  right: 12%;
+  animation: drift1 6s ease-in-out infinite reverse, pulse 3s ease-in-out infinite 1.5s;
+}
