@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
-import Navbar from "@/components/Navbar";
+import AppLayout from "@/components/AppLayout";
 import DatePicker from "@/components/DatePicker";
 
 function StandupCard({
@@ -238,10 +238,8 @@ export default function TeamUpdatesPage() {
         });
 
   return (
-    <div className="min-h-screen">
-      <Navbar />
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+    <AppLayout>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-accent">Team Updates</h1>
@@ -339,7 +337,7 @@ export default function TeamUpdatesPage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

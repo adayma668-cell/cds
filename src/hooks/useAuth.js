@@ -18,7 +18,7 @@ export function useAuth({ allowedRoles } = {}) {
     if (loading) return;
 
     if (!user) {
-      router.push("/login");
+      router.push("/");
       return;
     }
 

@@ -8,7 +8,7 @@ export default function Signup() {
   const router = useRouter();
 
   useEffect(() => {
-    const timer = setTimeout(() => router.push("/login"), 5000);
+    const timer = setTimeout(() => router.push("/"), 5000);
     return () => clearTimeout(timer);
   }, [router]);
 
@@ -27,7 +27,7 @@ export default function Signup() {
             administrator to get an account.
           </p>
           <Link
-            href="/login"
+            href="/"
             className="inline-block rounded-lg bg-primary text-white px-6 py-2.5 text-sm font-semibold hover:bg-primary-dark transition-colors shadow-md shadow-primary/20"
           >
             Go to Login

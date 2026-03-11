@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import Navbar from "@/components/Navbar";
+import AppLayout from "@/components/AppLayout";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
 
 const ROLES = ["employee", "scrum_master", "super_admin"];
@@ -31,6 +31,7 @@ export default function AdminPage() {
   const [editForm, setEditForm] = useState(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editMessage, setEditMessage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const getToken = async () => {
     const {
@@ -183,10 +184,17 @@ export default function AdminPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen">
-      <Navbar />
+  const q = searchQuery.trim().toLowerCase();
+  const filteredUsers = q
+    ? users.filter(
+        (u) =>
+          (u.name || "").toLowerCase().includes(q) ||
+          (u.email || "").toLowerCase().includes(q)
+      )
+    : users;
 
+  return (
+    <AppLayout>
       {/* Edit Modal */}
       {editingUser && editForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -329,7 +337,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
         <div>
           <h1 className="text-2xl font-bold text-accent">Admin Panel</h1>
           <p className="text-sm text-muted mt-1">
@@ -459,6 +467,46 @@ export default function AdminPage() {
           </form>
         </div>
 
+        {/* Search & User Matrix */}
+        <div className="space-y-4">
+          <div className="relative">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search users by name or email..."
+              className="w-full rounded-lg border border-card-border bg-background pl-10 pr-4 py-2.5 text-sm outline-none focus:border-accent transition-colors"
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-primary-light/50 border border-primary/10 rounded-xl p-4">
+              <p className="text-2xl font-bold text-primary-dark">
+                {users.filter((u) => u.role === "scrum_master").length}
+              </p>
+              <p className="text-sm text-primary-dark/70 mt-0.5">Scrum Masters</p>
+            </div>
+            <div className="bg-accent-light/50 border border-accent/10 rounded-xl p-4">
+              <p className="text-2xl font-bold text-accent">
+                {users.filter((u) => u.role === "employee").length}
+              </p>
+              <p className="text-sm text-accent/70 mt-0.5">Employees</p>
+            </div>
+            <div className="bg-background border border-card-border rounded-xl p-4">
+              <p className="text-2xl font-bold text-foreground">
+                {users.filter((u) => u.role === "super_admin").length}
+              </p>
+              <p className="text-sm text-muted mt-0.5">Super Admins</p>
+            </div>
+            <div className="bg-card border border-card-border rounded-xl p-4">
+              <p className="text-2xl font-bold text-foreground">{users.length}</p>
+              <p className="text-sm text-muted mt-0.5">Total Users</p>
+            </div>
+          </div>
+        </div>
+
         {/* Users List */}
         <div className="bg-card rounded-2xl border border-card-border shadow-sm overflow-hidden">
           <div className="px-6 sm:px-8 py-5 border-b border-card-border flex items-center gap-2">
@@ -470,7 +518,7 @@ export default function AdminPage() {
             <h2 className="text-lg font-semibold text-foreground">
               All Users
               <span className="ml-2 text-sm font-normal text-muted">
-                ({users.length})
+                ({filteredUsers.length}{searchQuery ? ` of ${users.length}` : ""})
               </span>
             </h2>
           </div>
@@ -480,13 +528,15 @@ export default function AdminPage() {
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               <p className="text-sm text-muted mt-3">Loading users...</p>
             </div>
-          ) : users.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div className="px-8 py-12 text-center text-sm text-muted">
-              No users found. Add your first user above.
+              {users.length === 0
+                ? "No users found. Add your first user above."
+                : "No users match your search."}
             </div>
           ) : (
             <div className="divide-y divide-card-border/50">
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <div
                   key={u.id}
                   className="px-6 sm:px-8 py-4 hover:bg-primary-light/20 transition-colors"
@@ -507,7 +557,7 @@ export default function AdminPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-4">
+                    <div className="flex items-center gap-2 shrink-0 ml-4 flex-wrap justify-end">
                       <span
                         className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                           ROLE_BADGE[u.role] || ROLE_BADGE.employee
@@ -561,7 +611,7 @@ export default function AdminPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

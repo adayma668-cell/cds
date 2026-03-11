@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import Navbar from "@/components/Navbar";
+import AppLayout from "@/components/AppLayout";
 
 const STATUS_OPTIONS = [
   { value: "to_be_done", label: "To Be Done", color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -158,10 +158,8 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <Navbar />
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+    <AppLayout>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-accent">My Tasks</h1>
@@ -230,20 +228,17 @@ export default function TasksPage() {
               <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
                 Status
               </label>
-              <div className="flex gap-2">
+              <select
+                value={form.status}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%235f7a6e%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10"
+              >
                 {STATUS_OPTIONS.map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, status: s.value }))}
-                    className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      form.status === s.value ? s.color : "border-card-border bg-card text-muted"
-                    }`}
-                  >
+                  <option key={s.value} value={s.value}>
                     {s.label}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
@@ -328,20 +323,19 @@ export default function TasksPage() {
                           <label className="block text-xs font-semibold text-muted uppercase mb-1">
                             Status
                           </label>
-                          <div className="flex gap-2">
+                          <select
+                            value={editForm.status || ""}
+                            onChange={(e) =>
+                              setEditForm((f) => ({ ...f, status: e.target.value }))
+                            }
+                            className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%235f7a6e%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10"
+                          >
                             {STATUS_OPTIONS.map((s) => (
-                              <button
-                                key={s.value}
-                                type="button"
-                                onClick={() => setEditForm((f) => ({ ...f, status: s.value }))}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${
-                                  editForm.status === s.value ? s.color : "border-card-border"
-                                }`}
-                              >
+                              <option key={s.value} value={s.value}>
                                 {s.label}
-                              </button>
+                              </option>
                             ))}
-                          </div>
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-muted uppercase mb-1">
@@ -373,15 +367,10 @@ export default function TasksPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold text-foreground">{ticket.ticket_number}</p>
-                            <span
-                              className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${statusOpt.color}`}
-                            >
-                              {statusOpt.label}
-                            </span>
                             {ticket.due_date && (
                               <span className="text-xs text-muted">
                                 Due: {formatDate(ticket.due_date)}
@@ -394,18 +383,18 @@ export default function TasksPage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                          <div className="flex gap-1">
-                            {STATUS_OPTIONS.filter((s) => s.value !== ticket.status).map((s) => (
-                              <button
-                                key={s.value}
-                                onClick={() => handleStatusChange(ticket, s.value)}
-                                className={`px-2 py-1 text-xs font-semibold rounded cursor-pointer border hover:opacity-90 ${s.color}`}
-                              >
-                                → {s.label}
-                              </button>
+                        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                          <select
+                            value={ticket.status}
+                            onChange={(e) => handleStatusChange(ticket, e.target.value)}
+                            className={`rounded-lg border px-3 py-2 text-xs font-semibold appearance-none cursor-pointer pr-8 min-w-[140px] outline-none focus:ring-2 focus:ring-primary/20 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat ${statusOpt.color}`}
+                          >
+                            {STATUS_OPTIONS.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
                             ))}
-                          </div>
+                          </select>
                           <span className="text-xs text-muted">
                             {new Date(ticket.created_at).toLocaleDateString()}
                           </span>
@@ -432,7 +421,7 @@ export default function TasksPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

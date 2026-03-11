@@ -41,11 +41,11 @@ export default function Navbar() {
           <Link href="/team-updates" className={linkClass("/team-updates")}>
             Updates
           </Link>
-          <Link href="/blockers" className={linkClass("/blockers")}>
-            Blockers
-          </Link>
           <Link href="/notes" className={linkClass("/notes")}>
             Notes
+          </Link>
+          <Link href="/settings" className={linkClass("/settings")}>
+            Settings
           </Link>
 
           {(role === "scrum_master" || role === "super_admin") && (
@@ -56,8 +56,8 @@ export default function Navbar() {
 
           {role === "super_admin" && (
             <>
-              <Link href="/roles" className={linkClass("/roles")}>
-                Roles
+              <Link href="/admin/tickets" className={linkClass("/admin/tickets")}>
+                All Tickets
               </Link>
               <Link href="/admin" className={linkClass("/admin")}>
                 Admin

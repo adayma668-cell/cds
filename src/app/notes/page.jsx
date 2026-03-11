@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import Navbar from "@/components/Navbar";
+import AppLayout from "@/components/AppLayout";
 
 export default function NotesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -66,12 +66,11 @@ export default function NotesPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <AppLayout>
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
@@ -87,9 +86,8 @@ export default function NotesPage() {
       : 0;
 
   return (
-    <div className="min-h-screen">
-      <Navbar />
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+    <AppLayout>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-accent">Notes & Goals</h1>
@@ -301,7 +299,7 @@ export default function NotesPage() {
         <p className="text-xs text-center text-muted">
           Notes are stored locally on this device
         </p>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

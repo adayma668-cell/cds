@@ -195,3 +195,254 @@ nav {
   right: 12%;
   animation: drift1 6s ease-in-out infinite reverse, pulse 3s ease-in-out infinite 1.5s;
 }
+
+/* ---- SaaS Splash & Login Animations ---- */
+
+@keyframes splashLogoIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(12px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes splashTextIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splashLoader {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splashFadeOut {
+  to {
+    opacity: 0;
+    transform: scale(1.05);
+    pointer-events: none;
+  }
+}
+
+@keyframes loginFormIn {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes loginStagger {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-splash-logo {
+  animation: splashLogoIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-splash-text {
+  animation: splashTextIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+.animate-splash-loader {
+  animation: splashLoader 1.2s ease-in-out infinite 0.6s;
+}
+
+.animate-splash-out {
+  animation: splashFadeOut 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-login-in {
+  animation: loginFormIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-login-stagger-1 { animation: loginStagger 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
+.animate-login-stagger-2 { animation: loginStagger 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both; }
+.animate-login-stagger-3 { animation: loginStagger 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both; }
+.animate-login-stagger-4 { animation: loginStagger 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.34s both; }
+.animate-login-stagger-5 { animation: loginStagger 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.42s both; }
+
+/* ---- Login Page: Premium SaaS Animations ---- */
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes floatOrb {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1);
+    filter: blur(80px);
+  }
+  33% { 
+    transform: translate(30px, -40px) scale(1.1);
+    filter: blur(90px);
+  }
+  66% { 
+    transform: translate(-20px, 30px) scale(0.95);
+    filter: blur(70px);
+  }
+}
+
+@keyframes gridPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes gradientLine {
+  0% { transform: scaleX(0); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { 
+    box-shadow: 0 0 40px rgba(6, 194, 134, 0.15), 0 0 80px rgba(0, 50, 150, 0.08);
+  }
+  50% { 
+    box-shadow: 0 0 60px rgba(6, 194, 134, 0.2), 0 0 100px rgba(0, 50, 150, 0.12);
+  }
+}
+
+@keyframes btnShimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+@keyframes dotReveal {
+  0% { 
+    opacity: 0;
+    transform: scale(0) translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) translateY(-2px);
+  }
+  100% { 
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.login-gradient-bg {
+  background: 
+    radial-gradient(ellipse 80% 50% at 20% 20%, rgba(6, 194, 134, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0, 50, 150, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(6, 194, 134, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, #f0f7f4 0%, #e8f5f0 50%, #e6ecf7 100%);
+  background-size: 200% 200%;
+  animation: gradientShift 12s ease infinite;
+}
+
+.login-glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(6, 194, 134, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.login-glass-glow {
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: btnShimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.btn-shimmer:hover:not(:disabled)::before {
+  animation-duration: 1.5s;
+}
+
+.animate-dot-reveal {
+  animation: dotReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-gradient-line {
+  animation: gradientLine 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+}
+
+.float-orb {
+  animation: floatOrb 10s ease-in-out infinite;
+}
+
+.float-orb-slow {
+  animation: floatOrb 14s ease-in-out infinite reverse;
+}
+
+.float-orb-slow-delayed {
+  animation: floatOrb 14s ease-in-out infinite reverse;
+  animation-delay: 2s;
+}
+
+.float-orb-delayed {
+  animation: floatOrb 10s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.grid-pulse {
+  animation: gridPulse 6s ease-in-out infinite;
+}
+
+.gradient-text-shift {
+  background-size: 200% auto;
+  animation: gradientShift 4s ease infinite;
+}

@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import Navbar from "@/components/Navbar";
+import AppLayout from "@/components/AppLayout";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
 
-const ALLOWED_ROLES = ["scrum_master"];
+const ALLOWED_ROLES = ["scrum_master", "super_admin"];
 const TIMER_SECONDS = 120;
 
 function formatTime(seconds) {
@@ -205,20 +205,18 @@ export default function StartMeeting() {
 
   if (authLoading || dataLoading) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <AppLayout>
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-muted">Loading meeting data...</p>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <AppLayout>
         <div className="max-w-md mx-auto px-4 py-20 text-center space-y-4">
           <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto">
             <svg className="w-7 h-7 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,15 +232,13 @@ export default function StartMeeting() {
             Try Again
           </button>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <Navbar />
-
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <AppLayout>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
         {/* ── LOBBY ── */}
         {phase === "lobby" && (
           <div className="space-y-8">
@@ -714,7 +710,7 @@ export default function StartMeeting() {
             </button>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
