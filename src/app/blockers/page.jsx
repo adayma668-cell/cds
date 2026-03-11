@@ -38,6 +38,28 @@ function BlockerCard({ item, todayStr }) {
         )}
       </div>
       <div className="p-5">
+        {(item.ticket_number || item.due_date) && (
+          <div className="flex flex-wrap gap-4 mb-3 pb-3 border-b border-card-border">
+            {item.ticket_number && (
+              <div>
+                <p className="text-xs font-semibold text-muted uppercase mb-0.5">Ticket</p>
+                <p className="text-sm font-medium text-foreground">{item.ticket_number}</p>
+              </div>
+            )}
+            {item.due_date && (
+              <div>
+                <p className="text-xs font-semibold text-muted uppercase mb-0.5">Due Date</p>
+                <p className="text-sm font-medium text-foreground">
+                  {new Date(item.due_date + "T12:00:00").toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
         <p className="text-sm text-foreground whitespace-pre-wrap">
           {item.blockers}
         </p>

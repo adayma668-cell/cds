@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const AuthContext = createContext({
@@ -10,8 +9,24 @@ const AuthContext = createContext({
   loading: true,
 });
 
+const FETCH_ME_TIMEOUT_MS = 8000;
+
+async function fetchMe(accessToken) {
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), FETCH_ME_TIMEOUT_MS);
+  try {
+    const res = await fetch("/api/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function AuthProvider({ children }) {
-  const router = useRouter();
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,52 +35,53 @@ export function AuthProvider({ children }) {
     let cancelled = false;
 
     const load = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (!session) {
-        setLoading(false);
-        return;
+        if (!session) {
+          setLoading(false);
+          return;
+        }
+
+        // Use /api/me - server-side fetch bypasses RLS, correct role for all users
+        setUser(session.user);
+        const data = await fetchMe(session.access_token);
+        if (cancelled) return;
+        setRole(data?.role ?? "employee");
+      } catch {
+        if (!cancelled) setLoading(false);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const { data: employee } = await supabase
-        .from("employees")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (cancelled) return;
-
-      setUser(session.user);
-      setRole(employee?.role || "employee");
-      setLoading(false);
     };
 
     load();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session) {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
         setUser(null);
         setRole(null);
         setLoading(false);
         return;
       }
 
+      // SIGNED_IN / TOKEN_REFRESHED: show user immediately, fetch role (don't block with loading=true)
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        const { data: employee } = await supabase
-          .from("employees")
-          .select("role")
-          .eq("id", session.user.id)
-          .single();
-
         setUser(session.user);
-        setRole(employee?.role || "employee");
-        setLoading(false);
+        setLoading(true); // keep loading until role arrives so routing is correct
+        fetchMe(session.access_token).then((data) => {
+          setRole(data?.role ?? "employee");
+          setLoading(false);
+        }).catch(() => {
+          setRole("employee");
+          setLoading(false);
+        });
       }
     });
 

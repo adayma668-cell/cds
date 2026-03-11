@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-primary-light via-background to-accent-light">
@@ -23,12 +21,12 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link
+          <a
             href="/login"
-            className="w-full sm:w-auto rounded-lg bg-primary text-white px-8 py-3 text-sm font-semibold hover:bg-primary-dark transition-colors shadow-md shadow-primary/20"
+            className="w-full sm:w-auto rounded-lg bg-primary text-white px-8 py-3 text-sm font-semibold hover:bg-primary-dark transition-colors shadow-md shadow-primary/20 text-center"
           >
             Login
-          </Link>
+          </a>
         </div>
 
         <p className="text-sm text-muted/70">

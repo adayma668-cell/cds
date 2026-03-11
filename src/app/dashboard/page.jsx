@@ -1,13 +1,22 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 
 export default function Dashboard() {
   const { user, role, loading } = useAuth();
+  const router = useRouter();
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -55,6 +64,21 @@ export default function Dashboard() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Link
+              href="/tasks"
+              className="group bg-card rounded-xl border border-card-border shadow-sm p-5 hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all"
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary-light flex items-center justify-center mb-3 group-hover:bg-primary/15 transition-colors">
+                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-foreground">My Tasks</h3>
+              <p className="text-sm text-muted mt-0.5">
+                Add tickets, track status, update at end of day
+              </p>
+            </Link>
+
+            <Link
               href="/submit"
               className="group bg-card rounded-xl border border-card-border shadow-sm p-5 hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all"
             >
@@ -70,32 +94,17 @@ export default function Dashboard() {
             </Link>
 
             <Link
-              href="/history"
+              href="/team-updates"
               className="group bg-card rounded-xl border border-card-border shadow-sm p-5 hover:border-accent/30 hover:shadow-md hover:shadow-accent/5 transition-all"
             >
               <div className="w-10 h-10 rounded-lg bg-accent-light flex items-center justify-center mb-3 group-hover:bg-accent/15 transition-colors">
                 <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-foreground">My History</h3>
-              <p className="text-sm text-muted mt-0.5">
-                View and edit your past standups
-              </p>
-            </Link>
-
-            <Link
-              href="/team-updates"
-              className="group bg-card rounded-xl border border-card-border shadow-sm p-5 hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary-light flex items-center justify-center mb-3 group-hover:bg-primary/15 transition-colors">
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <h3 className="font-semibold text-foreground">Team Updates</h3>
+              <h3 className="font-semibold text-foreground">Updates</h3>
               <p className="text-sm text-muted mt-0.5">
-                See what your team is working on today
+                View today&apos;s updates. Scrum masters can pick other dates.
               </p>
             </Link>
 

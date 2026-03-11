@@ -3,19 +3,10 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-const MOODS = [
-  { value: "great", emoji: "😊", label: "Great" },
-  { value: "good", emoji: "🙂", label: "Good" },
-  { value: "okay", emoji: "😐", label: "Okay" },
-  { value: "struggling", emoji: "😟", label: "Struggling" },
-  { value: "blocked", emoji: "😤", label: "Blocked" },
-];
-
 export default function StandupForm() {
   const [yesterday, setYesterday] = useState("");
   const [today, setToday] = useState("");
   const [blockers, setBlockers] = useState("");
-  const [mood, setMood] = useState("good");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
   const [previewing, setPreviewing] = useState(false);
@@ -26,8 +17,6 @@ export default function StandupForm() {
   };
 
   const handleBack = () => setPreviewing(false);
-
-  const selectedMood = MOODS.find((m) => m.value === mood);
 
   const handleSubmit = async () => {
     setMessage({ text: "", type: "" });
@@ -44,7 +33,7 @@ export default function StandupForm() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ yesterday, today, blockers, mood }),
+        body: JSON.stringify({ yesterday, today, blockers }),
       });
 
       if (!res.ok) {
@@ -56,7 +45,6 @@ export default function StandupForm() {
       setYesterday("");
       setToday("");
       setBlockers("");
-      setMood("good");
       setPreviewing(false);
     } catch (err) {
       setMessage({ text: err.message, type: "error" });
@@ -81,18 +69,6 @@ export default function StandupForm() {
         </div>
 
         <div className="space-y-3">
-          <div className="rounded-xl bg-background border border-card-border p-4 flex items-center gap-3">
-            <span className="text-2xl">{selectedMood?.emoji}</span>
-            <div>
-              <p className="text-xs font-semibold text-muted uppercase tracking-wide">
-                Mood
-              </p>
-              <p className="text-sm font-medium text-foreground">
-                {selectedMood?.label}
-              </p>
-            </div>
-          </div>
-
           <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
             <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
               Yesterday
@@ -159,30 +135,6 @@ export default function StandupForm() {
 
   return (
     <form onSubmit={handlePreview} className="space-y-5">
-      {/* Mood Selector */}
-      <div>
-        <label className="block text-sm font-medium text-foreground/80 mb-2">
-          How are you feeling today?
-        </label>
-        <div className="flex gap-2">
-          {MOODS.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => setMood(m.value)}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
-                mood === m.value
-                  ? "border-primary bg-primary-light text-primary-dark scale-105 shadow-sm"
-                  : "border-card-border bg-card text-muted hover:bg-background"
-              }`}
-            >
-              <span className="text-xl">{m.emoji}</span>
-              <span>{m.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div>
         <label htmlFor="yesterday" className="block text-sm font-medium text-foreground/80 mb-1.5">
           Yesterday

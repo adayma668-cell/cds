@@ -33,10 +33,17 @@ export async function GET(request) {
     query = query.eq("user_id", user.id);
   }
 
-  if (date === "today") {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    query = query.gte("created_at", todayStart.toISOString());
+  if (date) {
+    const d = date === "today"
+      ? new Date()
+      : new Date(date + "T12:00:00");
+    const start = new Date(d);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(d);
+    end.setHours(23, 59, 59, 999);
+    query = query
+      .gte("created_at", start.toISOString())
+      .lte("created_at", end.toISOString());
   }
 
   query = query.order("created_at", { ascending: false });
@@ -69,7 +76,7 @@ export async function POST(request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { yesterday, today, blockers, mood } = await request.json();
+  const { ticket_number, due_date, yesterday, today, blockers, mood } = await request.json();
 
   if (!yesterday || !today) {
     return NextResponse.json(
@@ -84,6 +91,8 @@ export async function POST(request) {
     {
       user_id: user.id,
       employee_name: employeeName,
+      ticket_number: ticket_number || null,
+      due_date: due_date || null,
       yesterday,
       today,
       blockers: blockers || "",
@@ -103,7 +112,7 @@ export async function PATCH(request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, yesterday, today, blockers, mood } = await request.json();
+  const { id, ticket_number, due_date, yesterday, today, blockers, mood } = await request.json();
 
   if (!id)
     return NextResponse.json(
@@ -124,6 +133,8 @@ export async function PATCH(request) {
     );
 
   const updateData = {};
+  if (ticket_number !== undefined) updateData.ticket_number = ticket_number;
+  if (due_date !== undefined) updateData.due_date = due_date;
   if (yesterday !== undefined) updateData.yesterday = yesterday;
   if (today !== undefined) updateData.today = today;
   if (blockers !== undefined) updateData.blockers = blockers;

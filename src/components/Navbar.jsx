@@ -32,14 +32,14 @@ export default function Navbar() {
           <Link href="/dashboard" className={linkClass("/dashboard")}>
             Dashboard
           </Link>
+          <Link href="/tasks" className={linkClass("/tasks")}>
+            Tasks
+          </Link>
           <Link href="/submit" className={linkClass("/submit")}>
             Submit
           </Link>
-          <Link href="/history" className={linkClass("/history")}>
-            History
-          </Link>
           <Link href="/team-updates" className={linkClass("/team-updates")}>
-            Team
+            Updates
           </Link>
           <Link href="/blockers" className={linkClass("/blockers")}>
             Blockers

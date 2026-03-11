@@ -1,21 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import { TEAMS } from "@/lib/teams";
+import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
 import Navbar from "@/components/Navbar";
+import DatePicker from "@/components/DatePicker";
 
-const MOODS = {
-  great: { emoji: "😊", label: "Great", color: "bg-green-100 text-green-700" },
-  good: { emoji: "🙂", label: "Good", color: "bg-primary-light text-primary-dark" },
-  okay: { emoji: "😐", label: "Okay", color: "bg-amber-100 text-amber-700" },
-  struggling: { emoji: "😟", label: "Struggling", color: "bg-orange-100 text-orange-700" },
-  blocked: { emoji: "😤", label: "Blocked", color: "bg-red-100 text-red-700" },
-};
+function StandupCard({
+  standup,
+  currentUserId,
+  editingId,
+  editForm,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onEditFormChange,
+  saving,
+}) {
+  const isMine = standup.user_id === currentUserId;
+  const isEditing = editingId === standup.id;
+  const todayStr = new Date().toDateString();
+  const standupDateStr = new Date(standup.created_at).toDateString();
+  const canEdit = isMine && standupDateStr === todayStr;
 
-function StandupCard({ standup }) {
-  const moodData = MOODS[standup.mood] || MOODS.good;
   return (
     <div className="bg-card rounded-xl border border-card-border shadow-sm overflow-hidden">
       <div className="px-5 py-4 flex items-center justify-between border-b border-card-border bg-background/50">
@@ -36,35 +44,88 @@ function StandupCard({ standup }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-lg">{moodData.emoji}</span>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${moodData.color}`}
-          >
-            {moodData.label}
-          </span>
+          {(standup.teams || []).map((t) => (
+            <span
+              key={t}
+              className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${getTeamColor(t)}`}
+            >
+              {getTeamLabel(t)}
+            </span>
+          ))}
+          {canEdit && !isEditing && (
+            <button
+              onClick={() => onStartEdit(standup)}
+              className="text-xs font-semibold text-accent hover:text-accent/80 cursor-pointer"
+            >
+              Edit
+            </button>
+          )}
         </div>
       </div>
 
       <div className="p-5 space-y-3">
-        <div>
-          <p className="text-xs font-semibold text-primary-dark mb-1">Yesterday</p>
-          <p className="text-sm text-foreground whitespace-pre-wrap">
-            {standup.yesterday}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-accent mb-1">Today</p>
-          <p className="text-sm text-foreground whitespace-pre-wrap">
-            {standup.today}
-          </p>
-        </div>
-        {standup.blockers && standup.blockers.trim() && (
-          <div>
-            <p className="text-xs font-semibold text-danger mb-1">Blockers</p>
-            <p className="text-sm text-foreground whitespace-pre-wrap">
-              {standup.blockers}
-            </p>
+        {isEditing ? (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-muted uppercase block mb-1">Yesterday</label>
+              <textarea
+                rows={2}
+                value={editForm.yesterday || ""}
+                onChange={(e) => onEditFormChange("yesterday", e.target.value)}
+                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted uppercase block mb-1">Today</label>
+              <textarea
+                rows={2}
+                value={editForm.today || ""}
+                onChange={(e) => onEditFormChange("today", e.target.value)}
+                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted uppercase block mb-1">Blockers</label>
+              <textarea
+                rows={2}
+                value={editForm.blockers || ""}
+                onChange={(e) => onEditFormChange("blockers", e.target.value)}
+                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={onCancelEdit}
+                className="flex-1 rounded-lg border border-card-border py-2 text-sm font-semibold text-muted hover:bg-background cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => onSaveEdit(standup.id)}
+                disabled={saving}
+                className="flex-1 rounded-lg bg-primary text-white py-2 text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 cursor-pointer"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
           </div>
+        ) : (
+          <>
+            <div>
+              <p className="text-xs font-semibold text-primary-dark mb-1">Yesterday</p>
+              <p className="text-sm text-foreground whitespace-pre-wrap">{standup.yesterday}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-accent mb-1">Today</p>
+              <p className="text-sm text-foreground whitespace-pre-wrap">{standup.today}</p>
+            </div>
+            {standup.blockers && standup.blockers.trim() && (
+              <div>
+                <p className="text-xs font-semibold text-danger mb-1">Blockers</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{standup.blockers}</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -76,70 +137,116 @@ export default function TeamUpdatesPage() {
   const [standups, setStandups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
+  const [selectedDate, setSelectedDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   const isLeader = role === "super_admin" || role === "scrum_master";
 
-  useEffect(() => {
-    if (authLoading || !user) return;
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const url = isLeader
-        ? "/api/standup?date=today&include=teams"
-        : "/api/standup?date=today";
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      const data = await res.json();
-      setStandups(data.standups || []);
-      setLoading(false);
-    })();
-  }, [authLoading, user, isLeader]);
+  const fetchStandups = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const dateParam = selectedDate === new Date().toISOString().slice(0, 10) ? "today" : selectedDate;
+    const url = isLeader
+      ? `/api/standup?date=${dateParam}&include=teams`
+      : `/api/standup?date=${dateParam}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    });
+    const data = await res.json();
+    setStandups(data.standups || []);
+    setLoading(false);
+  }, [selectedDate, isLeader]);
 
-  if (authLoading || loading) {
+  useEffect(() => {
+    if (!authLoading && user) {
+      setLoading(true);
+      fetchStandups();
+    }
+  }, [authLoading, user, fetchStandups]);
+
+  const startEdit = (standup) => {
+    setEditingId(standup.id);
+    setEditForm({
+      yesterday: standup.yesterday,
+      today: standup.today,
+      blockers: standup.blockers || "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditForm((f) => ({ ...f, [field]: value }));
+  };
+
+  const saveEdit = async (id) => {
+    setSaving(true);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    await fetch("/api/standup", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        id,
+        yesterday: editForm.yesterday,
+        today: editForm.today,
+        blockers: editForm.blockers,
+      }),
+    });
+    setEditingId(null);
+    setEditForm({});
+    setSaving(false);
+    fetchStandups();
+  };
+
+  if (authLoading) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
+
+  if (!user) return null;
 
   const displayed =
     isLeader && selectedTeam !== "all"
       ? standups.filter((s) => (s.teams || []).includes(selectedTeam))
       : standups;
 
-  const displayedMoodSummary = displayed.reduce((acc, s) => {
-    const m = s.mood || "good";
-    acc[m] = (acc[m] || 0) + 1;
-    return acc;
-  }, {});
-
-  const displayedBlockerCount = displayed.filter(
-    (s) => s.blockers?.trim()
-  ).length;
+  const displayedBlockerCount = displayed.filter((s) => s.blockers?.trim()).length;
+  const dateLabel =
+    selectedDate === new Date().toISOString().slice(0, 10)
+      ? "Today"
+      : new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
 
   return (
     <div className="min-h-screen">
       <Navbar />
+
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-accent">
-              Today&apos;s Team Updates
-            </h1>
+            <h1 className="text-2xl font-bold text-accent">Team Updates</h1>
             <p className="text-sm text-muted mt-1">
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}{" "}
-              &middot; {displayed.length} update
-              {displayed.length !== 1 && "s"}
+              {dateLabel} &middot; {displayed.length} update{displayed.length !== 1 && "s"}
             </p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-primary-light flex items-center justify-center">
@@ -149,9 +256,11 @@ export default function TeamUpdatesPage() {
           </div>
         </div>
 
-        {/* Team Tabs — leaders only */}
+        {/* Date picker + Team filter - leaders only, stacked above cards */}
         {isLeader && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="relative z-10 space-y-3">
+            <DatePicker value={selectedDate} onChange={setSelectedDate} />
+            <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setSelectedTeam("all")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
@@ -167,44 +276,17 @@ export default function TeamUpdatesPage() {
                 key={t.id}
                 onClick={() => setSelectedTeam(t.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                  selectedTeam === t.id
-                    ? "bg-accent text-white"
-                    : "bg-card border border-card-border text-muted hover:text-foreground"
+                  selectedTeam === t.id ? t.color : "bg-card border border-card-border text-muted hover:text-foreground"
                 }`}
               >
                 {t.label}
               </button>
             ))}
-          </div>
-        )}
-
-        {/* Mood Summary for current selection */}
-        {displayed.length > 0 && (
-          <div className="bg-card rounded-xl border border-card-border shadow-sm p-5">
-            <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">
-              {isLeader && selectedTeam !== "all"
-                ? `${TEAMS.find((t) => t.id === selectedTeam)?.label || selectedTeam} Mood`
-                : "Team Mood"}
-            </h3>
-            <div className="flex gap-3 flex-wrap">
-              {Object.entries(displayedMoodSummary).map(([mood, count]) => {
-                const m = MOODS[mood] || MOODS.good;
-                return (
-                  <div
-                    key={mood}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg ${m.color}`}
-                  >
-                    <span className="text-lg">{m.emoji}</span>
-                    <span className="text-sm font-bold">{count}</span>
-                    <span className="text-xs font-medium">{m.label}</span>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}
 
-        {/* Blocker Alert */}
+        {/* Blocker alert */}
         {displayedBlockerCount > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
@@ -213,14 +295,17 @@ export default function TeamUpdatesPage() {
               </svg>
             </div>
             <p className="text-sm font-medium text-red-800">
-              {displayedBlockerCount} team member
-              {displayedBlockerCount !== 1 && "s"} reported blockers today
+              {displayedBlockerCount} member{displayedBlockerCount !== 1 && "s"} reported blockers
             </p>
           </div>
         )}
 
-        {/* Standup Cards */}
-        {displayed.length === 0 ? (
+        {/* Standup cards */}
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : displayed.length === 0 ? (
           <div className="bg-card rounded-2xl border border-card-border shadow-sm p-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-accent-light flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,18 +313,29 @@ export default function TeamUpdatesPage() {
               </svg>
             </div>
             <h3 className="font-semibold text-foreground mb-1">
-              No updates yet{isLeader && selectedTeam !== "all" ? " for this team" : " today"}
+              No updates yet{isLeader && selectedTeam !== "all" ? " for this team" : ""}
             </h3>
             <p className="text-sm text-muted">
               {isLeader && selectedTeam !== "all"
-                ? "No members from this team have submitted their standup yet."
-                : "Team members haven\u0027t submitted their standups yet."}
+                ? "No members from this team have submitted their standup for this date."
+                : "No standups submitted for this date yet."}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {displayed.map((standup) => (
-              <StandupCard key={standup.id} standup={standup} />
+              <StandupCard
+                key={standup.id}
+                standup={standup}
+                currentUserId={user.id}
+                editingId={editingId}
+                editForm={editForm}
+                onStartEdit={startEdit}
+                onCancelEdit={cancelEdit}
+                onSaveEdit={saveEdit}
+                onEditFormChange={handleEditFormChange}
+                saving={saving}
+              />
             ))}
           </div>
         )}
