@@ -61,6 +61,7 @@ export async function POST(req) {
     userId,
     {
       password,
+      email_confirm: true,
       app_metadata: { invite_token: null, invite_token_expires: null },
     }
   );
