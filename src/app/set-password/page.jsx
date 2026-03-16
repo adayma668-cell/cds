@@ -21,6 +21,24 @@ export default function SetPasswordPage() {
     hasProcessed.current = true;
 
     const handleAuth = async () => {
+      // Handle PKCE flow: Supabase v2 redirects with ?code= query param
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+
+      if (code) {
+        const { error: codeError } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (!codeError) {
+          const { data: { user } } = await supabase.auth.getUser();
+          setUserName(user?.user_metadata?.name || "");
+          setSessionReady(true);
+          setVerifying(false);
+          window.history.replaceState(null, "", "/set-password");
+          return;
+        }
+      }
+
+      // Fallback: legacy implicit flow with hash tokens
       const hash = window.location.hash;
 
       if (hash && hash.includes("access_token")) {
