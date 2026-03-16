@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import AppLayout from "@/components/AppLayout";
+import { TasksSkeleton } from "@/components/Skeleton";
+import EmptyState from "@/components/EmptyState";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const STATUS_OPTIONS = [
   { value: "to_be_done", label: "To Be Done", color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -36,6 +40,7 @@ export default function TasksPage() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const fetchTickets = useCallback(async () => {
     const {
@@ -114,22 +119,30 @@ export default function TasksPage() {
   };
 
   const handleStatusChange = async (ticket, newStatus) => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    await fetch(`/api/tickets/${ticket.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    fetchTickets();
+    const prevTickets = [...tickets];
+    setTickets((prev) =>
+      prev.map((t) => (t.id === ticket.id ? { ...t, status: newStatus } : t))
+    );
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) setTickets(prevTickets);
+    } catch {
+      setTickets(prevTickets);
+    }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this ticket?")) return;
+    setDeleteConfirm(null);
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -142,9 +155,9 @@ export default function TasksPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
+      <AppLayout>
+        <TasksSkeleton />
+      </AppLayout>
     );
   }
 
@@ -159,6 +172,15 @@ export default function TasksPage() {
 
   return (
     <AppLayout>
+      <ConfirmModal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => handleDelete(deleteConfirm)}
+        title="Delete ticket"
+        message="This ticket will be permanently removed. This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+      />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -180,7 +202,7 @@ export default function TasksPage() {
             <div
               key={s.value}
               onClick={() => setFilter(filter === s.value ? "all" : s.value)}
-              className={`rounded-xl border p-4 cursor-pointer transition-all ${
+              className={`rounded-xl border p-4 cursor-pointer card-hover transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 ${
                 filter === s.value ? s.color : "bg-card border-card-border hover:bg-background"
               }`}
             >
@@ -255,7 +277,7 @@ export default function TasksPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-primary text-white px-6 py-2.5 text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 cursor-pointer"
+              className="btn-press rounded-lg bg-primary text-white px-6 py-2.5 text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 cursor-pointer transition-transform"
             >
               {submitting ? "Adding..." : "Add Ticket"}
             </button>
@@ -271,12 +293,31 @@ export default function TasksPage() {
           </div>
 
           {loading ? (
-            <div className="p-12 text-center">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="p-12">
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-4 p-4">
+                    <div className="w-5 h-5 rounded bg-muted/30 animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-32 bg-muted/30 rounded animate-pulse" />
+                      <div className="h-3 w-48 bg-muted/30 rounded animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : displayed.length === 0 ? (
-            <div className="p-12 text-center text-sm text-muted">
-              No tickets yet. Add your first ticket above.
+            <div className="p-8">
+              <EmptyState
+                type="tasks"
+                title="No tickets yet"
+                description="Add your first ticket to start tracking your work. Tickets help you stay organized and update your standup."
+                action={
+                  <p className="text-sm text-muted">
+                    Use the form above to add a ticket.
+                  </p>
+                }
+              />
             </div>
           ) : (
             <div className="divide-y divide-card-border/50">
@@ -406,8 +447,8 @@ export default function TasksPage() {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDelete(ticket.id)}
-                              className="px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 rounded cursor-pointer"
+                              onClick={() => setDeleteConfirm(ticket.id)}
+                              className="btn-press px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 rounded cursor-pointer transition-transform"
                             >
                               Delete
                             </button>

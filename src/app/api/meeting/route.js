@@ -60,6 +60,11 @@ export async function GET(request) {
   const standups = standupsResult.data || [];
   const employees = employeesResult.data || [];
 
+  const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+  const avatarMap = Object.fromEntries(
+    (authUsers || []).map((u) => [u.id, u.user_metadata?.avatar_url || null])
+  );
+
   const submittedUserIds = new Set(standups.map((s) => s.user_id));
 
   const submitted = standups.map((s) => {
@@ -69,6 +74,7 @@ export async function GET(request) {
       user_id: s.user_id,
       name: s.employee_name || emp?.name || "Unknown",
       email: emp?.email || "",
+      avatar_url: avatarMap[s.user_id] || null,
       teams: emp?.teams || [],
       ticket_number: s.ticket_number,
       due_date: s.due_date,
@@ -86,6 +92,7 @@ export async function GET(request) {
       id: e.id,
       name: e.name || e.email,
       email: e.email,
+      avatar_url: avatarMap[e.id] || null,
       teams: e.teams || [],
       role: e.role,
     }));

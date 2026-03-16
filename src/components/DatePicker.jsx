@@ -27,7 +27,13 @@ export default function DatePicker({ value, onChange }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const toYMD = (d) => d.toISOString().slice(0, 10);
+  // Use local date components—toISOString() would convert to UTC and shift the day in some timezones
+  const toYMD = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
   const today = toYMD(new Date());
   const selected = value || today;
 

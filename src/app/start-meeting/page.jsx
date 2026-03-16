@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useMeetingChannel } from "@/hooks/useMeetingChannel";
 import { supabase } from "@/lib/supabase";
 import AppLayout from "@/components/AppLayout";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
@@ -16,48 +17,165 @@ function formatTime(seconds) {
 }
 
 function Timer({ seconds, isRunning, isWarning }) {
-  const radius = 54;
+  const radius = 52;
   const circumference = 2 * Math.PI * radius;
   const progress = seconds / TIMER_SECONDS;
   const offset = circumference * (1 - progress);
+  const isFinished = seconds === 0;
+  const gradientId = isWarning ? "timer-gradient-warn" : "timer-gradient";
+  const glowId = isWarning ? "timer-glow-warn" : "timer-glow";
+
+  const tickCount = 60;
+  const ticks = Array.from({ length: tickCount }, (_, i) => {
+    const angle = (i / tickCount) * 360;
+    const isMajor = i % 5 === 0;
+    return { angle, isMajor };
+  });
+
+  const statusLabel = isFinished
+    ? "Time's up"
+    : isRunning
+    ? "Speaking"
+    : seconds === TIMER_SECONDS
+    ? "Ready"
+    : "Paused";
 
   return (
-    <div className="relative w-28 h-28">
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+    <div className="relative w-32 h-32 sm:w-36 sm:h-36 group">
+      {/* Ambient glow behind the timer */}
+      <div
+        className={`absolute inset-0 rounded-full transition-all duration-700 ${
+          isFinished
+            ? "timer-glow-red"
+            : isWarning
+            ? "timer-glow-red timer-pulse-glow"
+            : isRunning
+            ? "timer-glow-green timer-pulse-glow"
+            : "timer-glow-idle"
+        }`}
+      />
+
+      {/* Pulse ring when running */}
+      {isRunning && !isFinished && (
+        <div
+          className={`absolute inset-0 rounded-full timer-pulse-ring ${
+            isWarning ? "border-danger/40" : "border-primary/30"
+          }`}
+        />
+      )}
+
+      <svg className="w-full h-full -rotate-90 relative z-10" viewBox="0 0 120 120">
+        <defs>
+          <linearGradient id="timer-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="var(--primary)" />
+            <stop offset="50%" stopColor="var(--accent)" />
+            <stop offset="100%" stopColor="var(--primary)" />
+          </linearGradient>
+          <linearGradient id="timer-gradient-warn" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="50%" stopColor="#f97316" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+          <filter id="timer-glow">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="timer-glow-warn">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* Tick marks */}
+        {ticks.map(({ angle, isMajor }, i) => {
+          const rad = (angle * Math.PI) / 180;
+          const outerR = 58;
+          const innerR = isMajor ? 54 : 55.5;
+          return (
+            <line
+              key={i}
+              x1={60 + outerR * Math.cos(rad)}
+              y1={60 + outerR * Math.sin(rad)}
+              x2={60 + innerR * Math.cos(rad)}
+              y2={60 + innerR * Math.sin(rad)}
+              stroke="currentColor"
+              strokeWidth={isMajor ? 1.2 : 0.6}
+              className="text-card-border/60"
+              strokeLinecap="round"
+            />
+          );
+        })}
+
+        {/* Background track */}
         <circle
           cx="60"
           cy="60"
           r={radius}
           fill="none"
           stroke="currentColor"
-          strokeWidth="6"
-          className="text-card-border"
+          strokeWidth="5"
+          className="text-card-border/40"
         />
+
+        {/* Progress arc */}
         <circle
           cx="60"
           cy="60"
           r={radius}
           fill="none"
-          strokeWidth="6"
+          strokeWidth="5.5"
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className={`transition-all duration-1000 ease-linear ${
-            isWarning ? "text-danger" : "text-primary"
-          }`}
-          stroke="currentColor"
+          stroke={`url(#${gradientId})`}
+          filter={`url(#${glowId})`}
+          className="transition-all duration-1000 ease-linear"
         />
+
+        {/* Leading dot on the progress arc */}
+        {seconds > 0 && seconds < TIMER_SECONDS && (
+          <circle
+            cx={60 + radius * Math.cos(2 * Math.PI * progress - Math.PI / 2)}
+            cy={60 + radius * Math.sin(2 * Math.PI * progress - Math.PI / 2)}
+            r="3.5"
+            fill={isWarning ? "#ef4444" : "var(--primary)"}
+            className="timer-dot-pulse"
+            style={{ transformOrigin: "center" }}
+          />
+        )}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+
+      {/* Center content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
         <span
-          className={`text-2xl font-bold tabular-nums ${
-            isWarning ? "text-danger" : "text-foreground"
+          className={`text-[1.7rem] sm:text-3xl font-extrabold tabular-nums tracking-tight transition-colors duration-300 ${
+            isFinished
+              ? "text-danger"
+              : isWarning
+              ? "text-danger timer-text-pulse"
+              : "text-foreground"
           }`}
         >
           {formatTime(seconds)}
         </span>
-        <span className="text-[10px] text-muted uppercase tracking-wider mt-0.5">
-          {isRunning ? "Speaking" : seconds === TIMER_SECONDS ? "Ready" : "Paused"}
+        <span
+          className={`text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.15em] mt-1 transition-colors duration-300 ${
+            isFinished
+              ? "text-danger/70"
+              : isWarning
+              ? "text-danger/70"
+              : isRunning
+              ? "text-primary"
+              : "text-muted"
+          }`}
+        >
+          {statusLabel}
         </span>
       </div>
     </div>
@@ -66,6 +184,7 @@ function Timer({ seconds, isRunning, isWarning }) {
 
 export default function StartMeeting() {
   const { user, loading: authLoading } = useAuth({ allowedRoles: ALLOWED_ROLES });
+  const { broadcastState } = useMeetingChannel("scrum_master");
 
   const [phase, setPhase] = useState("lobby");
   const [selectedTeam, setSelectedTeam] = useState("all");
@@ -152,17 +271,35 @@ export default function StartMeeting() {
     setCurrentIndex(0);
     setSeconds(TIMER_SECONDS);
     setIsRunning(true);
+    broadcastState({
+      phase: "active",
+      currentIndex: 0,
+      totalMembers: filteredStandups.length,
+      currentMember: filteredStandups[0],
+    });
   };
 
   const handleNext = () => {
     clearTimer();
     if (currentIndex < totalMembers - 1) {
-      setCurrentIndex((prev) => prev + 1);
+      const nextIdx = currentIndex + 1;
+      setCurrentIndex(nextIdx);
       setSeconds(TIMER_SECONDS);
       setIsRunning(true);
+      broadcastState({
+        phase: "active",
+        currentIndex: nextIdx,
+        totalMembers,
+        currentMember: filteredStandups[nextIdx],
+      });
     } else {
       setPhase("completed");
       setIsRunning(false);
+      broadcastState({
+        phase: "completed",
+        totalMembers,
+        allMembers: filteredStandups,
+      });
     }
   };
 
@@ -177,6 +314,7 @@ export default function StartMeeting() {
     setSeconds(TIMER_SECONDS);
     setIsRunning(false);
     clearTimer();
+    broadcastState({ phase: "lobby" });
   };
 
   const handleRefresh = async () => {
@@ -330,11 +468,21 @@ export default function StartMeeting() {
                       key={member.id}
                       className="px-6 py-3.5 flex items-center gap-4"
                     >
-                      <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-amber-700">
-                          {(member.name || "?").charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      {member.avatar_url ? (
+                        <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-amber-200">
+                          <img
+                            src={member.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-amber-700">
+                            {(member.name || "?").charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground truncate">
                           {member.name}
@@ -391,11 +539,21 @@ export default function StartMeeting() {
                       key={member.id}
                       className="px-6 py-3.5 flex items-center gap-4"
                     >
-                      <div className="w-9 h-9 rounded-full bg-primary-light flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-primary-dark">
-                          {(member.name || "?").charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      {member.avatar_url ? (
+                        <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-primary/20">
+                          <img
+                            src={member.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-primary-light flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-primary-dark">
+                            {(member.name || "?").charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground truncate">
                           {member.name}
@@ -474,15 +632,19 @@ export default function StartMeeting() {
                 {filteredStandups.map((m, i) => (
                   <div
                     key={m.id}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all overflow-hidden shrink-0 ${
                       i === currentIndex
-                        ? "bg-primary text-white scale-110 shadow-md shadow-primary/30"
+                        ? "bg-primary text-white scale-110 shadow-md shadow-primary/30 ring-2 ring-primary"
                         : i < currentIndex
                         ? "bg-primary-light text-primary-dark"
                         : "bg-card-border text-muted"
                     }`}
                   >
-                    {(m.name || "?").charAt(0).toUpperCase()}
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (m.name || "?").charAt(0).toUpperCase()
+                    )}
                   </div>
                 ))}
               </div>
@@ -492,11 +654,21 @@ export default function StartMeeting() {
             <div className="bg-card rounded-2xl border border-card-border shadow-sm overflow-hidden">
               <div className="px-6 sm:px-8 py-6 border-b border-card-border bg-accent-light/20 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center">
-                    <span className="text-lg font-bold text-accent">
-                      {(currentMember.name || "?").charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  {currentMember.avatar_url ? (
+                    <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-accent/20">
+                      <img
+                        src={currentMember.avatar_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center">
+                      <span className="text-lg font-bold text-accent">
+                        {(currentMember.name || "?").charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div>
                     <h2 className="text-lg font-bold text-foreground">
                       {currentMember.name}
@@ -636,11 +808,21 @@ export default function StartMeeting() {
                 {filteredStandups.map((member) => (
                   <div key={member.id} className="px-6 py-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center">
-                        <span className="text-xs font-bold text-primary-dark">
-                          {(member.name || "?").charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      {member.avatar_url ? (
+                        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-primary/20">
+                          <img
+                            src={member.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center">
+                          <span className="text-xs font-bold text-primary-dark">
+                            {(member.name || "?").charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <p className="font-semibold text-sm text-foreground">
                         {member.name}
                       </p>

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import AppLayout from "@/components/AppLayout";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const ROLES = ["employee", "scrum_master", "super_admin"];
 
@@ -32,6 +33,7 @@ export default function AdminPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editMessage, setEditMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const getToken = async () => {
     const {
@@ -155,9 +157,8 @@ export default function AdminPage() {
     setEditSubmitting(false);
   };
 
-  const handleDeleteUser = async (userId, email) => {
-    if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
-
+  const handleDeleteUser = async (userId) => {
+    setDeleteConfirm(null);
     const token = await getToken();
     const res = await fetch("/api/admin/users", {
       method: "DELETE",
@@ -195,6 +196,15 @@ export default function AdminPage() {
 
   return (
     <AppLayout>
+      <ConfirmModal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => handleDeleteUser(deleteConfirm?.userId)}
+        title="Delete user"
+        message={`${deleteConfirm ? `Delete ${deleteConfirm.email}? This will permanently remove their account and cannot be undone.` : ""}`}
+        confirmLabel="Delete"
+        variant="danger"
+      />
       {/* Edit Modal */}
       {editingUser && editForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -543,11 +553,21 @@ export default function AdminPage() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-accent">
-                          {(u.name || u.email).charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      {u.avatar_url ? (
+                        <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-card-border">
+                          <img
+                            src={u.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-accent">
+                            {(u.name || u.email).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
                           {u.name || "—"}
@@ -577,7 +597,7 @@ export default function AdminPage() {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDeleteUser(u.id, u.email)}
+                            onClick={() => setDeleteConfirm({ userId: u.id, email: u.email })}
                             className="text-xs font-medium text-danger hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md transition-colors cursor-pointer"
                           >
                             Delete

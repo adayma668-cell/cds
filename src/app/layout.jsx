@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { SidebarProvider } from "@/context/SidebarContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "cDS — Continuous Daily Standup",
-  description: "Continuous Daily Standup application by xLM",
+  title: "cSU — Continuous Status Updates",
+  description: "Continuous Status Updates application by xLM",
 };
 
 export default function RootLayout({ children }) {
@@ -24,15 +25,21 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          {/* Live background shapes */}
-          <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-            <div className="bg-orb bg-orb-1" />
-            <div className="bg-orb bg-orb-2" />
-            <div className="bg-orb bg-orb-3" />
-            <div className="bg-orb bg-orb-4" />
-            <div className="bg-orb bg-orb-5" />
-          </div>
-          {children}
+          <SidebarProvider>
+            {/* Aurora mesh + blueprint grid background */}
+            <div
+              className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
+              style={{
+                background: "linear-gradient(180deg, #f5faf8 0%, #eef6f3 40%, #e8f2f8 70%, #e4eef6 100%)",
+              }}
+            >
+              <div className="bg-aurora bg-aurora-1" />
+              <div className="bg-aurora bg-aurora-2" />
+              <div className="bg-aurora bg-aurora-3" />
+              <div className="bg-blueprint-grid" />
+            </div>
+            {children}
+          </SidebarProvider>
         </AuthProvider>
       </body>
     </html>

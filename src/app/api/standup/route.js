@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -85,24 +86,57 @@ export async function POST(request) {
     );
   }
 
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { data: existing } = await supabaseAdmin
+    .from("standups")
+    .select("id")
+    .eq("user_id", user.id)
+    .gte("created_at", todayStart.toISOString())
+    .lte("created_at", todayEnd.toISOString())
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    return NextResponse.json(
+      { error: "You have already submitted your standup for today" },
+      { status: 409 }
+    );
+  }
+
   const employeeName = user.user_metadata?.name || user.email;
 
-  const { error } = await supabaseAdmin.from("standups").insert([
-    {
-      user_id: user.id,
-      employee_name: employeeName,
-      ticket_number: ticket_number || null,
-      due_date: due_date || null,
-      yesterday,
-      today,
-      blockers: blockers || "",
-      mood: mood || "good",
-      created_at: new Date().toISOString(),
-    },
-  ]);
+  const row = {
+    user_id: user.id,
+    employee_name: employeeName,
+    ticket_number: ticket_number || null,
+    due_date: due_date || null,
+    yesterday,
+    today,
+    blockers: blockers || "",
+    mood: mood || "good",
+    created_at: new Date().toISOString(),
+  };
+
+  const { data: created, error } = await supabaseAdmin
+    .from("standups")
+    .insert([row])
+    .select()
+    .single();
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAudit({
+    entityType: "standup",
+    entityId: created.id,
+    action: "submitted",
+    actorId: user.id,
+    actorName: employeeName,
+    newData: created,
+  });
 
   return NextResponse.json({ message: "Standup submitted successfully" });
 }
@@ -122,7 +156,7 @@ export async function PATCH(request) {
 
   const { data: existing } = await supabaseAdmin
     .from("standups")
-    .select("user_id")
+    .select("*")
     .eq("id", id)
     .single();
 
@@ -140,13 +174,26 @@ export async function PATCH(request) {
   if (blockers !== undefined) updateData.blockers = blockers;
   if (mood !== undefined) updateData.mood = mood;
 
-  const { error } = await supabaseAdmin
+  const { data: updated, error } = await supabaseAdmin
     .from("standups")
     .update(updateData)
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const actorName = user.user_metadata?.name || user.email;
+  await logAudit({
+    entityType: "standup",
+    entityId: id,
+    action: "updated",
+    actorId: user.id,
+    actorName,
+    oldData: existing,
+    newData: updated,
+  });
 
   return NextResponse.json({ success: true });
 }

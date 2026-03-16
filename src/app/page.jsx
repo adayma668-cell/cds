@@ -74,16 +74,12 @@ export default function Home() {
   const showSpinner = (authLoading && !showFormAnyway) || user;
   if (showSpinner) {
     return (
-      <div className="min-h-screen min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden login-gradient-bg">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute w-[500px] h-[500px] rounded-full bg-primary/20 -top-40 -right-40 blur-[100px] float-orb" />
-          <div className="absolute w-[400px] h-[400px] rounded-full bg-accent/15 bottom-0 left-0 blur-[90px] float-orb-slow" />
-        </div>
+      <div className="min-h-screen min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden relative">
         <div className="relative flex flex-col items-center gap-6">
           <div className="animate-splash-logo opacity-0 flex flex-col items-center gap-3">
             <img src="/logo.svg" alt="xLM" className="h-16 drop-shadow-lg" />
             <span className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary-dark to-accent bg-clip-text text-transparent gradient-text-shift bg-[length:200%_auto]">
-              cDS
+              cSU
             </span>
           </div>
           <div className="flex gap-2">
@@ -101,39 +97,14 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 py-8 overflow-y-auto relative login-gradient-bg">
-      {/* Animated background orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute w-[600px] h-[600px] rounded-full bg-primary/25 -top-48 -right-32 blur-[100px] float-orb" />
-        <div className="absolute w-[500px] h-[500px] rounded-full bg-accent/20 bottom-[-10%] left-[-10%] blur-[90px] float-orb-slow-delayed" />
-        <div className="absolute w-[300px] h-[300px] rounded-full bg-primary/15 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 blur-[80px] float-orb float-orb-delayed" />
-        {/* Dot grid overlay */}
-        <div
-          className="absolute inset-0 opacity-40 grid-pulse"
-          style={{
-            backgroundImage: "radial-gradient(rgba(6,194,134,0.15) 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-      </div>
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 py-8 overflow-y-auto relative">
 
       {/* Splash screen */}
       {phase === "splash" && (
         <div
           ref={splashRef}
-          className="fixed inset-0 z-20 flex flex-col items-center justify-center login-gradient-bg"
+          className="fixed inset-0 z-20 flex flex-col items-center justify-center"
         >
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute w-[500px] h-[500px] rounded-full bg-primary/20 -top-40 -right-40 blur-[100px] float-orb" />
-            <div className="absolute w-[450px] h-[450px] rounded-full bg-accent/15 bottom-0 left-0 blur-[90px] float-orb-slow" />
-            <div
-              className="absolute inset-0 opacity-30"
-              style={{
-                backgroundImage: "radial-gradient(rgba(6,194,134,0.12) 1px, transparent 1px)",
-                backgroundSize: "28px 28px",
-              }}
-            />
-          </div>
           <div className="relative flex flex-col items-center gap-8">
             <div className="animate-splash-logo opacity-0 flex flex-col items-center gap-5">
               <div className="relative">
@@ -145,7 +116,7 @@ export default function Home() {
               </div>
               <div className="text-center">
                 <span className="text-5xl sm:text-6xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary-dark to-accent bg-clip-text text-transparent gradient-text-shift bg-[length:200%_auto]">
-                  cDS
+                  cSU
                 </span>
                 <div
                   className="h-0.5 mt-3 mx-auto w-0 origin-center rounded-full bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-line"
@@ -153,7 +124,7 @@ export default function Home() {
                 />
               </div>
               <p className="animate-splash-text opacity-0 text-sm font-semibold text-muted uppercase tracking-[0.25em]">
-                Continuous Daily Standup
+                Continuous Status Updates
               </p>
             </div>
             <div className="flex gap-2 mt-2 [&>div]:animate-splash-loader">
@@ -180,7 +151,7 @@ export default function Home() {
             />
             <div>
               <span className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary-dark to-accent bg-clip-text text-transparent">
-                cDS
+                cSU
               </span>
             </div>
           </div>
@@ -260,7 +231,7 @@ export default function Home() {
                   type="submit"
                   disabled={loading}
                   aria-busy={loading}
-                  className="btn-shimmer w-full rounded-xl bg-primary text-white py-3.5 text-sm font-semibold hover:bg-primary-dark transition-all duration-300 disabled:opacity-50 disabled:hover:bg-primary shadow-lg shadow-primary/30 hover:shadow-primary/40 cursor-pointer flex items-center justify-center gap-2.5 relative z-10"
+                  className="btn-shimmer btn-press w-full rounded-xl bg-primary text-white py-3.5 text-sm font-semibold hover:bg-primary-dark transition-all duration-300 disabled:opacity-50 disabled:hover:bg-primary shadow-lg shadow-primary/30 hover:shadow-primary/40 cursor-pointer flex items-center justify-center gap-2.5 relative z-10"
                 >
                   {loading ? (
                     <>

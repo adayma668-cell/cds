@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function StandupForm() {
+export default function StandupForm({ onSubmitted }) {
   const [yesterday, setYesterday] = useState("");
   const [today, setToday] = useState("");
   const [blockers, setBlockers] = useState("");
@@ -38,9 +38,18 @@ export default function StandupForm() {
 
       if (!res.ok) {
         const data = await res.json();
+        if (res.status === 409) {
+          setMessage({ text: data.error || "You have already submitted your standup for today", type: "error" });
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || "Failed to submit standup");
       }
 
+      if (onSubmitted) {
+        onSubmitted({ yesterday, today, blockers });
+        return;
+      }
       setMessage({ text: "Standup submitted successfully!", type: "success" });
       setYesterday("");
       setToday("");
@@ -124,7 +133,7 @@ export default function StandupForm() {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="flex-1 rounded-lg bg-primary text-white py-2.5 text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 shadow-md shadow-primary/20 cursor-pointer"
+            className="btn-press flex-1 rounded-lg bg-primary text-white py-2.5 text-sm font-semibold hover:bg-primary-dark transition-all disabled:opacity-50 shadow-md shadow-primary/20 cursor-pointer"
           >
             {loading ? "Submitting..." : "Confirm & Submit"}
           </button>
@@ -193,7 +202,7 @@ export default function StandupForm() {
 
       <button
         type="submit"
-        className="w-full rounded-lg bg-primary text-white py-2.5 text-sm font-semibold hover:bg-primary-dark transition-colors shadow-md shadow-primary/20 cursor-pointer"
+        className="btn-press w-full rounded-lg bg-primary text-white py-2.5 text-sm font-semibold hover:bg-primary-dark transition-all shadow-md shadow-primary/20 cursor-pointer"
       >
         Preview Standup
       </button>

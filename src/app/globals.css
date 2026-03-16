@@ -32,9 +32,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-html {
+html, body {
   overflow-x: hidden;
-  overflow-y: auto;
+}
+
+html {
   -webkit-overflow-scrolling: touch;
 }
 
@@ -44,7 +46,6 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   min-height: 100dvh;
-  overflow-x: hidden;
 }
 
 ::selection {
@@ -87,6 +88,71 @@ select:focus {
   }
 }
 
+@keyframes greetingPopup {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modalIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-in {
+  animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ---- Micro-animations & Hover states ---- */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.btn-press:active {
+  transform: scale(0.98);
+}
+
+.checkbox-transition {
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.checkbox-transition:active {
+  transform: scale(0.9);
+}
+
+.link-hover {
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.page-enter {
+  animation: pageEnter 0.3s ease-out forwards;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 main {
   animation: fadeIn 0.35s ease-out;
 }
@@ -110,90 +176,112 @@ nav {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* ---- Live Background Orbs ---- */
+/* ---- Live Background: Aurora Mesh & Blueprint Grid ---- */
 
-@keyframes drift1 {
-  0% { transform: translate(0, 0) scale(1); }
-  15% { transform: translate(80px, -50px) scale(1.12); }
-  35% { transform: translate(-40px, 70px) scale(0.9); }
-  55% { transform: translate(60px, 30px) scale(1.08); }
-  75% { transform: translate(-70px, -40px) scale(0.95); }
-  100% { transform: translate(0, 0) scale(1); }
+@keyframes auroraSweep1 {
+  0%, 100% { transform: translateX(0) translateY(0) scaleX(1) scaleY(1); opacity: 0.6; }
+  25% { transform: translateX(15%) translateY(-8%) scaleX(1.2) scaleY(0.9); opacity: 0.75; }
+  50% { transform: translateX(-10%) translateY(5%) scaleX(0.95) scaleY(1.15); opacity: 0.65; }
+  75% { transform: translateX(8%) translateY(12%) scaleX(1.1) scaleY(0.95); opacity: 0.7; }
 }
 
-@keyframes drift2 {
-  0% { transform: translate(0, 0) scale(1); }
-  20% { transform: translate(-70px, 50px) scale(0.92); }
-  40% { transform: translate(50px, -80px) scale(1.1); }
-  60% { transform: translate(-30px, -30px) scale(1.05); }
-  80% { transform: translate(60px, 40px) scale(0.93); }
-  100% { transform: translate(0, 0) scale(1); }
+@keyframes auroraSweep2 {
+  0%, 100% { transform: translateX(0) translateY(0) scaleX(1) scaleY(1) rotate(0deg); opacity: 0.5; }
+  33% { transform: translateX(-12%) translateY(-5%) scaleX(1.15) scaleY(1.1) rotate(2deg); opacity: 0.65; }
+  66% { transform: translateX(10%) translateY(8%) scaleX(0.9) scaleY(0.95) rotate(-1deg); opacity: 0.55; }
 }
 
-@keyframes drift3 {
-  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-  25% { transform: translate(50px, 60px) scale(1.15) rotate(3deg); }
-  50% { transform: translate(-60px, -20px) scale(0.88) rotate(-2deg); }
-  75% { transform: translate(30px, -50px) scale(1.06) rotate(1deg); }
-  100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+@keyframes auroraSweep3 {
+  0%, 100% { transform: translateX(0) scaleX(1); opacity: 0.45; }
+  50% { transform: translateX(20%) scaleX(1.25); opacity: 0.6; }
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 0.85; }
+@keyframes gridFade {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.5; }
 }
 
-.bg-orb {
+/* Aurora strips - elongated gradient bands for flowing mesh feel */
+.bg-aurora {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.7;
+  border-radius: 9999px;
+  filter: blur(80px);
   will-change: transform, opacity;
+  pointer-events: none;
 }
 
-.bg-orb-1 {
-  width: 420px;
-  height: 420px;
-  background: rgba(6, 194, 134, 0.32);
-  top: -100px;
-  right: 8%;
-  animation: drift1 8s ease-in-out infinite, pulse 4s ease-in-out infinite;
+.bg-aurora-1 {
+  width: 120%;
+  height: 45%;
+  min-width: 800px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(6, 194, 134, 0.2) 25%,
+    rgba(6, 194, 134, 0.35) 50%,
+    rgba(6, 194, 134, 0.2) 75%,
+    transparent 100%
+  );
+  top: -15%;
+  left: -10%;
+  animation: auroraSweep1 18s ease-in-out infinite;
 }
 
-.bg-orb-2 {
-  width: 350px;
-  height: 350px;
-  background: rgba(0, 50, 150, 0.22);
-  bottom: 10%;
-  left: 3%;
-  animation: drift2 10s ease-in-out infinite, pulse 5s ease-in-out infinite 1s;
+.bg-aurora-2 {
+  width: 100%;
+  height: 50%;
+  min-width: 700px;
+  background: linear-gradient(
+    85deg,
+    transparent 0%,
+    rgba(0, 50, 150, 0.15) 30%,
+    rgba(0, 50, 150, 0.28) 60%,
+    rgba(0, 50, 150, 0.12) 85%,
+    transparent 100%
+  );
+  bottom: -10%;
+  right: -5%;
+  animation: auroraSweep2 22s ease-in-out infinite 2s;
 }
 
-.bg-orb-3 {
-  width: 280px;
-  height: 280px;
-  background: rgba(6, 194, 134, 0.25);
-  top: 45%;
-  left: 55%;
-  animation: drift3 7s ease-in-out infinite, pulse 3.5s ease-in-out infinite 0.5s;
+.bg-aurora-3 {
+  width: 80%;
+  height: 40%;
+  min-width: 500px;
+  background: linear-gradient(
+    95deg,
+    transparent 0%,
+    rgba(6, 194, 134, 0.12) 40%,
+    rgba(0, 50, 150, 0.18) 60%,
+    transparent 100%
+  );
+  top: 35%;
+  left: 10%;
+  animation: auroraSweep3 16s ease-in-out infinite 1s;
 }
 
-.bg-orb-4 {
-  width: 380px;
-  height: 380px;
-  background: rgba(0, 50, 150, 0.18);
-  top: 5%;
-  left: -6%;
-  animation: drift2 9s ease-in-out infinite reverse, pulse 4.5s ease-in-out infinite 2s;
+@media (prefers-reduced-motion: reduce) {
+  .bg-aurora-1, .bg-aurora-2, .bg-aurora-3 {
+    animation: none;
+  }
+  .bg-blueprint-grid {
+    animation: none;
+    opacity: 0.4;
+  }
 }
 
-.bg-orb-5 {
-  width: 200px;
-  height: 200px;
-  background: rgba(6, 194, 134, 0.2);
-  bottom: 25%;
-  right: 12%;
-  animation: drift1 6s ease-in-out infinite reverse, pulse 3s ease-in-out infinite 1.5s;
+/* Blueprint-style line grid - professional, tech aesthetic */
+.bg-blueprint-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(6, 194, 134, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 194, 134, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 70%);
+  animation: gridFade 8s ease-in-out infinite;
+  pointer-events: none;
 }
 
 /* ---- SaaS Splash & Login Animations ---- */
@@ -360,12 +448,8 @@ nav {
 
 .login-gradient-bg {
   background: 
-    radial-gradient(ellipse 80% 50% at 20% 20%, rgba(6, 194, 134, 0.25) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0, 50, 150, 0.2) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(6, 194, 134, 0.12) 0%, transparent 60%),
-    linear-gradient(180deg, #f0f7f4 0%, #e8f5f0 50%, #e6ecf7 100%);
-  background-size: 200% 200%;
-  animation: gradientShift 12s ease infinite;
+    linear-gradient(180deg, #f5faf8 0%, #eef6f3 35%, #e8f2f8 70%, #e4eef6 100%);
+  position: relative;
 }
 
 .login-glass {
@@ -420,29 +504,183 @@ nav {
   animation: gradientLine 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
 }
 
-.float-orb {
-  animation: floatOrb 10s ease-in-out infinite;
-}
-
-.float-orb-slow {
-  animation: floatOrb 14s ease-in-out infinite reverse;
-}
-
-.float-orb-slow-delayed {
-  animation: floatOrb 14s ease-in-out infinite reverse;
-  animation-delay: 2s;
-}
-
-.float-orb-delayed {
-  animation: floatOrb 10s ease-in-out infinite;
-  animation-delay: 1s;
-}
-
-.grid-pulse {
-  animation: gridPulse 6s ease-in-out infinite;
-}
+/* Login page uses same aurora + blueprint as global background */
 
 .gradient-text-shift {
   background-size: 200% auto;
   animation: gradientShift 4s ease infinite;
+}
+
+/* ---- Retro Phase: Premium Effects ---- */
+
+@keyframes retroFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+@keyframes retroFloatReverse {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(-2deg); }
+}
+
+@keyframes retroGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(6, 194, 134, 0.15), 0 0 60px rgba(0, 50, 150, 0.08); }
+  50% { box-shadow: 0 0 30px rgba(6, 194, 134, 0.25), 0 0 80px rgba(0, 50, 150, 0.15); }
+}
+
+@keyframes retroIconPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.15); }
+}
+
+@keyframes retroSparkle {
+  0% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(180deg); }
+  100% { opacity: 0; transform: scale(0) rotate(360deg); }
+}
+
+@keyframes retroSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes retroBorderFlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes retroPulseRing {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes retroSlotGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(6, 194, 134, 0.4); }
+  50% { box-shadow: 0 0 20px 4px rgba(6, 194, 134, 0.2); }
+}
+
+@keyframes retroWinnerCelebrate {
+  0% { transform: scale(0.5) rotate(-5deg); opacity: 0; }
+  50% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes retroDotBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.retro-float { animation: retroFloat 6s ease-in-out infinite; }
+.retro-float-reverse { animation: retroFloatReverse 5s ease-in-out infinite; }
+.retro-float-slow { animation: retroFloat 8s ease-in-out infinite; }
+.retro-glow { animation: retroGlow 3s ease-in-out infinite; }
+.retro-icon-pulse { animation: retroIconPulse 3s ease-in-out infinite; }
+.retro-slide-in { animation: retroSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.retro-slide-in-delay-1 { animation: retroSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
+.retro-slide-in-delay-2 { animation: retroSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both; }
+
+.retro-gradient-border {
+  position: relative;
+}
+
+.retro-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, var(--primary), var(--accent), var(--primary));
+  background-size: 300% 300%;
+  animation: retroBorderFlow 4s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.retro-glass {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.retro-glass-strong {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+}
+
+/* ---- Standup Timer: Premium Effects ---- */
+
+@keyframes timerPulseRing {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+@keyframes timerDotPulse {
+  0%, 100% { r: 3.5; opacity: 1; }
+  50% { r: 5; opacity: 0.7; }
+}
+
+@keyframes timerGlowPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes timerTextPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.timer-pulse-ring {
+  border-width: 2px;
+  border-style: solid;
+  animation: timerPulseRing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.timer-dot-pulse {
+  animation: timerDotPulse 1.5s ease-in-out infinite;
+}
+
+.timer-pulse-glow {
+  animation: timerGlowPulse 2s ease-in-out infinite;
+}
+
+.timer-text-pulse {
+  animation: timerTextPulse 1s ease-in-out infinite;
+}
+
+.timer-glow-green {
+  box-shadow:
+    0 0 20px rgba(6, 194, 134, 0.2),
+    0 0 50px rgba(6, 194, 134, 0.1);
+}
+
+.timer-glow-red {
+  box-shadow:
+    0 0 20px rgba(220, 38, 38, 0.25),
+    0 0 50px rgba(220, 38, 38, 0.1);
+}
+
+.timer-glow-idle {
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.04);
+}
+
+@keyframes retroTimerCritical {
+  0%, 100% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.1); }
+  50% { box-shadow: 0 4px 30px rgba(239, 68, 68, 0.25); }
+}
+
+.retro-timer-critical {
+  animation: retroTimerCritical 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timer-pulse-ring,
+  .timer-dot-pulse,
+  .timer-pulse-glow,
+  .timer-text-pulse,
+  .retro-timer-critical {
+    animation: none;
+  }
 }

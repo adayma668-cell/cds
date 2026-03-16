@@ -44,6 +44,7 @@ export async function GET(req) {
       id: u.id,
       email: u.email,
       name: u.user_metadata?.name || "",
+      avatar_url: u.user_metadata?.avatar_url || null,
       role: emp?.role || "employee",
       teams: emp?.teams || [],
       created_at: u.created_at,

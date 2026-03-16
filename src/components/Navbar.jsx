@@ -24,7 +24,7 @@ export default function Navbar() {
           <img src="/logo.svg" alt="xLM" className="h-9" />
           <span className="text-lg font-bold tracking-tight">
             <span className="text-primary">c</span>
-            <span className="text-accent">DS</span>
+            <span className="text-accent">SU</span>
           </span>
         </Link>
 

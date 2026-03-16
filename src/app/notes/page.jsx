@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import EmptyState from "@/components/EmptyState";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function NotesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -11,6 +13,7 @@ export default function NotesPage() {
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
   const [category, setCategory] = useState("goal");
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const CATEGORIES = [
     { value: "goal", label: "Goal", icon: "🎯", color: "bg-primary-light text-primary-dark border-primary/20" },
@@ -49,7 +52,10 @@ export default function NotesPage() {
     setNewNote("");
   };
 
-  const deleteNote = (id) => save(notes.filter((n) => n.id !== id));
+  const deleteNote = (id) => {
+    setDeleteConfirm(null);
+    save(notes.filter((n) => n.id !== id));
+  };
 
   const toggleDone = (id) =>
     save(notes.map((n) => (n.id === id ? { ...n, done: !n.done } : n)));
@@ -87,6 +93,15 @@ export default function NotesPage() {
 
   return (
     <AppLayout>
+      <ConfirmModal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteNote(deleteConfirm)}
+        title="Delete note"
+        message="This note will be permanently removed."
+        confirmLabel="Delete"
+        variant="danger"
+      />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -154,7 +169,7 @@ export default function NotesPage() {
             <button
               onClick={addNote}
               disabled={!newNote.trim()}
-              className="px-5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+              className="btn-press px-5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-all disabled:opacity-50 cursor-pointer"
             >
               Add
             </button>
@@ -172,11 +187,11 @@ export default function NotesPage() {
               return (
                 <div
                   key={note.id}
-                  className="bg-card rounded-xl border border-card-border shadow-sm p-4 flex items-start gap-3"
+                  className="bg-card rounded-xl border border-card-border shadow-sm p-4 flex items-start gap-3 card-hover"
                 >
                   <button
                     onClick={() => toggleDone(note.id)}
-                    className="mt-0.5 w-5 h-5 rounded-md border-2 border-card-border hover:border-primary transition-colors cursor-pointer flex-shrink-0"
+                    className="mt-0.5 w-5 h-5 rounded-md border-2 border-card-border hover:border-primary transition-all duration-200 cursor-pointer flex-shrink-0 checkbox-transition"
                   />
                   <div className="flex-1 min-w-0">
                     {editingId === note.id ? (
@@ -228,8 +243,8 @@ export default function NotesPage() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => deleteNote(note.id)}
-                        className="p-1.5 text-muted hover:text-red-500 transition-colors cursor-pointer"
+                        onClick={() => setDeleteConfirm(note.id)}
+                        className="btn-press p-1.5 text-muted hover:text-red-500 transition-colors cursor-pointer"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -258,7 +273,7 @@ export default function NotesPage() {
                 >
                   <button
                     onClick={() => toggleDone(note.id)}
-                    className="mt-0.5 w-5 h-5 rounded-md bg-primary border-2 border-primary flex items-center justify-center cursor-pointer flex-shrink-0"
+                    className="mt-0.5 w-5 h-5 rounded-md bg-primary border-2 border-primary flex items-center justify-center cursor-pointer flex-shrink-0 checkbox-transition"
                   >
                     <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -271,8 +286,8 @@ export default function NotesPage() {
                     </span>
                   </div>
                   <button
-                    onClick={() => deleteNote(note.id)}
-                    className="p-1.5 text-muted hover:text-red-500 transition-colors cursor-pointer"
+                    onClick={() => setDeleteConfirm(note.id)}
+                    className="btn-press p-1.5 text-muted hover:text-red-500 transition-colors cursor-pointer"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -285,15 +300,16 @@ export default function NotesPage() {
         )}
 
         {notes.length === 0 && (
-          <div className="bg-card rounded-2xl border border-card-border shadow-sm p-12 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">📝</span>
-            </div>
-            <h3 className="font-semibold text-foreground mb-1">No notes yet</h3>
-            <p className="text-sm text-muted">
-              Add goals, reminders, or quick notes to stay on track.
-            </p>
-          </div>
+          <EmptyState
+            type="notes"
+            title="No notes yet"
+            description="Add goals, reminders, or quick notes to stay on track. Your notes are private and stored on this device."
+            action={
+              <p className="text-sm text-muted">
+                Use the form above to add your first note.
+              </p>
+            }
+          />
         )}
 
         <p className="text-xs text-center text-muted">

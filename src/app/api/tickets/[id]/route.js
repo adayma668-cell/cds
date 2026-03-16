@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { logAudit } from "@/lib/audit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -29,7 +30,7 @@ export async function PATCH(request, context) {
 
   const { data: existing } = await supabaseAdmin
     .from("tickets")
-    .select("id, user_id")
+    .select("*")
     .eq("id", id)
     .single();
 
@@ -44,13 +45,27 @@ export async function PATCH(request, context) {
   }
   if (description !== undefined) updateData.description = description;
 
-  const { error } = await supabaseAdmin
+  const { data: updated, error } = await supabaseAdmin
     .from("tickets")
     .update(updateData)
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const actorName = user.user_metadata?.name || user.email;
+  const action = status !== undefined && status !== existing.status ? "status_changed" : "updated";
+  await logAudit({
+    entityType: "ticket",
+    entityId: id,
+    action,
+    actorId: user.id,
+    actorName,
+    oldData: existing,
+    newData: updated,
+  });
 
   return NextResponse.json({ success: true });
 }
@@ -64,7 +79,7 @@ export async function DELETE(request, context) {
 
   const { data: existing } = await supabaseAdmin
     .from("tickets")
-    .select("id, user_id")
+    .select("*")
     .eq("id", id)
     .single();
 
@@ -75,6 +90,16 @@ export async function DELETE(request, context) {
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const actorName = user.user_metadata?.name || user.email;
+  await logAudit({
+    entityType: "ticket",
+    entityId: id,
+    action: "deleted",
+    actorId: user.id,
+    actorName,
+    oldData: existing,
+  });
 
   return NextResponse.json({ success: true });
 }

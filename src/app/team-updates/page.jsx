@@ -1,11 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+
+const toLocalYMD = (d = new Date()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
 import AppLayout from "@/components/AppLayout";
 import DatePicker from "@/components/DatePicker";
+import { TeamUpdatesSkeleton } from "@/components/Skeleton";
+import EmptyState from "@/components/EmptyState";
 
 function StandupCard({
   standup,
@@ -25,7 +34,7 @@ function StandupCard({
   const canEdit = isMine && standupDateStr === todayStr;
 
   return (
-    <div className="bg-card rounded-xl border border-card-border shadow-sm overflow-hidden">
+    <div className="bg-card rounded-xl border border-card-border shadow-sm overflow-hidden card-hover">
       <div className="px-5 py-4 flex items-center justify-between border-b border-card-border bg-background/50">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center text-sm font-bold text-accent">
@@ -137,9 +146,7 @@ export default function TeamUpdatesPage() {
   const [standups, setStandups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
-  const [selectedDate, setSelectedDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  );
+  const [selectedDate, setSelectedDate] = useState(() => toLocalYMD());
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
@@ -150,7 +157,7 @@ export default function TeamUpdatesPage() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    const dateParam = selectedDate === new Date().toISOString().slice(0, 10) ? "today" : selectedDate;
+    const dateParam = selectedDate === toLocalYMD() ? "today" : selectedDate;
     const url = isLeader
       ? `/api/standup?date=${dateParam}&include=teams`
       : `/api/standup?date=${dateParam}`;
@@ -213,9 +220,9 @@ export default function TeamUpdatesPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
+      <AppLayout>
+        <TeamUpdatesSkeleton />
+      </AppLayout>
     );
   }
 
@@ -228,7 +235,7 @@ export default function TeamUpdatesPage() {
 
   const displayedBlockerCount = displayed.filter((s) => s.blockers?.trim()).length;
   const dateLabel =
-    selectedDate === new Date().toISOString().slice(0, 10)
+    selectedDate === toLocalYMD()
       ? "Today"
       : new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
           weekday: "long",
@@ -300,25 +307,36 @@ export default function TeamUpdatesPage() {
 
         {/* Standup cards */}
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-card rounded-xl border border-card-border p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-muted/30 animate-pulse" />
+                  <div className="space-y-1">
+                    <div className="h-4 w-32 bg-muted/30 rounded animate-pulse" />
+                    <div className="h-3 w-20 bg-muted/30 rounded animate-pulse" />
+                  </div>
+                </div>
+                <div className="h-3 w-full bg-muted/30 rounded animate-pulse mb-2" />
+                <div className="h-3 w-[80%] bg-muted/30 rounded animate-pulse" />
+              </div>
+            ))}
           </div>
         ) : displayed.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-card-border shadow-sm p-12 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-accent-light flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <h3 className="font-semibold text-foreground mb-1">
-              No updates yet{isLeader && selectedTeam !== "all" ? " for this team" : ""}
-            </h3>
-            <p className="text-sm text-muted">
-              {isLeader && selectedTeam !== "all"
+          <EmptyState
+            type="team"
+            title={`No updates yet${isLeader && selectedTeam !== "all" ? " for this team" : ""}`}
+            description={
+              isLeader && selectedTeam !== "all"
                 ? "No members from this team have submitted their standup for this date."
-                : "No standups submitted for this date yet."}
-            </p>
-          </div>
+                : "No standups submitted for this date yet."
+            }
+            action={
+              <p className="text-sm text-muted">
+                Be the first to submit your standup for today.
+              </p>
+            }
+          />
         ) : (
           <div className="space-y-3">
             {displayed.map((standup) => (
