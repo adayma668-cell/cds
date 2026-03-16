@@ -603,6 +603,11 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-4 flex-wrap justify-end">
+                      {!u.password_set && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                          Invite Pending
+                        </span>
+                      )}
                       <span
                         className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                           ROLE_BADGE[u.role] || ROLE_BADGE.employee

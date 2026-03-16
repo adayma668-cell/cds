@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 
 export default function SetPasswordPage() {
   const router = useRouter();
@@ -10,95 +9,30 @@ export default function SetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
+  const [formReady, setFormReady] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [success, setSuccess] = useState(false);
-  const [userName, setUserName] = useState("");
+  const [inviteToken, setInviteToken] = useState("");
+  const [userId, setUserId] = useState("");
   const hasProcessed = useRef(false);
 
   useEffect(() => {
     if (hasProcessed.current) return;
     hasProcessed.current = true;
 
-    const handleAuth = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get("token");
+    const uid = urlParams.get("uid");
 
-      // Primary flow: verify token_hash client-side (immune to email link scanners)
-      const tokenHash = urlParams.get("token_hash");
-      const type = urlParams.get("type");
-
-      if (tokenHash && type) {
-        const { error: otpError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type,
-        });
-
-        if (!otpError) {
-          const { data: { user } } = await supabase.auth.getUser();
-          setUserName(user?.user_metadata?.name || "");
-          setSessionReady(true);
-          setVerifying(false);
-          window.history.replaceState(null, "", "/set-password");
-          return;
-        }
-      }
-
-      // Fallback: PKCE code exchange
-      const code = urlParams.get("code");
-
-      if (code) {
-        const { error: codeError } = await supabase.auth.exchangeCodeForSession(code);
-
-        if (!codeError) {
-          const { data: { user } } = await supabase.auth.getUser();
-          setUserName(user?.user_metadata?.name || "");
-          setSessionReady(true);
-          setVerifying(false);
-          window.history.replaceState(null, "", "/set-password");
-          return;
-        }
-      }
-
-      // Fallback: legacy implicit flow with hash tokens
-      const hash = window.location.hash;
-
-      if (hash && hash.includes("access_token")) {
-        const params = new URLSearchParams(hash.substring(1));
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
-
-        if (accessToken && refreshToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (!sessionError) {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUserName(user?.user_metadata?.name || "");
-            setSessionReady(true);
-            setVerifying(false);
-            window.history.replaceState(null, "", "/set-password");
-            return;
-          }
-        }
-      }
-
-      // Check for existing session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUserName(user?.user_metadata?.name || "");
-        setSessionReady(true);
-        setVerifying(false);
-        return;
-      }
-
-      setVerifying(false);
+    if (token && uid) {
+      setInviteToken(token);
+      setUserId(uid);
+      setFormReady(true);
+    } else {
       setError("Invalid or expired invite link. Please ask your admin to resend the invitation.");
-    };
+    }
 
-    handleAuth();
+    setVerifying(false);
   }, []);
 
   const handleSubmit = async (e) => {
@@ -115,19 +49,28 @@ export default function SetPasswordPage() {
     }
 
     setLoading(true);
-    const { error: updateError } = await supabase.auth.updateUser({
-      password,
-    });
 
-    if (updateError) {
-      setError(updateError.message);
+    try {
+      const res = await fetch("/api/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: inviteToken, userId, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      setSuccess(true);
+      setTimeout(() => router.push("/"), 1500);
+    } catch {
+      setError("Network error. Please try again.");
       setLoading(false);
-      return;
     }
-
-    setSuccess(true);
-    await supabase.auth.signOut();
-    setTimeout(() => router.push("/"), 1500);
   };
 
   if (verifying) {
@@ -179,14 +122,14 @@ export default function SetPasswordPage() {
         <div className="animate-login-stagger-2 login-glass login-glass-glow rounded-3xl shadow-2xl shadow-primary/10 p-8 sm:p-10 space-y-6">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold text-foreground">
-              {userName ? `Welcome, ${userName.split(" ")[0]}!` : "Set Your Password"}
+              Set Your Password
             </h1>
             <p className="text-sm text-muted">
               Create a password to access your workspace
             </p>
           </div>
 
-          {!sessionReady ? (
+          {!formReady ? (
             <div className="text-center space-y-4 py-4">
               <div className="w-14 h-14 rounded-full bg-red-50 mx-auto flex items-center justify-center">
                 <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendInviteEmail } from "@/lib/sendEmail";
@@ -49,6 +50,7 @@ export async function GET(req) {
       avatar_url: u.user_metadata?.avatar_url || null,
       role: emp?.role || "employee",
       teams: emp?.teams || [],
+      password_set: emp?.password_set ?? true,
       created_at: u.created_at,
     };
   });
@@ -71,6 +73,7 @@ export async function POST(req) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  console.log("[invite] Starting invite for:", email);
 
   const { data: linkData, error: linkError } =
     await supabaseAdmin.auth.admin.generateLink({
@@ -82,22 +85,43 @@ export async function POST(req) {
       },
     });
 
-  if (linkError)
+  if (linkError) {
+    console.error("[invite] generateLink failed:", linkError.message);
     return NextResponse.json({ error: linkError.message }, { status: 500 });
+  }
 
   const userId = linkData.user.id;
-  const tokenHash = linkData.properties.hashed_token;
-  const inviteLink = `${appUrl}/set-password?token_hash=${encodeURIComponent(tokenHash)}&type=invite`;
+  console.log("[invite] User created/found:", userId);
+
+  const inviteToken = randomUUID();
+  const inviteExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    app_metadata: { invite_token: inviteToken, invite_token_expires: inviteExpires },
+  });
+
+  if (metaError) {
+    console.error("[invite] Failed to store invite token in metadata:", metaError.message);
+    return NextResponse.json({ error: metaError.message }, { status: 500 });
+  }
+  console.log("[invite] Invite token stored in app_metadata, expires:", inviteExpires);
+
+  const inviteLink = `${appUrl}/set-password?token=${inviteToken}&uid=${userId}`;
+  console.log("[invite] Invite link generated:", inviteLink);
 
   const { error: insertError } = await supabaseAdmin
     .from("employees")
-    .upsert({ id: userId, name: name || "", email, role, teams: teams || [] });
+    .upsert({ id: userId, name: name || "", email, role, teams: teams || [], password_set: false });
 
-  if (insertError)
+  if (insertError) {
+    console.error("[invite] Employee upsert failed:", insertError.message);
     return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+  console.log("[invite] Employee record upserted with password_set=false");
 
   try {
     await sendInviteEmail({ to: email, name: name || "", inviteLink });
+    console.log("[invite] Invite email sent successfully to:", email);
   } catch (emailErr) {
     console.error("[invite] SendGrid email failed:", emailErr);
     return NextResponse.json(

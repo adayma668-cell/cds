@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendInviteEmail } from "@/lib/sendEmail";
@@ -29,6 +30,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  console.log("[resend-invite] Resending invite for:", email);
 
   const { data: linkData, error: linkError } =
     await supabaseAdmin.auth.admin.generateLink({
@@ -40,14 +42,33 @@ export async function POST(req) {
       },
     });
 
-  if (linkError)
+  if (linkError) {
+    console.error("[resend-invite] generateLink failed:", linkError.message);
     return NextResponse.json({ error: linkError.message }, { status: 500 });
+  }
 
-  const tokenHash = linkData.properties.hashed_token;
-  const inviteLink = `${appUrl}/set-password?token_hash=${encodeURIComponent(tokenHash)}&type=invite`;
+  const userId = linkData.user.id;
+  console.log("[resend-invite] User ID:", userId);
+
+  const inviteToken = randomUUID();
+  const inviteExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    app_metadata: { invite_token: inviteToken, invite_token_expires: inviteExpires },
+  });
+
+  if (metaError) {
+    console.error("[resend-invite] Failed to store token:", metaError.message);
+    return NextResponse.json({ error: metaError.message }, { status: 500 });
+  }
+  console.log("[resend-invite] New invite token stored, expires:", inviteExpires);
+
+  const inviteLink = `${appUrl}/set-password?token=${inviteToken}&uid=${userId}`;
+  console.log("[resend-invite] Invite link:", inviteLink);
 
   try {
     await sendInviteEmail({ to: email, name: name || "", inviteLink });
+    console.log("[resend-invite] Email sent successfully to:", email);
   } catch (emailErr) {
     console.error("[resend-invite] SendGrid email failed:", emailErr);
     return NextResponse.json(
