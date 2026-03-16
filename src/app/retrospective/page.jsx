@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import { useRetroChannel } from "@/hooks/useRetroChannel";
 
 const SessionContext = createContext(null);
 function useSessionId() { return useContext(SessionContext); }
@@ -436,22 +437,22 @@ function PhaseNav({ onPrev, onNext, nextLabel = "Next Phase" }) {
 /* ------------------------------------------------------------------ */
 /*  Slot Machine – Lucky Draw Spinner                                  */
 /* ------------------------------------------------------------------ */
-function SlotMachine({ employees }) {
+function SlotMachine({ employees, readOnly, onSpinTriggered, triggerSpin }) {
   const [spinning, setSpinning] = useState(false);
   const [winner, setWinner] = useState(null);
   const [displayIdx, setDisplayIdx] = useState(0);
   const intervalRef = useRef(null);
   const timeoutChain = useRef([]);
+  const spinningRef = useRef(false);
 
-  const spin = useCallback(() => {
-    if (spinning || employees.length === 0) return;
+  const runSpinAnimation = useCallback((winnerIdx) => {
+    if (spinningRef.current || employees.length === 0) return;
+    spinningRef.current = true;
     setSpinning(true);
     setWinner(null);
 
-    const winnerIdx = Math.floor(Math.random() * employees.length);
     let speed = 50;
     let current = 0;
-    let totalTicks = 0;
     const totalDuration = 3000;
     let elapsed = 0;
 
@@ -466,7 +467,6 @@ function SlotMachine({ employees }) {
     const tick = () => {
       current = (current + 1) % employees.length;
       setDisplayIdx(current);
-      totalTicks++;
       elapsed += speed;
 
       if (elapsed >= totalDuration - 600) {
@@ -491,6 +491,7 @@ function SlotMachine({ employees }) {
           setDisplayIdx(winnerIdx);
           setWinner(employees[winnerIdx]);
           setSpinning(false);
+          spinningRef.current = false;
         }, finalDelay);
         timeoutChain.current.push(t);
         return;
@@ -501,7 +502,22 @@ function SlotMachine({ employees }) {
     };
 
     tick();
-  }, [spinning, employees]);
+  }, [employees]);
+
+  const spin = useCallback(() => {
+    if (spinningRef.current || employees.length === 0) return;
+    const winnerIdx = Math.floor(Math.random() * employees.length);
+    if (onSpinTriggered) onSpinTriggered(winnerIdx);
+    runSpinAnimation(winnerIdx);
+  }, [employees, onSpinTriggered, runSpinAnimation]);
+
+  const lastTriggerRef = useRef(null);
+  useEffect(() => {
+    if (triggerSpin && triggerSpin.ts !== lastTriggerRef.current) {
+      lastTriggerRef.current = triggerSpin.ts;
+      runSpinAnimation(triggerSpin.winnerIdx);
+    }
+  }, [triggerSpin, runSpinAnimation]);
 
   useEffect(() => {
     return () => {
@@ -625,27 +641,37 @@ function SlotMachine({ employees }) {
           </div>
         </div>
 
-        {/* Spin button — gradient with shimmer */}
-        <button
-          onClick={spin}
-          disabled={spinning}
-          className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all btn-press btn-shimmer ${
-            spinning
-              ? "bg-accent/15 text-accent cursor-not-allowed"
-              : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/20 hover:shadow-xl hover:shadow-orange-500/30 hover:scale-[1.01]"
-          }`}
-        >
-          {spinning ? (
+        {/* Spin button — gradient with shimmer (hidden in readOnly mode) */}
+        {!readOnly && (
+          <button
+            onClick={spin}
+            disabled={spinning}
+            className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all btn-press btn-shimmer ${
+              spinning
+                ? "bg-accent/15 text-accent cursor-not-allowed"
+                : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/20 hover:shadow-xl hover:shadow-orange-500/30 hover:scale-[1.01]"
+            }`}
+          >
+            {spinning ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                Spinning...
+              </span>
+            ) : winner ? (
+              <span>🎰 Spin Again</span>
+            ) : (
+              <span>🎰 Spin the Wheel!</span>
+            )}
+          </button>
+        )}
+        {readOnly && spinning && (
+          <div className="w-full py-3.5 rounded-2xl text-sm font-bold bg-accent/10 text-accent text-center">
             <span className="flex items-center justify-center gap-2">
               <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
               Spinning...
             </span>
-          ) : winner ? (
-            <span>🎰 Spin Again</span>
-          ) : (
-            <span>🎰 Spin the Wheel!</span>
-          )}
-        </button>
+          </div>
+        )}
 
         {/* Employee avatars — more refined */}
         <div className="flex flex-wrap gap-2 justify-center pt-2">
@@ -693,7 +719,7 @@ function randomTheme() {
   return ICE_THEME_IDS[Math.floor(Math.random() * ICE_THEME_IDS.length)];
 }
 
-function IceBreakerPhase({ employees, onNext }) {
+function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcastSpin }) {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -705,6 +731,7 @@ function IceBreakerPhase({ employees, onNext }) {
     const id = ++fetchIdRef.current;
     setLoading(true);
     setError(null);
+    if (broadcastIcebreakerState) broadcastIcebreakerState({ loading: true, questions: [], currentQ: 0, source: null });
     try {
       const res = await fetch("/api/retro/icebreaker", {
         method: "POST",
@@ -717,19 +744,33 @@ function IceBreakerPhase({ employees, onNext }) {
       setQuestions(data.questions);
       setSource(data.source || "groq");
       setCurrentQ(0);
+      if (broadcastIcebreakerState) broadcastIcebreakerState({ questions: data.questions, currentQ: 0, source: data.source || "groq", loading: false });
     } catch {
       if (id === fetchIdRef.current) setError("Could not load questions. Please try again.");
+      if (broadcastIcebreakerState) broadcastIcebreakerState({ loading: false, questions: [], currentQ: 0, source: null });
     } finally {
       if (id === fetchIdRef.current) setLoading(false);
     }
-  }, []);
+  }, [broadcastIcebreakerState]);
 
   useEffect(() => {
     fetchQuestions();
   }, [fetchQuestions]);
 
-  const prevQ = () => setCurrentQ((c) => Math.max(c - 1, 0));
-  const nextQ = () => setCurrentQ((c) => Math.min(c + 1, questions.length - 1));
+  const prevQ = () => {
+    setCurrentQ((c) => {
+      const newIdx = Math.max(c - 1, 0);
+      if (broadcastIcebreakerState) broadcastIcebreakerState({ questions, currentQ: newIdx, source, loading: false });
+      return newIdx;
+    });
+  };
+  const nextQ = () => {
+    setCurrentQ((c) => {
+      const newIdx = Math.min(c + 1, questions.length - 1);
+      if (broadcastIcebreakerState) broadcastIcebreakerState({ questions, currentQ: newIdx, source, loading: false });
+      return newIdx;
+    });
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 relative">
@@ -861,7 +902,7 @@ function IceBreakerPhase({ employees, onNext }) {
 
           {/* Lucky Draw */}
           <div className="retro-slide-in-delay-2">
-            <SlotMachine employees={employees} />
+            <SlotMachine employees={employees} onSpinTriggered={broadcastSpin} />
           </div>
 
           {/* Phase nav */}
@@ -878,6 +919,123 @@ function IceBreakerPhase({ employees, onNext }) {
               </button>
             </div>
           )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Employee Ice Breaker View – read-only, synced from admin            */
+/* ------------------------------------------------------------------ */
+function EmployeeIceBreakerView({ employees, icebreakerState, spinTrigger }) {
+  if (!icebreakerState) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-8 relative">
+        <div className="absolute -top-16 -right-24 w-48 h-48 rounded-full bg-gradient-to-br from-primary/8 to-transparent blur-3xl pointer-events-none retro-float-slow" />
+        <div className="absolute -bottom-16 -left-20 w-40 h-40 rounded-full bg-gradient-to-tr from-accent/8 to-transparent blur-3xl pointer-events-none retro-float-reverse" />
+        <PhaseHeader icon="🎲" title="Ice Breaker" description="Waiting for the facilitator to start..." />
+        <div className="flex flex-col items-center gap-5 py-16 retro-slide-in">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/15 to-accent/15 blur-lg" />
+            <div className="absolute inset-0 rounded-full border-2 border-card-border/40" />
+            <div className="absolute inset-0 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          </div>
+          <p className="text-muted text-sm font-medium">Syncing with facilitator...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { questions, currentQ, source, loading } = icebreakerState;
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-8 relative">
+      <div className="absolute -top-16 -right-24 w-48 h-48 rounded-full bg-gradient-to-br from-primary/8 to-transparent blur-3xl pointer-events-none retro-float-slow" />
+      <div className="absolute -bottom-16 -left-20 w-40 h-40 rounded-full bg-gradient-to-tr from-accent/8 to-transparent blur-3xl pointer-events-none retro-float-reverse" />
+
+      <PhaseHeader icon="🎲" title="Ice Breaker" description="Live from the facilitator — enjoy the fun!" />
+
+      {loading && (
+        <div className="flex flex-col items-center gap-5 py-20 retro-slide-in">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/15 to-accent/15 blur-lg" />
+            <div className="absolute inset-0 rounded-full border-2 border-card-border/40" />
+            <div className="absolute inset-0 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+            <div className="absolute inset-2 rounded-full border-2 border-primary/30 border-b-transparent animate-spin" style={{ animationDirection: "reverse", animationDuration: "1.5s" }} />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-muted text-sm font-medium">Generating questions...</p>
+            <p className="text-muted/60 text-xs">Powered by Groq AI</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && questions && questions.length > 0 && (
+        <>
+          {/* Question Card — read-only */}
+          <div className="retro-slide-in-delay-1">
+            <div className="relative retro-gradient-border rounded-3xl overflow-hidden retro-glow">
+              <div className="retro-glass-strong rounded-3xl overflow-hidden">
+                <div className="relative px-6 py-4 flex items-center justify-between">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5" />
+                  <span className="relative inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-br from-primary to-accent text-white text-[10px] font-black">
+                      {currentQ + 1}
+                    </span>
+                    <span className="text-muted">of {questions.length}</span>
+                    {source === "groq" && (
+                      <>
+                        <span className="text-muted/50 mx-1">·</span>
+                        <span className="inline-flex items-center gap-1 text-accent/70 normal-case tracking-normal font-semibold">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          AI
+                        </span>
+                      </>
+                    )}
+                  </span>
+                  <span className="relative inline-flex items-center gap-1.5 text-[10px] font-bold text-accent/70 bg-gradient-to-r from-accent/10 to-primary/10 px-3 py-1.5 rounded-full shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                    LIVE
+                  </span>
+                </div>
+
+                <div className="relative px-8 py-10 min-h-[160px] flex items-center justify-center">
+                  <div className="absolute top-4 left-6 text-5xl text-primary/10 font-serif select-none">&ldquo;</div>
+                  <div className="absolute bottom-4 right-6 text-5xl text-primary/10 font-serif select-none">&rdquo;</div>
+                  <p
+                    key={`${currentQ}-${questions[currentQ]}`}
+                    className="relative text-xl font-semibold text-foreground text-center leading-relaxed max-w-lg"
+                    style={{ animation: "retroSlideIn 0.4s cubic-bezier(0.22, 1, 0.36, 1)" }}
+                  >
+                    {questions[currentQ]}
+                  </p>
+                </div>
+
+                <div className="px-6 py-4 flex items-center justify-center border-t border-card-border/30">
+                  <div className="flex items-center gap-2">
+                    {questions.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`rounded-full transition-all duration-500 ease-out ${
+                          idx === currentQ
+                            ? "w-8 h-2.5 bg-gradient-to-r from-primary to-accent shadow-md shadow-accent/30"
+                            : "w-2.5 h-2.5 bg-card-border/60"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lucky Draw — read-only, synced */}
+          <div className="retro-slide-in-delay-2">
+            <SlotMachine employees={employees} readOnly triggerSpin={spinTrigger} />
+          </div>
         </>
       )}
     </div>
@@ -2466,7 +2624,7 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
 /* ------------------------------------------------------------------ */
 /*  Employee Retro View – follows the facilitator's phase via polling   */
 /* ------------------------------------------------------------------ */
-function EmployeeRetroView({ token, employees, role }) {
+function EmployeeRetroView({ token, employees, role, icebreakerState, spinTrigger }) {
   const [currentPhase, setCurrentPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [hasSession, setHasSession] = useState(false);
@@ -2533,7 +2691,7 @@ function EmployeeRetroView({ token, employees, role }) {
         </div>
 
         <div className={`min-h-[420px] mx-auto ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}>
-          {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={null} />}
+          {currentPhase === 0 && <EmployeeIceBreakerView employees={employees} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />}
           {currentPhase === 1 && <EmployeeMoodPicker />}
           {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} onNext={null} onPrev={null} />}
           {currentPhase === 3 && <RetroBoardPhase onNext={null} onPrev={null} />}
@@ -2559,6 +2717,9 @@ export default function RetrospectivePage() {
   const [sessionId, setSessionId] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [checkingSession, setCheckingSession] = useState(true);
+
+  const isAdmin = ALLOWED_ROLES.includes(role);
+  const { icebreakerState, spinTrigger, broadcastIcebreakerState, broadcastSpin } = useRetroChannel(isAdmin ? "admin" : "employee");
 
   useEffect(() => {
     fetch("/api/retro/employees")
@@ -2661,13 +2822,11 @@ export default function RetrospectivePage() {
     );
   }
 
-  const isAdmin = ALLOWED_ROLES.includes(role);
-
   /* ---- Employee view: follows the facilitator's phase ---- */
   if (!isAdmin) {
     return (
       <AppLayout>
-        <EmployeeRetroView token={token} employees={employees} role={role} />
+        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />
       </AppLayout>
     );
   }
@@ -2756,7 +2915,7 @@ export default function RetrospectivePage() {
             className={`min-h-[420px] mx-auto ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}
             style={{ animation: "retroSlideIn 0.45s cubic-bezier(0.22, 1, 0.36, 1)" }}
           >
-            {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={next} />}
+            {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={next} broadcastIcebreakerState={broadcastIcebreakerState} broadcastSpin={broadcastSpin} />}
             {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={next} onPrev={prev} />}
             {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} onNext={next} onPrev={prev} />}
             {currentPhase === 3 && <RetroBoardPhase onNext={next} onPrev={prev} />}
