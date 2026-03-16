@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getGroq() {
+  return new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
+}
 
 const THEME_PROMPTS = {
   sprint_fun: "fun, lighthearted retrospective ice-breaker questions about software sprints, team dynamics, and developer life",
@@ -32,7 +34,7 @@ export async function POST(req) {
       return NextResponse.json({ questions: FALLBACK_QUESTIONS.slice(0, safeCount), source: "fallback" });
     }
 
-    const chatCompletion = await groq.chat.completions.create({
+    const chatCompletion = await getGroq().chat.completions.create({
       messages: [
         {
           role: "system",
