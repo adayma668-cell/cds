@@ -22,7 +22,6 @@ export default function AdminPage() {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    password: "",
     role: "employee",
     teams: [],
   });
@@ -34,6 +33,7 @@ export default function AdminPage() {
   const [editMessage, setEditMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [resendingInvite, setResendingInvite] = useState(null);
 
   const getToken = async () => {
     const {
@@ -93,9 +93,9 @@ export default function AdminPage() {
     if (res.ok) {
       setMessage({
         type: "success",
-        text: `User ${form.email} created successfully`,
+        text: `Invite sent to ${form.email} successfully`,
       });
-      setForm({ name: "", email: "", password: "", role: "employee", teams: [] });
+      setForm({ name: "", email: "", role: "employee", teams: [] });
       fetchUsers();
     } else {
       setMessage({ type: "error", text: data.error });
@@ -175,6 +175,30 @@ export default function AdminPage() {
       const data = await res.json();
       alert(data.error);
     }
+  };
+
+  const handleResendInvite = async (u) => {
+    setResendingInvite(u.id);
+    const token = await getToken();
+    try {
+      const res = await fetch("/api/admin/users/resend-invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email: u.email, name: u.name }),
+      });
+      if (res.ok) {
+        setMessage({ type: "success", text: `Invite resent to ${u.email}` });
+      } else {
+        const data = await res.json();
+        setMessage({ type: "error", text: data.error || "Failed to resend invite" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to resend invite" });
+    }
+    setResendingInvite(null);
   };
 
   if (loading) {
@@ -363,9 +387,14 @@ export default function AdminPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Add New User
-            </h2>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Invite User
+              </h2>
+              <p className="text-xs text-muted">
+                They&apos;ll receive an email to set their own password
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleAddUser} className="space-y-4">
@@ -392,22 +421,6 @@ export default function AdminPage() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="user@example.com"
-                  className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground/80 mb-1.5">
-                  Password <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                  placeholder="Min 6 characters"
                   className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none transition-all"
                 />
               </div>
@@ -470,9 +483,21 @@ export default function AdminPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-primary text-white px-6 py-2.5 text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 shadow-md shadow-primary/20 cursor-pointer"
+              className="rounded-lg bg-primary text-white px-6 py-2.5 text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 shadow-md shadow-primary/20 cursor-pointer inline-flex items-center gap-2"
             >
-              {submitting ? "Creating..." : "Add User"}
+              {submitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Sending Invite...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Send Invite
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -590,6 +615,20 @@ export default function AdminPage() {
                       </span>
                       {u.id !== user.id && (
                         <>
+                          <button
+                            onClick={() => handleResendInvite(u)}
+                            disabled={resendingInvite === u.id}
+                            className="text-xs font-medium text-primary hover:text-primary-dark hover:bg-primary-light px-2 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
+                          >
+                            {resendingInvite === u.id ? (
+                              <div className="w-3 h-3 border-[1.5px] border-primary border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                            Resend
+                          </button>
                           <button
                             onClick={() => openEdit(u)}
                             className="text-xs font-medium text-accent hover:text-accent-dark hover:bg-accent-light px-2 py-1 rounded-md transition-colors cursor-pointer"

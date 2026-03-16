@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sendInviteEmail } from "@/lib/sendEmail";
+import { logAudit } from "@/lib/audit";
 
 async function verifySuperAdmin(req) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -59,35 +61,63 @@ export async function POST(req) {
   if (!admin)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { name, email, password, role, teams } = await req.json();
+  const { name, email, role, teams } = await req.json();
 
-  if (!email || !password || !role) {
+  if (!email || !role) {
     return NextResponse.json(
-      { error: "Email, password, and role are required" },
+      { error: "Email and role are required" },
       { status: 400 }
     );
   }
 
-  const { data: newUser, error: createError } =
-    await supabaseAdmin.auth.admin.createUser({
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+  const { data: linkData, error: linkError } =
+    await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
       email,
-      password,
-      email_confirm: true,
-      user_metadata: { name: name || "" },
+      options: {
+        data: { name: name || "" },
+        redirectTo: `${appUrl}/set-password`,
+      },
     });
 
-  if (createError)
-    return NextResponse.json({ error: createError.message }, { status: 500 });
+  if (linkError)
+    return NextResponse.json({ error: linkError.message }, { status: 500 });
+
+  const userId = linkData.user.id;
+  const inviteLink = linkData.properties.action_link;
 
   const { error: insertError } = await supabaseAdmin
     .from("employees")
-    .insert({ id: newUser.user.id, name: name || "", email, role, teams: teams || [] });
+    .upsert({ id: userId, name: name || "", email, role, teams: teams || [] });
 
   if (insertError)
     return NextResponse.json({ error: insertError.message }, { status: 500 });
 
+  try {
+    await sendInviteEmail({ to: email, name: name || "", inviteLink });
+  } catch (emailErr) {
+    console.error("[invite] SendGrid email failed:", emailErr);
+    return NextResponse.json(
+      { error: "User created but invite email failed to send. Try resending." },
+      { status: 207 }
+    );
+  }
+
+  const adminName = admin.user_metadata?.name || admin.email;
+  await logAudit({
+    entityType: "user",
+    entityId: userId,
+    action: "invited",
+    actorId: admin.id,
+    actorName: adminName,
+    newData: { email, name, role, teams },
+  });
+
   return NextResponse.json({
-    user: { id: newUser.user.id, email, name, role, teams: teams || [] },
+    user: { id: userId, email, name, role, teams: teams || [] },
+    invited: true,
   });
 }
 
