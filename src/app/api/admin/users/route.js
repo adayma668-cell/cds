@@ -86,7 +86,8 @@ export async function POST(req) {
     return NextResponse.json({ error: linkError.message }, { status: 500 });
 
   const userId = linkData.user.id;
-  const inviteLink = linkData.properties.action_link;
+  const tokenHash = linkData.properties.hashed_token;
+  const inviteLink = `${appUrl}/set-password?token_hash=${encodeURIComponent(tokenHash)}&type=invite`;
 
   const { error: insertError } = await supabaseAdmin
     .from("employees")

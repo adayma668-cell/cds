@@ -43,7 +43,8 @@ export async function POST(req) {
   if (linkError)
     return NextResponse.json({ error: linkError.message }, { status: 500 });
 
-  const inviteLink = linkData.properties.action_link;
+  const tokenHash = linkData.properties.hashed_token;
+  const inviteLink = `${appUrl}/set-password?token_hash=${encodeURIComponent(tokenHash)}&type=invite`;
 
   try {
     await sendInviteEmail({ to: email, name: name || "", inviteLink });

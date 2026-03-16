@@ -21,8 +21,29 @@ export default function SetPasswordPage() {
     hasProcessed.current = true;
 
     const handleAuth = async () => {
-      // Handle PKCE flow: Supabase v2 redirects with ?code= query param
       const urlParams = new URLSearchParams(window.location.search);
+
+      // Primary flow: verify token_hash client-side (immune to email link scanners)
+      const tokenHash = urlParams.get("token_hash");
+      const type = urlParams.get("type");
+
+      if (tokenHash && type) {
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type,
+        });
+
+        if (!otpError) {
+          const { data: { user } } = await supabase.auth.getUser();
+          setUserName(user?.user_metadata?.name || "");
+          setSessionReady(true);
+          setVerifying(false);
+          window.history.replaceState(null, "", "/set-password");
+          return;
+        }
+      }
+
+      // Fallback: PKCE code exchange
       const code = urlParams.get("code");
 
       if (code) {
@@ -63,6 +84,7 @@ export default function SetPasswordPage() {
         }
       }
 
+      // Check for existing session
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -104,7 +126,8 @@ export default function SetPasswordPage() {
     }
 
     setSuccess(true);
-    setTimeout(() => router.push("/dashboard"), 1500);
+    await supabase.auth.signOut();
+    setTimeout(() => router.push("/"), 1500);
   };
 
   if (verifying) {
@@ -132,7 +155,7 @@ export default function SetPasswordPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Password Set!</h1>
-            <p className="text-sm text-muted mt-2">Redirecting you to the dashboard...</p>
+            <p className="text-sm text-muted mt-2">Redirecting you to the login page...</p>
           </div>
         </div>
       </div>
