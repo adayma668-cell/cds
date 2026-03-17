@@ -99,50 +99,89 @@ function useTimerSounds() {
   return { playTick, playFinish };
 }
 
+const _phaseTimerState = {};
+
 function PhaseTimer({ phaseIndex }) {
-  const defaultDuration = PHASE_DURATIONS[phaseIndex] || 5 * 60;
-  const [duration, setDuration] = useState(defaultDuration);
-  const [timeLeft, setTimeLeft] = useState(defaultDuration);
-  const [running, setRunning] = useState(true);
+  const { playTick, playFinish } = useTimerSounds();
+  const endTimeRef = useRef(0);
+  const pausedMsRef = useRef(null);
+  const finishedFiredRef = useRef(false);
+  const prevPhaseRef = useRef(null);
+
+  const [duration, setDuration] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editMin, setEditMin] = useState("");
   const [editSec, setEditSec] = useState("");
-  const tickingRef = useRef(false);
-  const { playTick, playFinish } = useTimerSounds();
 
   useEffect(() => {
     const d = PHASE_DURATIONS[phaseIndex] || 5 * 60;
-    setDuration(d);
-    setTimeLeft(d);
-    setRunning(true);
-    setFinished(false);
+    const cached = _phaseTimerState[phaseIndex];
+
+    if (cached && prevPhaseRef.current !== phaseIndex) {
+      endTimeRef.current = cached.endTime;
+      pausedMsRef.current = cached.pausedMs;
+      finishedFiredRef.current = cached.finished;
+      setDuration(cached.duration);
+      setRunning(cached.running);
+      setFinished(cached.finished);
+      if (cached.finished) {
+        setTimeLeft(0);
+      } else if (cached.pausedMs != null) {
+        setTimeLeft(Math.max(0, Math.ceil(cached.pausedMs / 1000)));
+      } else {
+        setTimeLeft(Math.max(0, Math.ceil((cached.endTime - Date.now()) / 1000)));
+      }
+    } else if (prevPhaseRef.current !== phaseIndex) {
+      endTimeRef.current = Date.now() + d * 1000;
+      pausedMsRef.current = null;
+      finishedFiredRef.current = false;
+      setDuration(d);
+      setTimeLeft(d);
+      setRunning(true);
+      setFinished(false);
+    }
+
+    prevPhaseRef.current = phaseIndex;
     setEditing(false);
-    tickingRef.current = false;
   }, [phaseIndex]);
 
   useEffect(() => {
-    if (!running || timeLeft <= 0) return;
+    _phaseTimerState[phaseIndex] = {
+      endTime: endTimeRef.current,
+      pausedMs: pausedMsRef.current,
+      duration,
+      running,
+      finished,
+    };
+  });
+
+  useEffect(() => {
+    if (!running || finished) return;
     const id = setInterval(() => {
-      setTimeLeft((prev) => {
-        const next = prev - 1;
-        if (next <= 10 && next > 0) playTick();
-        if (next <= 0) {
-          setRunning(false);
-          setFinished(true);
-          playFinish();
-          return 0;
-        }
-        return next;
-      });
-    }, 1000);
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 10 && remaining > 0 && !finishedFiredRef.current) playTick();
+      if (remaining <= 0 && !finishedFiredRef.current) {
+        finishedFiredRef.current = true;
+        setRunning(false);
+        setFinished(true);
+        playFinish();
+      }
+    }, 250);
     return () => clearInterval(id);
-  }, [running, timeLeft, playTick, playFinish]);
+  }, [running, finished, playTick, playFinish]);
 
   const openEditor = () => {
+    pausedMsRef.current = Math.max(0, endTimeRef.current - Date.now());
     setRunning(false);
-    setEditMin(String(Math.floor(timeLeft / 60)));
-    setEditSec(String(timeLeft % 60));
+    const remaining = pausedMsRef.current != null
+      ? Math.max(0, Math.ceil(pausedMsRef.current / 1000))
+      : Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+    setEditMin(String(Math.floor(remaining / 60)));
+    setEditSec(String(remaining % 60));
     setEditing(true);
   };
 
@@ -153,22 +192,34 @@ function PhaseTimer({ phaseIndex }) {
     if (total > 0) {
       setDuration(total);
       setTimeLeft(total);
+      endTimeRef.current = Date.now() + total * 1000;
+      pausedMsRef.current = null;
       setFinished(false);
       setRunning(true);
-      tickingRef.current = false;
+      finishedFiredRef.current = false;
     }
     setEditing(false);
   };
 
   const togglePause = () => {
     if (finished) {
+      endTimeRef.current = Date.now() + duration * 1000;
+      pausedMsRef.current = null;
       setTimeLeft(duration);
       setFinished(false);
       setRunning(true);
-      tickingRef.current = false;
+      finishedFiredRef.current = false;
       return;
     }
-    setRunning((r) => !r);
+    if (running) {
+      pausedMsRef.current = Math.max(0, endTimeRef.current - Date.now());
+      setRunning(false);
+    } else {
+      const ms = pausedMsRef.current ?? timeLeft * 1000;
+      endTimeRef.current = Date.now() + ms;
+      pausedMsRef.current = null;
+      setRunning(true);
+    }
   };
 
   const mins = Math.floor(timeLeft / 60);
@@ -1530,11 +1581,10 @@ function formatDueDate(dateStr) {
   return { text: formatted, color: "text-muted bg-card-border/30", label: `${diff}d left` };
 }
 
-function PreviousOpenActionsPhase({ employees, role, onNext, onPrev }) {
+function PreviousOpenActionsPhase({ employees, role, onNext, onPrev, toggleEvent, broadcastToggle }) {
   const token = useAccessToken();
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { toggleEvent, broadcastToggle } = useOpenActionsChannel();
   const canToggle = role === "scrum_master" || role === "super_admin";
 
   useEffect(() => {
@@ -2094,9 +2144,7 @@ function StickyColumn({ col, boardEvent, boardBroadcast }) {
   );
 }
 
-function RetroBoardPhase({ onNext, onPrev }) {
-  const { event: boardEvent, broadcast: boardBroadcast } = useRetroBoardChannel();
-
+function RetroBoardPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
   return (
     <div className="w-full space-y-5">
       <PhaseHeader icon={<NotepadIcon className="w-8 h-8" />} title="Retro Board" description="Add your thoughts to each column — be honest, be constructive!" />
@@ -2116,7 +2164,7 @@ function RetroBoardPhase({ onNext, onPrev }) {
 const MAX_VOTES = 5;
 const VOTE_PHASES = ["went_well", "didnt_go_well", "should_try", "puzzles_us"];
 
-function VotingPhase({ employees, role, onNext, onPrev }) {
+function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote }) {
   const token = useAccessToken();
   const sessionId = useSessionId();
   const { user } = useAuthContext();
@@ -2125,109 +2173,164 @@ function VotingPhase({ employees, role, onNext, onPrev }) {
   const [loading, setLoading] = useState(true);
   const [voteSummary, setVoteSummary] = useState({});
   const [showTracker, setShowTracker] = useState(true);
-  const { voteEvent, broadcastVoteChange } = useVoteTrackerChannel();
   const isAdmin = role === "scrum_master" || role === "super_admin";
+  const busyRef = useRef(false);
+  const myVotesRef = useRef(myVotes);
+  myVotesRef.current = myVotes;
 
   const remaining = MAX_VOTES - myVotes.length;
 
-  const fetchAll = useCallback(async () => {
+  useEffect(() => {
     if (!token || !sessionId) return;
-    try {
-      const hdrs = { Authorization: `Bearer ${token}` };
-      const ts = Date.now();
-      const [itemsRes, votesRes] = await Promise.all([
-        fetch(`/api/retro/items?phase=all_board&session_id=${sessionId}&_t=${ts}`, { headers: hdrs, cache: "no-store" }),
-        fetch(`/api/retro/votes?session_id=${sessionId}&_t=${ts}`, { headers: hdrs, cache: "no-store" }),
-      ]);
-      const itemsData = await itemsRes.json();
-      const votesData = await votesRes.json();
-
-      const grouped = {};
-      for (const p of VOTE_PHASES) grouped[p] = [];
-      for (const item of (itemsData.items || [])) {
-        if (grouped[item.phase]) grouped[item.phase].push(item);
-      }
-      setAllItems(grouped);
-      setMyVotes(votesData.votes || []);
-    } catch (err) { console.error("VotingPhase fetch error:", err); }
-    setLoading(false);
+    let cancelled = false;
+    (async () => {
+      try {
+        const hdrs = { Authorization: `Bearer ${token}` };
+        const ts = Date.now();
+        const [itemsRes, votesRes] = await Promise.all([
+          fetch(`/api/retro/items?phase=all_board&session_id=${sessionId}&_t=${ts}`, { headers: hdrs, cache: "no-store" }),
+          fetch(`/api/retro/votes?session_id=${sessionId}&_t=${ts}`, { headers: hdrs, cache: "no-store" }),
+        ]);
+        if (cancelled) return;
+        const itemsData = await itemsRes.json();
+        const votesData = await votesRes.json();
+        const grouped = {};
+        for (const p of VOTE_PHASES) grouped[p] = [];
+        for (const item of (itemsData.items || [])) {
+          if (grouped[item.phase]) grouped[item.phase].push(item);
+        }
+        setAllItems(grouped);
+        setMyVotes(votesData.votes || []);
+      } catch (err) { console.error("VotingPhase fetch error:", err); }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, [token, sessionId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  const fetchSummary = useCallback(async () => {
+  useEffect(() => {
     if (!isAdmin || !token || !sessionId) return;
-    try {
-      const res = await fetch(`/api/retro/votes/summary?session_id=${sessionId}&_t=${Date.now()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      const data = await res.json();
-      if (data.voteSummary) setVoteSummary(data.voteSummary);
-    } catch {}
+    fetch(`/api/retro/votes/summary?session_id=${sessionId}&_t=${Date.now()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((data) => { if (data.voteSummary) setVoteSummary(data.voteSummary); })
+      .catch(() => {});
   }, [isAdmin, token, sessionId]);
-
-  useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
   useEffect(() => {
     if (!voteEvent) return;
-    if (isAdmin) {
-      setVoteSummary((prev) => ({ ...prev, [voteEvent.userId]: voteEvent.voteCount }));
-    }
-  }, [voteEvent, isAdmin]);
+    setVoteSummary((prev) => ({ ...prev, [voteEvent.userId]: voteEvent.voteCount }));
+  }, [voteEvent]);
+
+  useEffect(() => {
+    if (!itemVoteEvent) return;
+    setAllItems((prev) => {
+      const next = { ...prev };
+      for (const p of VOTE_PHASES) {
+        next[p] = (next[p] || []).map((i) =>
+          i.id === itemVoteEvent.itemId
+            ? { ...i, votes: Math.max((i.votes || 0) + itemVoteEvent.delta, 0) }
+            : i
+        );
+      }
+      return next;
+    });
+  }, [itemVoteEvent]);
 
   const myVoteCount = (itemId) => myVotes.filter((id) => id === itemId).length;
 
   const castVote = async (itemId) => {
-    if (remaining <= 0) return;
-    const newVotes = [...myVotes, itemId];
+    if (myVotesRef.current.length >= MAX_VOTES || busyRef.current) return;
+    busyRef.current = true;
+
+    const newVotes = [...myVotesRef.current, itemId];
     setMyVotes(newVotes);
     setAllItems((prev) => {
       const next = { ...prev };
       for (const p of VOTE_PHASES) {
-        next[p] = next[p].map((i) => i.id === itemId ? { ...i, votes: (i.votes || 0) + 1 } : i);
+        next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: (i.votes || 0) + 1 } : i);
       }
       return next;
     });
     if (user?.id) broadcastVoteChange(user.id, newVotes.length);
+    broadcastItemVote(itemId, 1);
+
     try {
-      await fetch("/api/retro/votes", {
+      const res = await fetch("/api/retro/votes", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ item_id: itemId, session_id: sessionId }),
       });
-      fetchAll();
-    } catch (err) { console.error("castVote error:", err); }
+      if (!res.ok) {
+        setMyVotes((prev) => { const idx = prev.indexOf(itemId); if (idx === -1) return prev; const arr = [...prev]; arr.splice(idx, 1); return arr; });
+        setAllItems((prev) => {
+          const next = { ...prev };
+          for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: Math.max((i.votes || 0) - 1, 0) } : i); }
+          return next;
+        });
+      }
+    } catch {
+      setMyVotes((prev) => { const idx = prev.indexOf(itemId); if (idx === -1) return prev; const arr = [...prev]; arr.splice(idx, 1); return arr; });
+      setAllItems((prev) => {
+        const next = { ...prev };
+        for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: Math.max((i.votes || 0) - 1, 0) } : i); }
+        return next;
+      });
+    } finally {
+      busyRef.current = false;
+    }
   };
 
   const removeVote = async (itemId) => {
-    if (!myVotes.includes(itemId)) return;
-    const idx = myVotes.indexOf(itemId);
-    const newVotes = [...myVotes]; newVotes.splice(idx, 1);
+    if (!myVotesRef.current.includes(itemId) || busyRef.current) return;
+    busyRef.current = true;
+
+    const idx = myVotesRef.current.indexOf(itemId);
+    const newVotes = [...myVotesRef.current];
+    newVotes.splice(idx, 1);
     setMyVotes(newVotes);
     setAllItems((prev) => {
       const next = { ...prev };
       for (const p of VOTE_PHASES) {
-        next[p] = next[p].map((i) => i.id === itemId ? { ...i, votes: Math.max((i.votes || 0) - 1, 0) } : i);
+        next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: Math.max((i.votes || 0) - 1, 0) } : i);
       }
       return next;
     });
     if (user?.id) broadcastVoteChange(user.id, newVotes.length);
+    broadcastItemVote(itemId, -1);
+
     try {
-      await fetch("/api/retro/votes", {
+      const res = await fetch("/api/retro/votes", {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ item_id: itemId, session_id: sessionId }),
       });
-      fetchAll();
-    } catch (err) { console.error("removeVote error:", err); }
+      if (!res.ok) {
+        setMyVotes((prev) => [...prev, itemId]);
+        setAllItems((prev) => {
+          const next = { ...prev };
+          for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: (i.votes || 0) + 1 } : i); }
+          return next;
+        });
+      }
+    } catch {
+      setMyVotes((prev) => [...prev, itemId]);
+      setAllItems((prev) => {
+        const next = { ...prev };
+        for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: (i.votes || 0) + 1 } : i); }
+        return next;
+      });
+    } finally {
+      busyRef.current = false;
+    }
   };
 
   const colConfig = {
-    went_well: { title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, noteBg: "bg-emerald-100", noteText: "text-emerald-900", badge: "bg-emerald-500", border: "border-emerald-400" },
-    didnt_go_well: { title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, noteBg: "bg-rose-100", noteText: "text-rose-900", badge: "bg-rose-500", border: "border-rose-400" },
-    should_try: { title: "What do we want to try?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, noteBg: "bg-sky-100", noteText: "text-sky-900", badge: "bg-sky-500", border: "border-sky-400" },
-    puzzles_us: { title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, noteBg: "bg-amber-100", noteText: "text-amber-900", badge: "bg-amber-500", border: "border-amber-400" },
+    went_well: { title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, noteBg: "bg-emerald-100", noteText: "text-emerald-900", text: "text-emerald-600", badge: "bg-emerald-500", border: "border-emerald-400" },
+    didnt_go_well: { title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, noteBg: "bg-rose-100", noteText: "text-rose-900", text: "text-rose-600", badge: "bg-rose-500", border: "border-rose-400" },
+    should_try: { title: "What do we want to try?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, noteBg: "bg-sky-100", noteText: "text-sky-900", text: "text-sky-600", badge: "bg-sky-500", border: "border-sky-400" },
+    puzzles_us: { title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, noteBg: "bg-amber-100", noteText: "text-amber-900", text: "text-amber-600", badge: "bg-amber-500", border: "border-amber-400" },
   };
 
   if (loading) {
@@ -2580,13 +2683,19 @@ function VoteResultsPhase({ onNext, onPrev }) {
 /* ------------------------------------------------------------------ */
 /*  Phase 6 – Action Items (persisted)                                 */
 /* ------------------------------------------------------------------ */
-function ActionItemsPhase({ employees, onNext, onPrev }) {
-  const { items: actions, loading, addItem, removeItem } = useRetroItems("action_items", { all: true });
+function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcast }) {
+  const { items: actions, loading, addItem, removeItem, externalAdd, externalRemove } = useRetroItems("action_items", { all: true });
   const [input, setInput] = useState("");
   const [assignees, setAssignees] = useState([]);
   const [dueDate, setDueDate] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!boardEvent || boardEvent.phase !== "action_items") return;
+    if (boardEvent.type === "add") externalAdd(boardEvent.item);
+    if (boardEvent.type === "remove") externalRemove(boardEvent.id);
+  }, [boardEvent, externalAdd, externalRemove]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -2598,9 +2707,10 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showDropdown]);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (input.trim() && assignees.length > 0) {
-      addItem(input.trim(), assignees.join(", "), dueDate || null);
+      const newItem = await addItem(input.trim(), assignees.join(", "), dueDate || null);
+      if (newItem && boardBroadcast) boardBroadcast("add", { phase: "action_items", item: newItem });
       setInput("");
       setAssignees([]);
       setDueDate("");
@@ -2797,7 +2907,7 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
                     )}
                   </div>
                   <button
-                    onClick={() => removeItem(a.id)}
+                    onClick={() => { removeItem(a.id); if (boardBroadcast) boardBroadcast("remove", { phase: "action_items", id: a.id }); }}
                     className="text-muted hover:text-danger transition-colors p-1 rounded-lg hover:bg-danger/10"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2829,14 +2939,20 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
 /* ------------------------------------------------------------------ */
 /*  Phase 7 – Appreciation (persisted)                                 */
 /* ------------------------------------------------------------------ */
-function AppreciationPhase({ onNext, onPrev }) {
-  const { items: kudos, loading, addItem } = useRetroItems("appreciation");
+function AppreciationPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
+  const { items: kudos, loading, addItem, externalAdd } = useRetroItems("appreciation");
   const [who, setWho] = useState("");
   const [reason, setReason] = useState("");
 
-  const handleAdd = () => {
+  useEffect(() => {
+    if (!boardEvent || boardEvent.phase !== "appreciation") return;
+    if (boardEvent.type === "add") externalAdd(boardEvent.item);
+  }, [boardEvent, externalAdd]);
+
+  const handleAdd = async () => {
     if (who.trim() && reason.trim()) {
-      addItem(`@${who.trim()}: ${reason.trim()}`);
+      const newItem = await addItem(`@${who.trim()}: ${reason.trim()}`);
+      if (newItem && boardBroadcast) boardBroadcast("add", { phase: "appreciation", item: newItem });
       setWho("");
       setReason("");
     }
@@ -3007,7 +3123,7 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
 /* ------------------------------------------------------------------ */
 /*  Employee Retro View – follows the facilitator's phase via polling   */
 /* ------------------------------------------------------------------ */
-function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger }) {
+function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote }) {
   const [currentPhase, setCurrentPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [sessionTeamIds, setSessionTeamIds] = useState([]);
@@ -3110,12 +3226,12 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
         <div className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}>
           {currentPhase === 0 && <EmployeeIceBreakerView employees={employees} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />}
           {currentPhase === 1 && <EmployeeMoodPicker />}
-          {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={null} onPrev={null} />}
-          {currentPhase === 3 && <RetroBoardPhase onNext={null} onPrev={null} />}
-          {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} />}
+          {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={null} onPrev={null} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
+          {currentPhase === 3 && <RetroBoardPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+          {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
           {currentPhase === 5 && <VoteResultsPhase onNext={null} onPrev={null} />}
-          {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={null} onPrev={null} />}
-          {currentPhase === 7 && <AppreciationPhase onNext={null} onPrev={null} />}
+          {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+          {currentPhase === 7 && <AppreciationPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
           {currentPhase === 8 && <CloseSummaryPhase onPrev={null} onFinish={null} />}
         </div>
       </div>
@@ -3140,6 +3256,9 @@ export default function RetrospectivePage() {
 
   const isAdmin = ALLOWED_ROLES.includes(role);
   const { icebreakerState, spinTrigger, broadcastIcebreakerState, broadcastSpin } = useRetroChannel(isAdmin ? "admin" : "employee");
+  const { event: boardEvent, broadcast: boardBroadcast } = useRetroBoardChannel();
+  const { toggleEvent, broadcastToggle } = useOpenActionsChannel();
+  const { voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote } = useVoteTrackerChannel();
 
   useEffect(() => {
     fetch("/api/retro/employees")
@@ -3276,7 +3395,7 @@ export default function RetrospectivePage() {
   if (!isAdmin) {
     return (
       <AppLayout>
-        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />
+        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />
       </AppLayout>
     );
   }
@@ -3459,12 +3578,12 @@ export default function RetrospectivePage() {
           >
             {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={next} broadcastIcebreakerState={broadcastIcebreakerState} broadcastSpin={broadcastSpin} />}
             {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={next} onPrev={prev} />}
-            {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={next} onPrev={prev} />}
-            {currentPhase === 3 && <RetroBoardPhase onNext={next} onPrev={prev} />}
-            {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={next} onPrev={prev} />}
+            {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={next} onPrev={prev} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
+            {currentPhase === 3 && <RetroBoardPhase onNext={next} onPrev={prev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={next} onPrev={prev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
             {currentPhase === 5 && <VoteResultsPhase onNext={next} onPrev={prev} />}
-            {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={next} onPrev={prev} />}
-            {currentPhase === 7 && <AppreciationPhase onNext={next} onPrev={prev} />}
+            {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={next} onPrev={prev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 7 && <AppreciationPhase onNext={next} onPrev={prev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
             {currentPhase === 8 && <CloseSummaryPhase onPrev={prev} onFinish={finish} />}
           </div>
         </div>

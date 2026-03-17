@@ -71,10 +71,9 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // SIGNED_IN / TOKEN_REFRESHED: show user immediately, fetch role (don't block with loading=true)
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (event === "SIGNED_IN") {
         setUser(session.user);
-        setLoading(true); // keep loading until role arrives so routing is correct
+        setLoading(true);
         fetchMe(session.access_token).then((data) => {
           setRole(data?.role ?? "employee");
           setLoading(false);
@@ -82,6 +81,11 @@ export function AuthProvider({ children }) {
           setRole("employee");
           setLoading(false);
         });
+      } else if (event === "TOKEN_REFRESHED") {
+        setUser(session.user);
+        fetchMe(session.access_token).then((data) => {
+          setRole(data?.role ?? "employee");
+        }).catch(() => {});
       }
     });
 
