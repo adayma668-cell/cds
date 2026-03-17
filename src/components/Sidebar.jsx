@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useSidebar } from "@/context/SidebarContext";
 import LogoutButton from "./LogoutButton";
+import NotificationBell from "./NotificationBell";
 
 const navItem = (href, label, icon) => ({ href, label, icon });
 
@@ -133,19 +134,24 @@ export default function Sidebar() {
         collapsed ? "w-[72px]" : "w-64"
       }`}
     >
-      {/* Logo */}
-      <div className={`border-b border-card-border transition-all duration-300 ${collapsed ? "p-3 flex justify-center" : "p-5"}`}>
-        <Link href="/dashboard" className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="xLM" className="h-8 flex-shrink-0" />
-          <span
-            className={`text-lg font-bold tracking-tight transition-all duration-300 ${
-              collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"
-            }`}
-          >
-            <span className="text-primary">c</span>
-            <span className="text-accent">SU</span>
-          </span>
-        </Link>
+      {/* Logo & Notifications */}
+      <div className={`border-b border-card-border transition-all duration-300 ${collapsed ? "p-3" : "p-5"}`}>
+        <div className={`flex items-center ${collapsed ? "flex-col gap-3" : "justify-between"}`}>
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <img src="/logo.svg" alt="xLM" className="h-8 flex-shrink-0" />
+            <span
+              className={`text-lg font-bold tracking-tight transition-all duration-300 ${
+                collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"
+              }`}
+            >
+              <span className="text-primary">c</span>
+              <span className="text-accent">SU</span>
+            </span>
+          </Link>
+          {role === "super_admin" && (
+            <NotificationBell collapsed={collapsed} />
+          )}
+        </div>
       </div>
 
       {/* Nav */}

@@ -2,8 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/context/AuthContext";
 import AppLayout from "@/components/AppLayout";
 import { useRetroChannel } from "@/hooks/useRetroChannel";
+import { useOpenActionsChannel } from "@/hooks/useOpenActionsChannel";
+import { useRetroBoardChannel } from "@/hooks/useRetroBoardChannel";
+import { useVoteTrackerChannel } from "@/hooks/useVoteTrackerChannel";
+import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
+import {
+  DiceIcon, TargetIcon, PinIcon, NotepadIcon, BallotIcon, ChartBarIcon,
+  RocketIcon, HandHeartIcon, ClipboardCheckIcon, BellAlertIcon, SparklesIcon,
+  TrophyIcon, WarningIcon, StarIcon, UsersIcon, HeartIcon, ArrowPathIcon, MedalIcon,
+  CheckCircleIcon, XCircleIcon, LightbulbIcon, HelpCircleIcon,
+  FaceGreatIcon, FaceGoodIcon, FaceNeutralIcon, FaceConcernedIcon, FaceFrustratedIcon,
+} from "@/lib/icons";
 
 const SessionContext = createContext(null);
 function useSessionId() { return useContext(SessionContext); }
@@ -11,15 +23,15 @@ function useSessionId() { return useContext(SessionContext); }
 const ALLOWED_ROLES = ["scrum_master", "super_admin"];
 
 const PHASES = [
-  { id: 0, label: "Ice Breaker", icon: "🎲", short: "Ice Breaker" },
-  { id: 1, label: "Set the Stage", icon: "🎯", short: "Stage" },
-  { id: 2, label: "Open Actions", icon: "📌", short: "Actions" },
-  { id: 3, label: "Retro Board", icon: "📝", short: "Board" },
-  { id: 4, label: "Vote", icon: "🗳️", short: "Vote" },
-  { id: 5, label: "Results", icon: "📊", short: "Results" },
-  { id: 6, label: "Action Items", icon: "🚀", short: "New Actions" },
-  { id: 7, label: "Appreciation", icon: "🙏", short: "Thanks" },
-  { id: 8, label: "Close & Summary", icon: "📋", short: "Summary" },
+  { id: 0, label: "Ice Breaker", icon: (cls = "w-4 h-4") => <DiceIcon className={cls} />, short: "Ice Breaker" },
+  { id: 1, label: "Set the Stage", icon: (cls = "w-4 h-4") => <TargetIcon className={cls} />, short: "Stage" },
+  { id: 2, label: "Open Actions", icon: (cls = "w-4 h-4") => <PinIcon className={cls} />, short: "Actions" },
+  { id: 3, label: "Retro Board", icon: (cls = "w-4 h-4") => <NotepadIcon className={cls} />, short: "Board" },
+  { id: 4, label: "Vote", icon: (cls = "w-4 h-4") => <BallotIcon className={cls} />, short: "Vote" },
+  { id: 5, label: "Results", icon: (cls = "w-4 h-4") => <ChartBarIcon className={cls} />, short: "Results" },
+  { id: 6, label: "Action Items", icon: (cls = "w-4 h-4") => <RocketIcon className={cls} />, short: "New Actions" },
+  { id: 7, label: "Appreciation", icon: (cls = "w-4 h-4") => <HandHeartIcon className={cls} />, short: "Thanks" },
+  { id: 8, label: "Close & Summary", icon: (cls = "w-4 h-4") => <ClipboardCheckIcon className={cls} />, short: "Summary" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -171,15 +183,26 @@ function PhaseTimer({ phaseIndex }) {
   const progressOffset = circumference * (1 - pct / 100);
 
   return (
-    <div className={`inline-flex items-center gap-4 px-5 py-3 rounded-2xl retro-glass-strong border transition-all duration-500 ${
+    <div className={`inline-flex items-center gap-4 px-5 py-3 rounded-2xl border transition-all duration-500 ${
       finished
-        ? "border-red-300/60 shadow-lg shadow-red-500/10"
+        ? "border-red-300/40 retro-timer-critical"
         : isCritical
-        ? "border-red-300/60 shadow-lg shadow-red-500/10 retro-timer-critical"
+        ? "border-red-300/40 retro-timer-critical"
         : isWarning
-        ? "border-amber-300/60 shadow-lg shadow-amber-500/10"
-        : "border-white/40 shadow-lg shadow-accent/5"
-    }`}>
+        ? "border-amber-300/40"
+        : "border-primary/15"
+    }`} style={{
+      background: finished || isCritical
+        ? "linear-gradient(135deg, rgba(254, 242, 242, 0.92), rgba(254, 226, 226, 0.85))"
+        : isWarning
+        ? "linear-gradient(135deg, rgba(255, 251, 235, 0.92), rgba(254, 243, 199, 0.85))"
+        : "linear-gradient(135deg, rgba(232, 250, 243, 0.92), rgba(230, 236, 247, 0.88))",
+      boxShadow: finished || isCritical
+        ? "0 8px 32px rgba(220, 38, 38, 0.12), 0 2px 8px rgba(220, 38, 38, 0.06)"
+        : isWarning
+        ? "0 8px 32px rgba(245, 158, 11, 0.12), 0 2px 8px rgba(245, 158, 11, 0.06)"
+        : "0 8px 32px rgba(0, 50, 100, 0.08), 0 2px 8px rgba(6, 194, 134, 0.06)"
+    }}>
       {/* Gradient progress ring */}
       <div className="relative w-12 h-12 flex-shrink-0">
         {running && !finished && (
@@ -217,9 +240,9 @@ function PhaseTimer({ phaseIndex }) {
         </svg>
         <div className="absolute inset-0 flex items-center justify-center z-20">
           {finished ? (
-            <span className="text-sm retro-icon-pulse">🔔</span>
+            <span className="retro-icon-pulse"><BellAlertIcon className="w-4 h-4" /></span>
           ) : (
-            <span className="text-sm">{PHASES[phaseIndex]?.icon}</span>
+            <span>{PHASES[phaseIndex]?.icon("w-4 h-4")}</span>
           )}
         </div>
       </div>
@@ -255,7 +278,7 @@ function PhaseTimer({ phaseIndex }) {
             onClick={() => { setEditing(false); setRunning(true); }}
             className="px-2 py-1.5 text-muted text-[10px] font-bold rounded-xl hover:bg-card-border/30 transition-all"
           >
-            ✕
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
       ) : (
@@ -309,29 +332,37 @@ function PhaseTimer({ phaseIndex }) {
 /*  Premium Stepper Progress Bar                                       */
 /* ------------------------------------------------------------------ */
 function ProgressBar({ currentPhase }) {
+  const progressPct = (currentPhase / (PHASES.length - 1)) * 100;
   return (
-    <div className="relative retro-glass-strong border border-white/40 rounded-3xl px-6 py-5 shadow-md retro-slide-in">
-      {/* Phase counter */}
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-          Phase {currentPhase + 1} of {PHASES.length}
-        </span>
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-accent bg-accent/8 px-3 py-1 rounded-full">
-          {PHASES[currentPhase].icon} {PHASES[currentPhase].label}
-        </span>
+    <div className="relative rounded-3xl px-6 py-5 retro-slide-in retro-card-depth overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95) 0%, rgba(230, 236, 247, 0.92) 50%, rgba(240, 247, 244, 0.95) 100%)", border: "1px solid rgba(6, 194, 134, 0.15)" }}>
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.03] via-transparent to-accent/[0.03] pointer-events-none" />
+
+      <div className="relative flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            {PHASES.map((_, i) => (
+              <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i <= currentPhase ? "w-3 bg-gradient-to-r from-primary to-accent" : "w-1.5 bg-card-border/40"}`} />
+            ))}
+          </div>
+          <span className="text-xs font-bold text-foreground/70 tabular-nums">
+            {currentPhase + 1} / {PHASES.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-accent/10 to-primary/10 border border-accent/15">
+          <span className="retro-active-node">{PHASES[currentPhase].icon("w-4 h-4")}</span>
+          <span className="text-xs font-bold text-accent">{PHASES[currentPhase].label}</span>
+        </div>
       </div>
 
-      {/* Stepper track */}
       <div className="relative flex items-center justify-between">
-        {/* Connecting line (background) */}
-        <div className="absolute top-4 left-4 right-4 h-0.5 bg-card-border/50 rounded-full" />
-        {/* Connecting line (progress fill) */}
+        <div className="absolute top-[18px] left-5 right-5 h-[3px] rounded-full bg-card-border/30" />
         <div
-          className="absolute top-4 left-4 h-0.5 rounded-full transition-all duration-700 ease-out"
+          className="absolute top-[18px] left-5 h-[3px] rounded-full transition-all duration-700 ease-out retro-progress-shimmer overflow-hidden"
           style={{
-            width: `calc(${(currentPhase / (PHASES.length - 1)) * 100}% - 32px + ${currentPhase === PHASES.length - 1 ? "32px" : "0px"})`,
-            background: "linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%)",
-            boxShadow: "0 0 8px rgba(6, 194, 134, 0.3)",
+            width: `calc(${progressPct}% - 40px + ${currentPhase === PHASES.length - 1 ? "40px" : "0px"})`,
+            background: "linear-gradient(90deg, var(--primary) 0%, var(--accent) 50%, var(--primary) 100%)",
+            backgroundSize: "200% 100%",
+            boxShadow: "0 0 12px rgba(6, 194, 134, 0.4), 0 0 4px rgba(0, 50, 150, 0.2)",
           }}
         />
 
@@ -339,33 +370,33 @@ function ProgressBar({ currentPhase }) {
           const done = phase.id < currentPhase;
           const active = phase.id === currentPhase;
           return (
-            <div key={phase.id} className="relative z-10 flex flex-col items-center" style={{ width: 32 }}>
-              {/* Pulse ring on active */}
+            <div key={phase.id} className="relative z-10 flex flex-col items-center" style={{ width: 36 }}>
               {active && (
-                <div className="absolute top-0 left-0 w-8 h-8 rounded-full bg-accent/20" style={{ animation: "retroPulseRing 2s ease-out infinite" }} />
+                <>
+                  <div className="absolute top-0 left-[2px] w-9 h-9 rounded-full" style={{ animation: "retroPulseRing 2s ease-out infinite", background: "radial-gradient(circle, rgba(0, 50, 150, 0.15) 0%, transparent 70%)" }} />
+                  <div className="absolute -inset-1 rounded-full bg-accent/10 blur-md" />
+                </>
               )}
-              {/* Node */}
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
+                className={`relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
                   done
-                    ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-sm"
+                    ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-md shadow-primary/25"
                     : active
-                    ? "bg-gradient-to-br from-accent to-accent-dark text-white shadow-lg shadow-accent/30 ring-4 ring-accent/15"
-                    : "bg-white/80 border-2 border-card-border/60 text-muted"
+                    ? "bg-gradient-to-br from-accent via-accent-dark to-accent text-white shadow-xl shadow-accent/35 ring-[3px] ring-accent/20 ring-offset-2 ring-offset-transparent retro-node-glow retro-active-node"
+                    : "bg-gradient-to-br from-background to-card border-2 border-card-border/50 text-muted/60"
                 }`}
               >
                 {done ? (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
-                  <span>{phase.icon}</span>
+                  <span>{phase.icon("w-4 h-4")}</span>
                 )}
               </div>
-              {/* Label */}
               <span
-                className={`text-[9px] mt-1.5 font-semibold transition-colors whitespace-nowrap hidden md:block ${
-                  active ? "text-accent" : done ? "text-primary" : "text-muted/50"
+                className={`text-[9px] mt-2 font-bold transition-all whitespace-nowrap hidden md:block ${
+                  active ? "text-accent scale-105" : done ? "text-primary-dark" : "text-muted/40"
                 }`}
               >
                 {phase.short}
@@ -383,23 +414,21 @@ function ProgressBar({ currentPhase }) {
 /* ------------------------------------------------------------------ */
 function PhaseHeader({ icon, title, description }) {
   return (
-    <div className="relative text-center mb-4 retro-slide-in">
-      {/* Decorative floating orbs */}
-      <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-40 h-40 rounded-full bg-gradient-to-br from-primary/10 to-accent/10 blur-3xl pointer-events-none" />
+    <div className="relative text-center mb-6 retro-phase-in">
+      <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-56 h-32 rounded-full bg-gradient-to-br from-primary/12 via-accent/8 to-primary/6 blur-3xl pointer-events-none" />
 
       <div className="relative">
-        {/* Icon with glow ring */}
-        <div className="relative inline-flex items-center justify-center mb-4">
-          <div className="absolute inset-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 blur-xl retro-icon-pulse" />
-          <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center text-3xl retro-icon-pulse">
+        <div className="relative inline-flex items-center justify-center mb-5">
+          <div className="absolute w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/15 blur-xl retro-icon-pulse" />
+          <div className="relative w-[68px] h-[68px] rounded-2xl flex items-center justify-center retro-icon-pulse" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)", border: "1.5px solid rgba(6, 194, 134, 0.2)", boxShadow: "0 8px 32px rgba(0, 50, 100, 0.1), 0 2px 8px rgba(6, 194, 134, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6)" }}>
             {icon}
           </div>
         </div>
 
-        <h2 className="text-2xl font-extrabold bg-gradient-to-r from-foreground via-foreground to-accent bg-clip-text text-transparent">
+        <h2 className="text-2xl font-extrabold bg-gradient-to-r from-accent via-foreground to-primary bg-clip-text text-transparent">
           {title}
         </h2>
-        <p className="text-muted text-sm max-w-sm mx-auto mt-2 leading-relaxed">{description}</p>
+        <p className="text-muted text-sm max-w-md mx-auto mt-2.5 leading-relaxed">{description}</p>
       </div>
     </div>
   );
@@ -411,22 +440,23 @@ function PhaseHeader({ icon, title, description }) {
 function PhaseNav({ onPrev, onNext, nextLabel = "Next Phase" }) {
   if (!onPrev && !onNext) return null;
   return (
-    <div className="flex items-center justify-between pt-6 mt-6">
+    <div className="flex items-center justify-between pt-6 mt-6 border-t border-card-border/30">
       <button
         onClick={onPrev}
-        className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium text-muted hover:text-foreground retro-glass hover:shadow-md border border-white/40 transition-all btn-press"
+        className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-muted hover:text-foreground transition-all btn-press"
+        style={{ background: "linear-gradient(135deg, rgba(240, 247, 244, 0.9), rgba(230, 236, 247, 0.85))", border: "1px solid rgba(6, 194, 134, 0.12)", boxShadow: "0 2px 8px rgba(0, 50, 100, 0.05)" }}
       >
-        <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
         Previous
       </button>
       <button
         onClick={onNext}
-        className="group flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-2xl text-sm font-semibold shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30 hover:scale-[1.02] transition-all btn-press"
+        className="group flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-accent via-accent-dark to-accent text-white rounded-2xl text-sm font-bold shadow-xl shadow-accent/25 hover:shadow-2xl hover:shadow-accent/35 hover:scale-[1.02] transition-all btn-press btn-shimmer"
       >
         {nextLabel}
-        <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
       </button>
@@ -532,11 +562,10 @@ function SlotMachine({ employees, readOnly, onSpinTriggered, triggerSpin }) {
 
   return (
     <div className="relative retro-gradient-border rounded-3xl overflow-hidden">
-      <div className="retro-glass rounded-3xl p-6 space-y-5">
-        {/* Header */}
+      <div className="rounded-3xl p-6 space-y-5" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 251, 235, 0.6) 50%, rgba(230, 236, 247, 0.9) 100%)" }}>
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-foreground flex items-center gap-2.5 text-sm">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400/20 to-orange-400/20 text-base">🎰</span>
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400/25 to-orange-400/25 shadow-sm shadow-amber-500/10"><TrophyIcon className="w-4 h-4" /></span>
             Lucky Draw
           </h3>
           {winner && (
@@ -629,7 +658,7 @@ function SlotMachine({ employees, readOnly, onSpinTriggered, triggerSpin }) {
                   {current.name}
                 </span>
                 {winner && (
-                  <span className="text-2xl" style={{ animation: "retroFloat 2s ease-in-out infinite" }}>🎉</span>
+                  <span style={{ animation: "retroFloat 2s ease-in-out infinite" }}><SparklesIcon className="w-6 h-6" /></span>
                 )}
               </div>
 
@@ -658,9 +687,9 @@ function SlotMachine({ employees, readOnly, onSpinTriggered, triggerSpin }) {
                 Spinning...
               </span>
             ) : winner ? (
-              <span>🎰 Spin Again</span>
+              <span className="inline-flex items-center gap-1.5"><TrophyIcon className="w-4 h-4" /> Spin Again</span>
             ) : (
-              <span>🎰 Spin the Wheel!</span>
+              <span className="inline-flex items-center gap-1.5"><TrophyIcon className="w-4 h-4" /> Spin the Wheel!</span>
             )}
           </button>
         )}
@@ -778,7 +807,7 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
       <div className="absolute -bottom-16 -left-20 w-40 h-40 rounded-full bg-gradient-to-tr from-accent/8 to-transparent blur-3xl pointer-events-none retro-float-reverse" />
 
       <PhaseHeader
-        icon="🎲"
+        icon={<DiceIcon className="w-8 h-8" />}
         title="Ice Breaker"
         description="AI-generated questions — hit shuffle for a fresh set if you don't like these!"
       />
@@ -800,7 +829,7 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
 
       {error && (
         <div className="retro-glass rounded-3xl p-6 text-center border border-red-200/60 retro-slide-in">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-danger/10 text-xl mb-3">⚠️</div>
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-danger/10 mb-3"><WarningIcon className="w-6 h-6 text-danger" /></div>
           <p className="text-danger text-sm font-medium">{error}</p>
           <button
             onClick={fetchQuestions}
@@ -816,9 +845,9 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
           {/* Question Card */}
           <div className="retro-slide-in-delay-1">
             <div className="relative retro-gradient-border rounded-3xl overflow-hidden retro-glow">
-              <div className="retro-glass-strong rounded-3xl overflow-hidden">
+              <div className="rounded-3xl overflow-hidden" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.96), rgba(230, 236, 247, 0.92))" }}>
                 <div className="relative px-6 py-4 flex items-center justify-between">
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/8 via-transparent to-accent/8" />
                   <span className="relative inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-br from-primary to-accent text-white text-[10px] font-black">
                       {currentQ + 1}
@@ -934,7 +963,7 @@ function EmployeeIceBreakerView({ employees, icebreakerState, spinTrigger }) {
       <div className="max-w-2xl mx-auto space-y-8 relative">
         <div className="absolute -top-16 -right-24 w-48 h-48 rounded-full bg-gradient-to-br from-primary/8 to-transparent blur-3xl pointer-events-none retro-float-slow" />
         <div className="absolute -bottom-16 -left-20 w-40 h-40 rounded-full bg-gradient-to-tr from-accent/8 to-transparent blur-3xl pointer-events-none retro-float-reverse" />
-        <PhaseHeader icon="🎲" title="Ice Breaker" description="Waiting for the facilitator to start..." />
+        <PhaseHeader icon={<DiceIcon className="w-8 h-8" />} title="Ice Breaker" description="Waiting for the facilitator to start..." />
         <div className="flex flex-col items-center gap-5 py-16 retro-slide-in">
           <div className="relative w-14 h-14">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/15 to-accent/15 blur-lg" />
@@ -954,7 +983,7 @@ function EmployeeIceBreakerView({ employees, icebreakerState, spinTrigger }) {
       <div className="absolute -top-16 -right-24 w-48 h-48 rounded-full bg-gradient-to-br from-primary/8 to-transparent blur-3xl pointer-events-none retro-float-slow" />
       <div className="absolute -bottom-16 -left-20 w-40 h-40 rounded-full bg-gradient-to-tr from-accent/8 to-transparent blur-3xl pointer-events-none retro-float-reverse" />
 
-      <PhaseHeader icon="🎲" title="Ice Breaker" description="Live from the facilitator — enjoy the fun!" />
+      <PhaseHeader icon={<DiceIcon className="w-8 h-8" />} title="Ice Breaker" description="Live from the facilitator — enjoy the fun!" />
 
       {loading && (
         <div className="flex flex-col items-center gap-5 py-20 retro-slide-in">
@@ -973,12 +1002,12 @@ function EmployeeIceBreakerView({ employees, icebreakerState, spinTrigger }) {
 
       {!loading && questions && questions.length > 0 && (
         <>
-          {/* Question Card — read-only */}
+          {/* Question Card -- read-only */}
           <div className="retro-slide-in-delay-1">
             <div className="relative retro-gradient-border rounded-3xl overflow-hidden retro-glow">
-              <div className="retro-glass-strong rounded-3xl overflow-hidden">
+              <div className="rounded-3xl overflow-hidden" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.96), rgba(230, 236, 247, 0.92))" }}>
                 <div className="relative px-6 py-4 flex items-center justify-between">
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/8 via-transparent to-accent/8" />
                   <span className="relative inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-br from-primary to-accent text-white text-[10px] font-black">
                       {currentQ + 1}
@@ -1046,11 +1075,11 @@ function EmployeeIceBreakerView({ employees, icebreakerState, spinTrigger }) {
 /*  Phase 1 – Set the Stage                                            */
 /* ------------------------------------------------------------------ */
 const MOODS = [
-  { emoji: "😊", label: "Great", bg: "from-green-400/20 to-green-500/10", border: "border-green-400/50", text: "text-green-600", bar: "bg-green-500" },
-  { emoji: "🙂", label: "Good", bg: "from-blue-400/20 to-blue-500/10", border: "border-blue-400/50", text: "text-blue-600", bar: "bg-blue-500" },
-  { emoji: "😐", label: "Neutral", bg: "from-yellow-400/20 to-yellow-500/10", border: "border-yellow-400/50", text: "text-yellow-600", bar: "bg-yellow-500" },
-  { emoji: "😟", label: "Concerned", bg: "from-orange-400/20 to-orange-500/10", border: "border-orange-400/50", text: "text-orange-600", bar: "bg-orange-500" },
-  { emoji: "😫", label: "Frustrated", bg: "from-red-400/20 to-red-500/10", border: "border-red-400/50", text: "text-red-600", bar: "bg-red-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceGreatIcon className={cls} />, label: "Great", bg: "from-green-400/20 to-green-500/10", border: "border-green-400/50", text: "text-green-600", bar: "bg-green-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceGoodIcon className={cls} />, label: "Good", bg: "from-blue-400/20 to-blue-500/10", border: "border-blue-400/50", text: "text-blue-600", bar: "bg-blue-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceNeutralIcon className={cls} />, label: "Neutral", bg: "from-yellow-400/20 to-yellow-500/10", border: "border-yellow-400/50", text: "text-yellow-600", bar: "bg-yellow-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceConcernedIcon className={cls} />, label: "Concerned", bg: "from-orange-400/20 to-orange-500/10", border: "border-orange-400/50", text: "text-orange-600", bar: "bg-orange-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceFrustratedIcon className={cls} />, label: "Frustrated", bg: "from-red-400/20 to-red-500/10", border: "border-red-400/50", text: "text-red-600", bar: "bg-red-500" },
 ];
 
 const getMoodObj = (label) => MOODS.find((m) => m.label === label);
@@ -1136,7 +1165,7 @@ function EmployeeMoodPicker() {
     return (
       <div className="max-w-md mx-auto text-center space-y-5">
         <PhaseHeader
-          icon="🎯"
+          icon={<TargetIcon className="w-8 h-8" />}
           title="Set the Stage"
           description="Your mood has been recorded. Waiting for the facilitator to reveal results."
         />
@@ -1144,7 +1173,7 @@ function EmployeeMoodPicker() {
           className={`inline-flex flex-col items-center gap-3 px-10 py-6 rounded-2xl border-2 bg-gradient-to-b ${m?.bg || ""} ${m?.border || ""}`}
           style={{ animation: "fadeInScale 0.3s ease-out" }}
         >
-          <span className="text-5xl">{m?.emoji}</span>
+          <span>{m?.emoji("w-12 h-12")}</span>
           <span className={`text-sm font-bold ${m?.text}`}>{m?.label}</span>
         </div>
         <button
@@ -1160,9 +1189,9 @@ function EmployeeMoodPicker() {
   return (
     <div className="max-w-md mx-auto space-y-6">
       <PhaseHeader
-        icon="🎯"
+        icon={<TargetIcon className="w-8 h-8" />}
         title="Set the Stage"
-        description="How are you feeling about the last sprint? Pick the emoji that matches your mood."
+        description="How are you feeling about the last sprint? Pick the icon that matches your mood."
       />
 
       <div className="flex justify-center gap-3 py-2">
@@ -1170,14 +1199,15 @@ function EmployeeMoodPicker() {
           <button
             key={m.label}
             onClick={() => setSelected(m.label)}
-            className={`flex flex-col items-center gap-3 px-5 py-6 rounded-2xl border-2 transition-all duration-300 btn-press backdrop-blur-sm ${
+            className={`flex flex-col items-center gap-3 px-5 py-6 rounded-2xl border-2 transition-all duration-300 btn-press ${
               selected === m.label
                 ? `bg-gradient-to-b ${m.bg} ${m.border} scale-110 shadow-xl ring-4 ring-offset-2 ${m.border.replace("border-", "ring-")}/20`
-                : "border-white/50 bg-white/50 hover:bg-white/70 hover:shadow-lg hover:scale-105 hover:-translate-y-1"
+                : "hover:shadow-lg hover:scale-105 hover:-translate-y-1"
             }`}
+            style={selected !== m.label ? { background: "linear-gradient(180deg, rgba(240, 247, 244, 0.9), rgba(230, 236, 247, 0.8))", borderColor: "rgba(6, 194, 134, 0.12)" } : undefined}
           >
-            <span className={`text-4xl transition-transform duration-300 ${selected === m.label ? "scale-125 retro-icon-pulse" : ""}`}>
-              {m.emoji}
+            <span className={`transition-transform duration-300 ${selected === m.label ? "scale-125 retro-icon-pulse" : ""}`}>
+              {m.emoji("w-10 h-10")}
             </span>
             <span className={`text-[11px] font-bold ${selected === m.label ? m.text : "text-muted"}`}>
               {m.label}
@@ -1273,13 +1303,13 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PhaseHeader
-        icon="🎯"
+        icon={<TargetIcon className="w-8 h-8" />}
         title="Set the Stage"
         description="Submit your mood, wait for the team, then reveal results."
       />
 
       {/* Admin's own mood picker */}
-      <div className="retro-glass-strong border border-white/40 rounded-2xl p-5 shadow-md">
+      <div className="rounded-2xl p-5 retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.9))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">Your Mood</h3>
           {myMood && (
@@ -1303,8 +1333,8 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
                   : "border-white/50 bg-white/40 hover:bg-white/60 hover:shadow-md hover:scale-105"
               }`}
             >
-              <span className={`text-2xl transition-transform duration-300 ${myMood === m.label ? "scale-110" : ""}`}>
-                {m.emoji}
+              <span className={`transition-transform duration-300 ${myMood === m.label ? "scale-110" : ""}`}>
+                {m.emoji("w-7 h-7")}
               </span>
               <span className={`text-[9px] font-semibold ${myMood === m.label ? m.text : "text-muted"}`}>
                 {m.label}
@@ -1315,7 +1345,7 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
       </div>
 
       {/* Live tracker card */}
-      <div className="retro-glass-strong border border-white/40 rounded-2xl p-5 space-y-4 shadow-md">
+      <div className="rounded-2xl p-5 space-y-4 retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.9))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <span className={`w-2.5 h-2.5 rounded-full ${polling ? "bg-green-500 animate-pulse shadow-sm shadow-green-500/50" : "bg-card-border"}`} />
@@ -1396,7 +1426,7 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
           onClick={() => { setRevealed(true); setPolling(false); }}
           className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-orange-500/25 transition-all btn-press"
         >
-          🎉 Reveal Results ({totalSubmitted} response{totalSubmitted !== 1 ? "s" : ""})
+          <span className="inline-flex items-center gap-1.5"><SparklesIcon className="w-4 h-4" /> Reveal Results ({totalSubmitted} response{totalSubmitted !== 1 ? "s" : ""})</span>
         </button>
       )}
 
@@ -1406,9 +1436,9 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
           className="retro-gradient-border rounded-2xl overflow-hidden"
           style={{ animation: "retroSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1)" }}
         >
-          <div className="retro-glass-strong rounded-2xl p-5 space-y-4">
+          <div className="rounded-2xl p-5 space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center shadow-sm">
               <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
@@ -1421,7 +1451,7 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
             {moodCounts.map((m) => (
               <div key={m.label} className="flex items-center gap-3">
                 <div className="flex items-center gap-2 w-28 flex-shrink-0">
-                  <span className="text-lg">{m.emoji}</span>
+                  <span>{m.emoji("w-5 h-5")}</span>
                   <span className={`text-xs font-semibold ${m.text}`}>{m.label}</span>
                 </div>
                 <div className="flex-1 h-7 bg-card-border/30 rounded-full overflow-hidden">
@@ -1461,7 +1491,7 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
                       </div>
                     )}
                     <span className="text-sm font-medium text-foreground flex-1 truncate">{entry.user_name}</span>
-                    <span className="text-lg">{m?.emoji}</span>
+                    <span>{m?.emoji("w-5 h-5")}</span>
                   </div>
                 );
               })}
@@ -1500,10 +1530,12 @@ function formatDueDate(dateStr) {
   return { text: formatted, color: "text-muted bg-card-border/30", label: `${diff}d left` };
 }
 
-function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
+function PreviousOpenActionsPhase({ employees, role, onNext, onPrev }) {
   const token = useAccessToken();
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { toggleEvent, broadcastToggle } = useOpenActionsChannel();
+  const canToggle = role === "scrum_master" || role === "super_admin";
 
   useEffect(() => {
     fetch("/api/retro/open-actions")
@@ -1513,11 +1545,20 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!toggleEvent) return;
+    setActions((prev) =>
+      prev.map((a) => (a.id === toggleEvent.id ? { ...a, done: toggleEvent.done } : a))
+    );
+  }, [toggleEvent]);
+
   const toggleDone = async (id) => {
+    if (!canToggle) return;
     const item = actions.find((a) => a.id === id);
     if (!item || !token) return;
     const newDone = !item.done;
     setActions((prev) => prev.map((a) => (a.id === id ? { ...a, done: newDone } : a)));
+    broadcastToggle(id, newDone);
     try {
       await fetch("/api/retro/items", {
         method: "PATCH",
@@ -1532,7 +1573,7 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PhaseHeader
-        icon="📌"
+        icon={<PinIcon className="w-8 h-8" />}
         title="Previous Open Actions"
         description="Review action items from past retrospectives. Mark completed tasks with the checkmark."
       />
@@ -1549,8 +1590,8 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
 
       {!loading && actions.length === 0 && (
         <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-2xl mb-3">
-            🎉
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-3">
+            <SparklesIcon className="w-7 h-7 text-primary" />
           </div>
           <h3 className="text-foreground font-semibold mb-1">No Open Actions</h3>
           <p className="text-muted text-sm">No action items from previous retrospectives. Fresh start!</p>
@@ -1558,8 +1599,8 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
       )}
 
       {!loading && actions.length > 0 && (
-        <div className="retro-glass-strong border border-white/40 rounded-2xl overflow-hidden shadow-md retro-slide-in-delay-1">
-          <div className="grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3 bg-gradient-to-r from-primary/5 to-accent/5 border-b border-white/40 text-[11px] font-semibold text-muted uppercase tracking-wider">
+        <div className="rounded-2xl overflow-hidden retro-card-depth retro-slide-in-delay-1" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+          <div className="grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3.5 border-b border-primary/10 text-[11px] font-semibold text-muted uppercase tracking-wider" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.6), rgba(230, 236, 247, 0.5))" }}>
             <span></span>
             <span>Action</span>
             <span>Assignee</span>
@@ -1569,7 +1610,8 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
           <div className="divide-y divide-card-border/60">
             {actions.map((a) => {
               const due = a.due_date ? formatDueDate(a.due_date) : null;
-              const empMatch = employees.find((e) => e.name === a.assignee);
+              const assigneeNames = a.assignee ? a.assignee.split(", ") : [];
+              const empMatches = assigneeNames.map((n) => employees.find((e) => e.name === n)).filter(Boolean);
               const isDone = !!a.done;
               return (
                 <div
@@ -1580,28 +1622,45 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
                       : "hover:bg-card-border/10"
                   }`}
                 >
-                  <button
-                    onClick={() => toggleDone(a.id)}
-                    className="flex-shrink-0 group/check"
-                    title={isDone ? "Mark as incomplete" : "Mark as completed"}
-                  >
+                  {canToggle ? (
+                    <button
+                      onClick={() => toggleDone(a.id)}
+                      className="flex-shrink-0 group/check"
+                      title={isDone ? "Mark as incomplete" : "Mark as completed"}
+                    >
+                      <div
+                        className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
+                          isDone
+                            ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200"
+                            : "border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 group-hover/check:scale-110"
+                        }`}
+                      >
+                        <svg
+                          className={`w-4 h-4 transition-all duration-300 ${
+                            isDone ? "text-white scale-100" : "text-transparent group-hover/check:text-emerald-300 scale-75"
+                          }`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  ) : (
                     <div
-                      className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
+                      className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center ${
                         isDone
                           ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200"
-                          : "border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 group-hover/check:scale-110"
+                          : "border-gray-300"
                       }`}
                     >
                       <svg
-                        className={`w-4 h-4 transition-all duration-300 ${
-                          isDone ? "text-white scale-100" : "text-transparent group-hover/check:text-emerald-300 scale-75"
-                        }`}
+                        className={`w-4 h-4 ${isDone ? "text-white" : "text-transparent"}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                  </button>
+                  )}
 
                   <div className="min-w-0">
                     <p className={`text-sm font-medium truncate transition-all duration-300 ${isDone ? "line-through text-emerald-700/70" : "text-foreground"}`}>{a.content}</p>
@@ -1609,19 +1668,36 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
                       <span className={`text-[10px] ${isDone ? "text-emerald-600/50" : "text-muted"}`}>added by {a.user_name}</span>
                       <span className="text-[10px] text-muted/40">·</span>
                       <span className={`text-[10px] ${isDone ? "text-emerald-600/50" : "text-muted/60"}`}>{a.session_date}</span>
-                      {isDone && <span className="text-[10px] font-semibold text-emerald-600 ml-1">✓ Completed</span>}
+                      {isDone && <span className="text-[10px] font-semibold text-emerald-600 ml-1 inline-flex items-center gap-0.5"><svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg> Completed</span>}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">
-                    {(empMatch?.avatar_url || a.avatar_url) ? (
-                      <img src={empMatch?.avatar_url || a.avatar_url} alt="" className={`w-7 h-7 rounded-full object-cover border flex-shrink-0 ${isDone ? "border-emerald-300 opacity-70" : "border-card-border"}`} />
+                    {empMatches.length > 0 ? (
+                      <div className="flex -space-x-1.5 flex-shrink-0">
+                        {empMatches.slice(0, 3).map((emp) =>
+                          emp.avatar_url ? (
+                            <img key={emp.id} src={emp.avatar_url} alt={emp.name} title={emp.name} className={`w-7 h-7 rounded-full object-cover border flex-shrink-0 ${isDone ? "border-emerald-300 opacity-70" : "border-card-border"}`} />
+                          ) : (
+                            <div key={emp.id} title={emp.name} className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 border border-white ${isDone ? "bg-emerald-200 text-emerald-700" : "bg-card-border text-muted"}`}>
+                              {emp.name?.charAt(0)?.toUpperCase()}
+                            </div>
+                          )
+                        )}
+                        {empMatches.length > 3 && (
+                          <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center text-[9px] font-bold text-accent border border-white flex-shrink-0">
+                            +{empMatches.length - 3}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isDone ? "bg-emerald-200 text-emerald-700" : "bg-card-border text-muted"}`}>
                         {(a.assignee || a.user_name)?.charAt(0)?.toUpperCase()}
                       </div>
                     )}
-                    <span className={`text-xs font-medium truncate ${isDone ? "text-emerald-700/70" : "text-foreground"}`}>{a.assignee || a.user_name}</span>
+                    <span className={`text-xs font-medium truncate ${isDone ? "text-emerald-700/70" : "text-foreground"}`}>
+                      {assigneeNames.length > 1 ? `${assigneeNames.length} people` : (a.assignee || a.user_name)}
+                    </span>
                   </div>
 
                   <div className="text-right">
@@ -1644,7 +1720,7 @@ function PreviousOpenActionsPhase({ employees, onNext, onPrev }) {
           <div className="px-5 py-3 bg-card-border/10 border-t border-card-border flex items-center justify-between">
             <span className="text-xs text-muted">{actions.length} action item{actions.length !== 1 ? "s" : ""} from past retros</span>
             {doneCount > 0 && (
-              <span className="text-xs font-semibold text-emerald-600">{doneCount} completed ✓</span>
+              <span className="text-xs font-semibold text-emerald-600 inline-flex items-center gap-0.5">{doneCount} completed <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg></span>
             )}
           </div>
         </div>
@@ -1684,7 +1760,7 @@ function useRetroItems(phase, { all = false } = {}) {
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const addItem = async (content, assignee, due_date) => {
-    if (!token || !content?.trim()) return;
+    if (!token || !content?.trim()) return null;
     const sid = all ? undefined : sessionId;
     try {
       const res = await fetch("/api/retro/items", {
@@ -1693,9 +1769,10 @@ function useRetroItems(phase, { all = false } = {}) {
         body: JSON.stringify({ phase, content, assignee, due_date, session_id: sid }),
       });
       const data = await res.json();
-      if (data.error) { console.error("addItem API error:", data.error); return; }
-      if (data.item) setItems((prev) => [...prev, data.item]);
+      if (data.error) { console.error("addItem API error:", data.error); return null; }
+      if (data.item) { setItems((prev) => [...prev, data.item]); return data.item; }
     } catch (err) { console.error("addItem error:", err); }
+    return null;
   };
 
   const removeItem = async (id) => {
@@ -1723,7 +1800,31 @@ function useRetroItems(phase, { all = false } = {}) {
     } catch {}
   };
 
-  return { items, loading, addItem, removeItem, toggleDone, refetch: fetchItems };
+  const updateItem = async (id, newContent) => {
+    if (!token || !newContent?.trim()) return;
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, content: newContent.trim() } : i)));
+    try {
+      await fetch("/api/retro/items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, content: newContent.trim() }),
+      });
+    } catch {}
+  };
+
+  const externalAdd = useCallback((item) => {
+    setItems((prev) => prev.some((i) => i.id === item.id) ? prev : [...prev, item]);
+  }, []);
+
+  const externalRemove = useCallback((id) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  const externalUpdate = useCallback((id, content) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, content } : i)));
+  }, []);
+
+  return { items, loading, addItem, removeItem, updateItem, toggleDone, refetch: fetchItems, externalAdd, externalRemove, externalUpdate };
 }
 
 function TextCollectionPhase({ title, icon, description, placeholder, phase, onNext, onPrev }) {
@@ -1771,10 +1872,10 @@ function TextCollectionPhase({ title, icon, description, placeholder, phase, onN
           {items.map((item, idx) => (
             <div
               key={item.id}
-              className="group flex items-center gap-3 p-4 retro-glass-strong border border-white/40 rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
-              style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 40}ms` }}
+              className="group flex items-center gap-3 p-4 rounded-xl hover:-translate-y-0.5 transition-all duration-300"
+              style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 40}ms`, background: "linear-gradient(135deg, rgba(240, 247, 244, 0.92), rgba(230, 236, 247, 0.85))", border: "1px solid rgba(6, 194, 134, 0.1)", boxShadow: "0 2px 12px rgba(0, 50, 100, 0.06)" }}
             >
-              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center text-xs font-bold">
+              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 text-accent flex items-center justify-center text-xs font-bold">
                 {idx + 1}
               </div>
               {item.avatar_url ? (
@@ -1818,30 +1919,133 @@ function TextCollectionPhase({ title, icon, description, placeholder, phase, onN
 /*  Phase 3 – Retro Board (flat sticky-note columns like reference)    */
 /* ------------------------------------------------------------------ */
 const BOARD_COLUMNS = [
-  { phase: "went_well", title: "What went well?", icon: "😊", noteBg: "bg-emerald-100", noteText: "text-emerald-900", headerBg: "bg-white", headerBorder: "border-b-4 border-emerald-400", badge: "bg-emerald-500", inputBorder: "border-emerald-300", inputFocus: "focus:ring-emerald-400/40", btnBg: "bg-emerald-500 hover:bg-emerald-600" },
-  { phase: "didnt_go_well", title: "What went less well?", icon: "😟", noteBg: "bg-rose-100", noteText: "text-rose-900", headerBg: "bg-white", headerBorder: "border-b-4 border-rose-400", badge: "bg-rose-500", inputBorder: "border-rose-300", inputFocus: "focus:ring-rose-400/40", btnBg: "bg-rose-500 hover:bg-rose-600" },
-  { phase: "should_try", title: "What do we want to try next?", icon: "💡", noteBg: "bg-sky-100", noteText: "text-sky-900", headerBg: "bg-white", headerBorder: "border-b-4 border-sky-400", badge: "bg-sky-500", inputBorder: "border-sky-300", inputFocus: "focus:ring-sky-400/40", btnBg: "bg-sky-500 hover:bg-sky-600" },
-  { phase: "puzzles_us", title: "What puzzles us?", icon: "⚠️", noteBg: "bg-amber-100", noteText: "text-amber-900", headerBg: "bg-white", headerBorder: "border-b-4 border-amber-400", badge: "bg-amber-500", inputBorder: "border-amber-300", inputFocus: "focus:ring-amber-400/40", btnBg: "bg-amber-500 hover:bg-amber-600" },
+  { phase: "went_well", title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, noteBg: "bg-emerald-100", noteText: "text-emerald-900", headerBg: "bg-white", headerBorder: "border-b-4 border-emerald-400", badge: "bg-emerald-500", inputBorder: "border-emerald-300", inputFocus: "focus:ring-emerald-400/40", btnBg: "bg-emerald-500 hover:bg-emerald-600" },
+  { phase: "didnt_go_well", title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, noteBg: "bg-rose-100", noteText: "text-rose-900", headerBg: "bg-white", headerBorder: "border-b-4 border-rose-400", badge: "bg-rose-500", inputBorder: "border-rose-300", inputFocus: "focus:ring-rose-400/40", btnBg: "bg-rose-500 hover:bg-rose-600" },
+  { phase: "should_try", title: "What do we want to try next?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, noteBg: "bg-sky-100", noteText: "text-sky-900", headerBg: "bg-white", headerBorder: "border-b-4 border-sky-400", badge: "bg-sky-500", inputBorder: "border-sky-300", inputFocus: "focus:ring-sky-400/40", btnBg: "bg-sky-500 hover:bg-sky-600" },
+  { phase: "puzzles_us", title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, noteBg: "bg-amber-100", noteText: "text-amber-900", headerBg: "bg-white", headerBorder: "border-b-4 border-amber-400", badge: "bg-amber-500", inputBorder: "border-amber-300", inputFocus: "focus:ring-amber-400/40", btnBg: "bg-amber-500 hover:bg-amber-600" },
 ];
 
-function StickyColumn({ col }) {
-  const { items, loading, addItem, removeItem } = useRetroItems(col.phase);
-  const [input, setInput] = useState("");
+function StickyNote({ item, col, idx, isOwner, removeItem, updateItem }) {
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(item.content);
+  const inputRef = useRef(null);
 
-  const handleAdd = () => {
-    if (input.trim()) { addItem(input.trim()); setInput(""); }
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.setSelectionRange(editText.length, editText.length);
+    }
+  }, [editing]);
+
+  const handleSave = () => {
+    const trimmed = editText.trim();
+    if (trimmed && trimmed !== item.content) {
+      updateItem(item.id, trimmed);
+    } else {
+      setEditText(item.content);
+    }
+    setEditing(false);
   };
 
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden retro-glass border border-white/40 shadow-lg hover:shadow-xl transition-shadow duration-300" style={{ minHeight: 420 }}>
-      {/* Gradient header */}
-      <div className={`flex items-center gap-2.5 px-5 py-4 ${col.headerBorder} bg-gradient-to-r ${col.noteBg.replace("bg-", "from-")}/40 to-white/60`}>
-        <span className="text-xl retro-icon-pulse">{col.icon}</span>
+    <div
+      className={`group relative ${col.noteBg} rounded-xl px-4 py-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-white/50`}
+      style={{
+        animation: "retroSlideIn 0.3s ease-out both",
+        animationDelay: `${idx * 40}ms`,
+        transform: `rotate(${idx % 3 === 0 ? -0.5 : idx % 3 === 1 ? 0.5 : 0}deg)`,
+      }}
+    >
+      {editing ? (
+        <textarea
+          ref={inputRef}
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSave(); }
+            if (e.key === "Escape") { setEditText(item.content); setEditing(false); }
+          }}
+          className={`w-full text-[13px] ${col.noteText} leading-relaxed font-medium bg-white/70 rounded-lg px-2 py-1.5 border ${col.inputBorder} focus:outline-none focus:ring-2 ${col.inputFocus} resize-none`}
+          rows={2}
+        />
+      ) : (
+        <p
+          className={`text-[13px] ${col.noteText} leading-relaxed font-medium pr-6 ${isOwner ? "cursor-pointer hover:underline decoration-dotted underline-offset-2" : ""}`}
+          onClick={() => { if (isOwner) { setEditText(item.content); setEditing(true); } }}
+          title={isOwner ? "Click to edit" : ""}
+        >
+          {item.content}
+        </p>
+      )}
+      <div className="flex items-center gap-1.5 mt-2">
+        {item.avatar_url ? (
+          <img src={item.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover ring-1 ring-white" />
+        ) : (
+          <div className={`w-5 h-5 rounded-full ${col.badge} flex items-center justify-center text-[8px] font-bold text-white shadow-sm`}>
+            {item.user_name?.charAt(0)?.toUpperCase()}
+          </div>
+        )}
+        <span className="text-[10px] text-gray-500 font-medium">{item.user_name}</span>
+        {isOwner && !editing && (
+          <svg className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-60 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+        )}
+        {item.votes > 0 && (
+          <span className={`ml-auto text-[10px] font-bold ${col.badge} text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm`}>{item.votes}</span>
+        )}
+      </div>
+      {isOwner && (
+        <button
+          onClick={() => removeItem(item.id)}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-6 h-6 bg-black/50 backdrop-blur-sm text-white rounded-full flex items-center justify-center text-xs transition-all hover:bg-black/70 hover:scale-110"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function StickyColumn({ col, boardEvent, boardBroadcast }) {
+  const { items, loading, addItem, removeItem, updateItem, externalAdd, externalRemove, externalUpdate } = useRetroItems(col.phase);
+  const { user } = useAuthContext();
+  const [input, setInput] = useState("");
+
+  useEffect(() => {
+    if (!boardEvent || boardEvent.phase !== col.phase) return;
+    if (boardEvent.type === "add") externalAdd(boardEvent.item);
+    if (boardEvent.type === "remove") externalRemove(boardEvent.id);
+    if (boardEvent.type === "edit") externalUpdate(boardEvent.id, boardEvent.content);
+  }, [boardEvent, col.phase, externalAdd, externalRemove, externalUpdate]);
+
+  const handleAdd = async () => {
+    if (input.trim()) {
+      const newItem = await addItem(input.trim());
+      if (newItem && boardBroadcast) boardBroadcast("add", { phase: col.phase, item: newItem });
+      setInput("");
+    }
+  };
+
+  const handleRemove = (id) => {
+    removeItem(id);
+    if (boardBroadcast) boardBroadcast("remove", { phase: col.phase, id });
+  };
+
+  const handleUpdate = (id, content) => {
+    updateItem(id, content);
+    if (boardBroadcast) boardBroadcast("edit", { phase: col.phase, id, content });
+  };
+
+  return (
+    <div className="flex flex-col rounded-2xl overflow-hidden border retro-card-depth transition-all duration-300" style={{ minHeight: 420, background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%)", borderColor: "rgba(6, 194, 134, 0.1)" }}>
+      <div className={`flex items-center gap-2.5 px-5 py-4 ${col.headerBorder}`} style={{ background: `linear-gradient(135deg, ${col.noteBg === "bg-emerald-100" ? "rgba(209, 250, 229, 0.6)" : col.noteBg === "bg-rose-100" ? "rgba(255, 228, 230, 0.6)" : col.noteBg === "bg-sky-100" ? "rgba(224, 242, 254, 0.6)" : "rgba(254, 243, 199, 0.6)"} 0%, rgba(240, 247, 244, 0.4) 100%)` }}>
+        <span className="retro-icon-pulse">{col.icon("w-5 h-5")}</span>
         <h3 className="text-sm font-bold text-gray-800 flex-1">{col.title}</h3>
-        <span className="text-[10px] font-bold text-muted bg-white/60 px-2 py-0.5 rounded-full">{items.length}</span>
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${col.badge} text-white shadow-sm`}>{items.length}</span>
       </div>
 
-      {/* Input */}
       <div className="px-3 pt-3 pb-1">
         <div className="flex gap-2">
           <input
@@ -1849,19 +2053,18 @@ function StickyColumn({ col }) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="Type & press enter..."
-            className={`flex-1 px-3 py-2.5 text-sm border ${col.inputBorder} rounded-xl bg-white/60 placeholder:text-gray-400 ${col.inputFocus} focus:outline-none focus:ring-2 transition-all`}
+            className={`flex-1 px-3 py-2.5 text-sm border ${col.inputBorder} rounded-xl bg-background/80 placeholder:text-gray-400 ${col.inputFocus} focus:outline-none focus:ring-2 transition-all`}
           />
           <button
             onClick={handleAdd}
             disabled={!input.trim()}
-            className={`px-3.5 py-2.5 ${col.btnBg} text-white rounded-xl text-sm font-bold transition-all disabled:opacity-30 btn-press shadow-sm hover:shadow-md`}
+            className={`px-3.5 py-2.5 ${col.btnBg} text-white rounded-xl text-sm font-bold transition-all disabled:opacity-30 btn-press shadow-md hover:shadow-lg hover:scale-105`}
           >
             +
           </button>
         </div>
       </div>
 
-      {/* Notes */}
       <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2.5" style={{ maxHeight: 500 }}>
         {loading ? (
           <div className="flex justify-center py-10">
@@ -1869,42 +2072,21 @@ function StickyColumn({ col }) {
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-            <span className="text-4xl mb-3 opacity-30 retro-float-slow">{col.icon}</span>
+            <span className="mb-3 opacity-20 retro-float-slow">{col.icon("w-10 h-10")}</span>
             <p className="text-xs font-medium">No notes yet</p>
             <p className="text-[10px] text-gray-300 mt-0.5">Type above to add one</p>
           </div>
         ) : (
           items.map((item, idx) => (
-            <div
+            <StickyNote
               key={item.id}
-              className={`group relative ${col.noteBg} rounded-xl px-4 py-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-white/50`}
-              style={{
-                animation: "retroSlideIn 0.3s ease-out both",
-                animationDelay: `${idx * 40}ms`,
-                transform: `rotate(${idx % 3 === 0 ? -0.5 : idx % 3 === 1 ? 0.5 : 0}deg)`,
-              }}
-            >
-              <p className={`text-[13px] ${col.noteText} leading-relaxed font-medium pr-6`}>{item.content}</p>
-              <div className="flex items-center gap-1.5 mt-2">
-                {item.avatar_url ? (
-                  <img src={item.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover ring-1 ring-white" />
-                ) : (
-                  <div className={`w-5 h-5 rounded-full ${col.badge} flex items-center justify-center text-[8px] font-bold text-white shadow-sm`}>
-                    {item.user_name?.charAt(0)?.toUpperCase()}
-                  </div>
-                )}
-                <span className="text-[10px] text-gray-500 font-medium">{item.user_name}</span>
-                {item.votes > 0 && (
-                  <span className={`ml-auto text-[10px] font-bold ${col.badge} text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm`}>{item.votes}</span>
-                )}
-              </div>
-              <button
-                onClick={() => removeItem(item.id)}
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-6 h-6 bg-black/50 backdrop-blur-sm text-white rounded-full flex items-center justify-center text-xs transition-all hover:bg-black/70 hover:scale-110"
-              >
-                ×
-              </button>
-            </div>
+              item={item}
+              col={col}
+              idx={idx}
+              isOwner={user?.id === item.user_id}
+              removeItem={handleRemove}
+              updateItem={handleUpdate}
+            />
           ))
         )}
       </div>
@@ -1913,12 +2095,14 @@ function StickyColumn({ col }) {
 }
 
 function RetroBoardPhase({ onNext, onPrev }) {
+  const { event: boardEvent, broadcast: boardBroadcast } = useRetroBoardChannel();
+
   return (
     <div className="w-full space-y-5">
-      <PhaseHeader icon="📝" title="Retro Board" description="Add your thoughts to each column — be honest, be constructive!" />
+      <PhaseHeader icon={<NotepadIcon className="w-8 h-8" />} title="Retro Board" description="Add your thoughts to each column — be honest, be constructive!" />
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {BOARD_COLUMNS.map((col) => (
-          <StickyColumn key={col.phase} col={col} />
+          <StickyColumn key={col.phase} col={col} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />
         ))}
       </div>
       <PhaseNav onPrev={onPrev} onNext={onNext} />
@@ -1932,12 +2116,17 @@ function RetroBoardPhase({ onNext, onPrev }) {
 const MAX_VOTES = 5;
 const VOTE_PHASES = ["went_well", "didnt_go_well", "should_try", "puzzles_us"];
 
-function VotingPhase({ onNext, onPrev }) {
+function VotingPhase({ employees, role, onNext, onPrev }) {
   const token = useAccessToken();
   const sessionId = useSessionId();
+  const { user } = useAuthContext();
   const [allItems, setAllItems] = useState({});
   const [myVotes, setMyVotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [voteSummary, setVoteSummary] = useState({});
+  const [showTracker, setShowTracker] = useState(true);
+  const { voteEvent, broadcastVoteChange } = useVoteTrackerChannel();
+  const isAdmin = role === "scrum_master" || role === "super_admin";
 
   const remaining = MAX_VOTES - myVotes.length;
 
@@ -1958,9 +2147,6 @@ function VotingPhase({ onNext, onPrev }) {
       for (const item of (itemsData.items || [])) {
         if (grouped[item.phase]) grouped[item.phase].push(item);
       }
-      for (const p of VOTE_PHASES) {
-        grouped[p].sort((a, b) => (b.votes || 0) - (a.votes || 0));
-      }
       setAllItems(grouped);
       setMyVotes(votesData.votes || []);
     } catch (err) { console.error("VotingPhase fetch error:", err); }
@@ -1969,17 +2155,41 @@ function VotingPhase({ onNext, onPrev }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  const fetchSummary = useCallback(async () => {
+    if (!isAdmin || !token || !sessionId) return;
+    try {
+      const res = await fetch(`/api/retro/votes/summary?session_id=${sessionId}&_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (data.voteSummary) setVoteSummary(data.voteSummary);
+    } catch {}
+  }, [isAdmin, token, sessionId]);
+
+  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+
+  useEffect(() => {
+    if (!voteEvent) return;
+    if (isAdmin) {
+      setVoteSummary((prev) => ({ ...prev, [voteEvent.userId]: voteEvent.voteCount }));
+    }
+  }, [voteEvent, isAdmin]);
+
+  const myVoteCount = (itemId) => myVotes.filter((id) => id === itemId).length;
+
   const castVote = async (itemId) => {
-    if (remaining <= 0 || myVotes.includes(itemId)) return;
-    setMyVotes((prev) => [...prev, itemId]);
+    if (remaining <= 0) return;
+    const newVotes = [...myVotes, itemId];
+    setMyVotes(newVotes);
     setAllItems((prev) => {
       const next = { ...prev };
       for (const p of VOTE_PHASES) {
         next[p] = next[p].map((i) => i.id === itemId ? { ...i, votes: (i.votes || 0) + 1 } : i);
-        next[p].sort((a, b) => (b.votes || 0) - (a.votes || 0));
       }
       return next;
     });
+    if (user?.id) broadcastVoteChange(user.id, newVotes.length);
     try {
       await fetch("/api/retro/votes", {
         method: "POST",
@@ -1992,15 +2202,17 @@ function VotingPhase({ onNext, onPrev }) {
 
   const removeVote = async (itemId) => {
     if (!myVotes.includes(itemId)) return;
-    setMyVotes((prev) => prev.filter((id) => id !== itemId));
+    const idx = myVotes.indexOf(itemId);
+    const newVotes = [...myVotes]; newVotes.splice(idx, 1);
+    setMyVotes(newVotes);
     setAllItems((prev) => {
       const next = { ...prev };
       for (const p of VOTE_PHASES) {
         next[p] = next[p].map((i) => i.id === itemId ? { ...i, votes: Math.max((i.votes || 0) - 1, 0) } : i);
-        next[p].sort((a, b) => (b.votes || 0) - (a.votes || 0));
       }
       return next;
     });
+    if (user?.id) broadcastVoteChange(user.id, newVotes.length);
     try {
       await fetch("/api/retro/votes", {
         method: "DELETE",
@@ -2012,10 +2224,10 @@ function VotingPhase({ onNext, onPrev }) {
   };
 
   const colConfig = {
-    went_well: { title: "What went well?", icon: "😊", noteBg: "bg-emerald-100", noteText: "text-emerald-900", badge: "bg-emerald-500", border: "border-emerald-400" },
-    didnt_go_well: { title: "What went less well?", icon: "😟", noteBg: "bg-rose-100", noteText: "text-rose-900", badge: "bg-rose-500", border: "border-rose-400" },
-    should_try: { title: "What do we want to try?", icon: "💡", noteBg: "bg-sky-100", noteText: "text-sky-900", badge: "bg-sky-500", border: "border-sky-400" },
-    puzzles_us: { title: "What puzzles us?", icon: "⚠️", noteBg: "bg-amber-100", noteText: "text-amber-900", badge: "bg-amber-500", border: "border-amber-400" },
+    went_well: { title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, noteBg: "bg-emerald-100", noteText: "text-emerald-900", badge: "bg-emerald-500", border: "border-emerald-400" },
+    didnt_go_well: { title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, noteBg: "bg-rose-100", noteText: "text-rose-900", badge: "bg-rose-500", border: "border-rose-400" },
+    should_try: { title: "What do we want to try?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, noteBg: "bg-sky-100", noteText: "text-sky-900", badge: "bg-sky-500", border: "border-sky-400" },
+    puzzles_us: { title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, noteBg: "bg-amber-100", noteText: "text-amber-900", badge: "bg-amber-500", border: "border-amber-400" },
   };
 
   if (loading) {
@@ -2030,8 +2242,8 @@ function VotingPhase({ onNext, onPrev }) {
   return (
     <div className="w-full space-y-5">
       <div className="text-center">
-        <PhaseHeader icon="🗳️" title="Vote on Items" description="You have 5 votes. Upvote the most important items across all columns." />
-        <div className="inline-flex items-center gap-3 mt-3 px-6 py-3 retro-glass-strong border border-white/40 rounded-full shadow-lg">
+        <PhaseHeader icon={<BallotIcon className="w-8 h-8" />} title="Vote on Items" description="You have 5 votes. Upvote the most important items across all columns." />
+        <div className="inline-flex items-center gap-3 mt-3 px-6 py-3 rounded-full retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.92))", border: "1px solid rgba(6, 194, 134, 0.15)" }}>
           <span className="text-sm font-semibold text-gray-700">Votes remaining:</span>
           <div className="flex gap-1.5">
             {Array.from({ length: MAX_VOTES }).map((_, i) => (
@@ -2041,7 +2253,7 @@ function VotingPhase({ onNext, onPrev }) {
                   i < remaining ? "bg-gradient-to-br from-accent to-accent-dark text-white shadow-md shadow-accent/30 scale-100" : "bg-gray-200/50 text-gray-400 scale-90"
                 }`}
               >
-                ★
+                <StarIcon className="w-3 h-3" />
               </div>
             ))}
           </div>
@@ -2049,47 +2261,158 @@ function VotingPhase({ onNext, onPrev }) {
         </div>
       </div>
 
+      {isAdmin && (employees || []).length > 0 && (
+        <div className="rounded-2xl overflow-hidden retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.92))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+          <button
+            onClick={() => setShowTracker(!showTracker)}
+            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-primary/[0.03] transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <UsersIcon className="w-4 h-4" />
+              <span className="text-sm font-bold text-gray-700">Vote Tracker</span>
+              <span className="text-[10px] font-semibold bg-accent/10 text-accent px-2 py-0.5 rounded-full">Live</span>
+              {(() => {
+                const doneCount = (employees || []).filter((e) => (voteSummary[e.id] || 0) === MAX_VOTES).length;
+                const total = (employees || []).length;
+                return doneCount < total ? (
+                  <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{total - doneCount} pending</span>
+                ) : (
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">All done!</span>
+                );
+              })()}
+            </div>
+            <svg className={`w-4 h-4 text-muted transition-transform duration-200 ${showTracker ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showTracker && (
+            <div className="px-5 pb-4 pt-1 border-t border-white/40">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2.5 mt-2">
+                {(employees || []).map((emp) => {
+                  const used = voteSummary[emp.id] || 0;
+                  const isDone = used === MAX_VOTES;
+                  const notStarted = used === 0;
+                  return (
+                    <div
+                      key={emp.id}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
+                        isDone
+                          ? "bg-emerald-50 border-emerald-200"
+                          : notStarted
+                          ? "bg-red-50/50 border-red-200/60"
+                          : "bg-amber-50/50 border-amber-200/60"
+                      }`}
+                    >
+                      {emp.avatar_url ? (
+                        <img src={emp.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-card-border flex items-center justify-center text-[10px] font-bold text-muted flex-shrink-0">
+                          {emp.name?.charAt(0)?.toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-gray-800 truncate">{emp.name}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {Array.from({ length: MAX_VOTES }).map((_, i) => (
+                            <div
+                              key={i}
+                              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                                i < used
+                                  ? isDone ? "bg-emerald-500" : "bg-amber-400"
+                                  : "bg-gray-200"
+                              }`}
+                            />
+                          ))}
+                          <span className={`text-[10px] font-bold ml-0.5 ${
+                            isDone ? "text-emerald-600" : notStarted ? "text-red-400" : "text-amber-600"
+                          }`}>
+                            {used}/{MAX_VOTES}
+                          </span>
+                        </div>
+                      </div>
+                      {isDone && (
+                        <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {(() => {
+                const doneCount = (employees || []).filter((e) => (voteSummary[e.id] || 0) === MAX_VOTES).length;
+                const total = (employees || []).length;
+                const pending = total - doneCount;
+                return (
+                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/40 text-xs text-muted">
+                    <span className="font-semibold text-emerald-600">{doneCount} done</span>
+                    <span>·</span>
+                    {pending > 0 ? (
+                      <span className="font-semibold text-amber-600">{pending} remaining</span>
+                    ) : (
+                      <span className="font-semibold text-emerald-600">All votes in!</span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {VOTE_PHASES.map((phase) => {
           const cfg = colConfig[phase];
           const items = allItems[phase] || [];
           return (
-            <div key={phase} className="flex flex-col rounded-2xl overflow-hidden retro-glass border border-white/40 shadow-lg">
-              <div className={`flex items-center gap-2.5 px-5 py-4 border-b-4 ${cfg.border} bg-gradient-to-r ${cfg.noteBg.replace("bg-", "from-")}/40 to-white/60`}>
-                <span className="text-xl">{cfg.icon}</span>
+            <div key={phase} className="flex flex-col rounded-2xl overflow-hidden border retro-card-depth" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%)", borderColor: "rgba(6, 194, 134, 0.1)" }}>
+              <div className={`flex items-center gap-2.5 px-5 py-4 border-b-4 ${cfg.border}`} style={{ background: `linear-gradient(135deg, ${cfg.noteBg === "bg-emerald-100" ? "rgba(209, 250, 229, 0.6)" : cfg.noteBg === "bg-rose-100" ? "rgba(255, 228, 230, 0.6)" : cfg.noteBg === "bg-sky-100" ? "rgba(224, 242, 254, 0.6)" : "rgba(254, 243, 199, 0.6)"} 0%, rgba(240, 247, 244, 0.4) 100%)` }}>
+                <span>{cfg.icon("w-5 h-5")}</span>
                 <h3 className="text-sm font-bold text-gray-800 flex-1">{cfg.title}</h3>
-                <span className="text-[10px] font-bold text-muted bg-white/60 px-2 py-0.5 rounded-full">{items.length}</span>
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${cfg.badge} text-white shadow-sm`}>{items.length}</span>
               </div>
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2.5" style={{ maxHeight: 500 }}>
                 {items.length === 0 ? (
                   <p className="text-xs text-gray-400 text-center py-10">No items</p>
                 ) : (
                   items.map((item, idx) => {
-                    const voted = myVotes.includes(item.id);
+                    const myCount = myVoteCount(item.id);
+                    const voted = myCount > 0;
                     return (
                       <div
                         key={item.id}
-                        className={`relative ${cfg.noteBg} rounded-xl px-4 py-3 transition-all duration-300 border ${voted ? "ring-2 ring-accent shadow-lg border-accent/30 -translate-y-0.5" : "border-white/50 hover:shadow-md"}`}
+                        className={`relative ${cfg.noteBg} rounded-xl px-4 py-3 transition-all duration-300 border ${voted ? "ring-2 ring-accent shadow-lg border-accent/30" : "border-white/50 hover:shadow-md"}`}
                         style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 40}ms` }}
                       >
                         <div className="flex items-start gap-3">
-                          <button
-                            onClick={() => voted ? removeVote(item.id) : castVote(item.id)}
-                            disabled={!voted && remaining <= 0}
-                            className={`mt-0.5 flex-shrink-0 w-9 h-9 rounded-xl flex flex-col items-center justify-center text-xs font-bold transition-all duration-300 ${
-                              voted
-                                ? "bg-gradient-to-br from-accent to-accent-dark text-white shadow-lg shadow-accent/30 scale-110"
-                                : remaining > 0
-                                  ? "bg-white/80 text-gray-500 hover:bg-accent/10 hover:text-accent hover:scale-110 border border-white/60 shadow-sm"
+                          <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-0.5">
+                            <button
+                              onClick={() => castVote(item.id)}
+                              disabled={remaining <= 0}
+                              className={`w-8 h-6 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                                remaining > 0
+                                  ? "bg-white/80 text-gray-500 hover:bg-accent/20 hover:text-accent hover:scale-110 border border-white/60 shadow-sm"
                                   : "bg-gray-100/50 text-gray-300 cursor-not-allowed"
-                            }`}
-                            title={voted ? "Remove vote" : remaining > 0 ? "Upvote" : "No votes left"}
-                          >
-                            <svg className="w-3.5 h-3.5" fill={voted ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                            </svg>
-                            <span className="text-[9px] leading-none font-black">{item.votes || 0}</span>
-                          </button>
+                              }`}
+                              title={remaining > 0 ? "Upvote" : "No votes left"}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                              </svg>
+                            </button>
+                            <span className={`text-xs font-black leading-none ${(item.votes || 0) > 0 ? cfg.text : "text-gray-400"}`}>{item.votes || 0}</span>
+                            {voted && (
+                              <button
+                                onClick={() => removeVote(item.id)}
+                                className="w-8 h-6 rounded-lg flex items-center justify-center bg-white/80 text-gray-400 hover:bg-red-100 hover:text-red-500 border border-white/60 shadow-sm transition-all duration-200 hover:scale-110"
+                                title="Remove one vote"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-[13px] ${cfg.noteText} leading-snug font-medium`}>{item.content}</p>
                             <div className="flex items-center gap-1.5 mt-1">
@@ -2101,6 +2424,11 @@ function VotingPhase({ onNext, onPrev }) {
                                 </div>
                               )}
                               <span className="text-[10px] text-gray-500">{item.user_name}</span>
+                              {myCount > 0 && (
+                                <span className="ml-auto text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
+                                  You: {myCount}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2123,10 +2451,10 @@ function VotingPhase({ onNext, onPrev }) {
 /*  Phase 5 – Vote Results (sorted by highest votes)                   */
 /* ------------------------------------------------------------------ */
 const RESULT_COL_CONFIG = [
-  { phase: "went_well", title: "What went well?", icon: "😊", bg: "bg-emerald-100", text: "text-emerald-900", border: "border-emerald-400", badge: "bg-emerald-500", barBg: "bg-emerald-400" },
-  { phase: "didnt_go_well", title: "What went less well?", icon: "😟", bg: "bg-rose-100", text: "text-rose-900", border: "border-rose-400", badge: "bg-rose-500", barBg: "bg-rose-400" },
-  { phase: "should_try", title: "What to try next?", icon: "💡", bg: "bg-sky-100", text: "text-sky-900", border: "border-sky-400", badge: "bg-sky-500", barBg: "bg-sky-400" },
-  { phase: "puzzles_us", title: "What puzzles us?", icon: "⚠️", bg: "bg-amber-100", text: "text-amber-900", border: "border-amber-400", badge: "bg-amber-500", barBg: "bg-amber-400" },
+  { phase: "went_well", title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, bg: "bg-emerald-100", text: "text-emerald-900", border: "border-emerald-400", badge: "bg-emerald-500", barBg: "bg-emerald-400" },
+  { phase: "didnt_go_well", title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, bg: "bg-rose-100", text: "text-rose-900", border: "border-rose-400", badge: "bg-rose-500", barBg: "bg-rose-400" },
+  { phase: "should_try", title: "What to try next?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, bg: "bg-sky-100", text: "text-sky-900", border: "border-sky-400", badge: "bg-sky-500", barBg: "bg-sky-400" },
+  { phase: "puzzles_us", title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, bg: "bg-amber-100", text: "text-amber-900", border: "border-amber-400", badge: "bg-amber-500", barBg: "bg-amber-400" },
 ];
 
 function VoteResultsPhase({ onNext, onPrev }) {
@@ -2172,15 +2500,15 @@ function VoteResultsPhase({ onNext, onPrev }) {
 
   return (
     <div className="w-full space-y-6">
-      <PhaseHeader icon="📊" title="Vote Results" description="Items ranked by votes — the team has spoken! Focus discussions on top-voted items." />
+      <PhaseHeader icon={<ChartBarIcon className="w-8 h-8" />} title="Vote Results" description="Items ranked by votes — the team has spoken! Focus discussions on top-voted items." />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {RESULT_COL_CONFIG.map((cfg) => {
           const items = allItems[cfg.phase] || [];
           return (
-            <div key={cfg.phase} className="rounded-2xl overflow-hidden retro-glass border border-white/40 shadow-lg flex flex-col">
-              <div className={`flex items-center gap-2.5 px-5 py-4 border-b-4 ${cfg.border} bg-gradient-to-r ${cfg.bg.replace("bg-", "from-")}/40 to-white/60`}>
-                <span className="text-xl">{cfg.icon}</span>
+            <div key={cfg.phase} className="rounded-2xl overflow-hidden border retro-card-depth flex flex-col" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%)", borderColor: "rgba(6, 194, 134, 0.1)" }}>
+              <div className={`flex items-center gap-2.5 px-5 py-4 border-b-4 ${cfg.border}`} style={{ background: `linear-gradient(135deg, ${cfg.bg === "bg-emerald-100" ? "rgba(209, 250, 229, 0.6)" : cfg.bg === "bg-rose-100" ? "rgba(255, 228, 230, 0.6)" : cfg.bg === "bg-sky-100" ? "rgba(224, 242, 254, 0.6)" : "rgba(254, 243, 199, 0.6)"} 0%, rgba(240, 247, 244, 0.4) 100%)` }}>
+                <span>{cfg.icon("w-5 h-5")}</span>
                 <h3 className="text-sm font-bold text-gray-800 flex-1">{cfg.title}</h3>
               </div>
               <div className="flex-1 overflow-y-auto" style={{ maxHeight: 520 }}>
@@ -2190,7 +2518,7 @@ function VoteResultsPhase({ onNext, onPrev }) {
                   items.map((item, idx) => {
                     const pct = maxVotes > 0 ? ((item.votes || 0) / maxVotes) * 100 : 0;
                     const isTop = idx === 0 && (item.votes || 0) > 0;
-                    const medalEmoji = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
+                    const medalRank = idx < 3 ? idx + 1 : null;
                     return (
                       <div
                         key={item.id}
@@ -2205,7 +2533,7 @@ function VoteResultsPhase({ onNext, onPrev }) {
                               ? `bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600 shadow-sm`
                               : "bg-gray-100/50 text-gray-400"
                           }`}>
-                            {medalEmoji && (item.votes || 0) > 0 ? <span className="text-sm">{medalEmoji}</span> : idx + 1}
+                            {medalRank && (item.votes || 0) > 0 ? <MedalIcon className="w-5 h-5" rank={medalRank} /> : idx + 1}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-[13px] font-medium leading-snug ${isTop ? cfg.text : "text-gray-800"}`}>
@@ -2255,32 +2583,49 @@ function VoteResultsPhase({ onNext, onPrev }) {
 function ActionItemsPhase({ employees, onNext, onPrev }) {
   const { items: actions, loading, addItem, removeItem } = useRetroItems("action_items", { all: true });
   const [input, setInput] = useState("");
-  const [assignee, setAssignee] = useState("");
+  const [assignees, setAssignees] = useState([]);
   const [dueDate, setDueDate] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    if (showDropdown) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showDropdown]);
 
   const handleAdd = () => {
-    if (input.trim() && assignee) {
-      addItem(input.trim(), assignee, dueDate || null);
+    if (input.trim() && assignees.length > 0) {
+      addItem(input.trim(), assignees.join(", "), dueDate || null);
       setInput("");
-      setAssignee("");
+      setAssignees([]);
       setDueDate("");
     }
   };
 
-  const selectedEmp = employees.find((e) => e.name === assignee);
+  const toggleAssignee = (name) => {
+    setAssignees((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
+  };
+
+  const selectedEmps = employees.filter((e) => assignees.includes(e.name));
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PhaseHeader
-        icon="🚀"
+        icon={<RocketIcon className="w-8 h-8" />}
         title="Action Items"
         description="Define concrete steps to improve the next sprint. Assign owners and due dates."
       />
 
       {/* Add form */}
       <div className="retro-gradient-border rounded-2xl retro-slide-in-delay-1">
-        <div className="retro-glass-strong rounded-2xl p-5 space-y-3">
+        <div className="rounded-2xl p-5 space-y-3" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95), rgba(230, 236, 247, 0.9))" }}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -2289,30 +2634,43 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
         />
 
         <div className="flex gap-2">
-          {/* Assignee dropdown */}
-          <div className="relative flex-1">
+          {/* Assignee dropdown (multi-select) */}
+          <div className="relative flex-1" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setShowDropdown(!showDropdown)}
               className={`w-full flex items-center gap-2 px-4 py-3 bg-background border border-card-border rounded-xl text-sm text-left transition-all focus:outline-none focus:ring-2 focus:ring-accent/30 ${
-                assignee ? "text-foreground" : "text-muted/60"
+                assignees.length > 0 ? "text-foreground" : "text-muted/60"
               }`}
             >
-              {selectedEmp ? (
-                <>
-                  {selectedEmp.avatar_url ? (
-                    <img src={selectedEmp.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-[8px] font-bold text-muted">
-                      {selectedEmp.name?.charAt(0)?.toUpperCase()}
-                    </div>
-                  )}
-                  <span>{selectedEmp.name}</span>
-                </>
+              {selectedEmps.length > 0 ? (
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <div className="flex -space-x-1.5 flex-shrink-0">
+                    {selectedEmps.slice(0, 3).map((emp) =>
+                      emp.avatar_url ? (
+                        <img key={emp.id} src={emp.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover border border-white" />
+                      ) : (
+                        <div key={emp.id} className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-[8px] font-bold text-muted border border-white">
+                          {emp.name?.charAt(0)?.toUpperCase()}
+                        </div>
+                      )
+                    )}
+                    {selectedEmps.length > 3 && (
+                      <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[8px] font-bold text-accent border border-white">
+                        +{selectedEmps.length - 3}
+                      </div>
+                    )}
+                  </div>
+                  <span className="truncate text-xs">
+                    {selectedEmps.length === 1
+                      ? selectedEmps[0].name
+                      : `${selectedEmps.length} assignees`}
+                  </span>
+                </div>
               ) : (
-                <span>Select assignee...</span>
+                <span>Select assignees...</span>
               )}
-              <svg className="w-4 h-4 ml-auto text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 ml-auto text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -2322,29 +2680,36 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
                 className="absolute z-30 left-0 right-0 mt-1 bg-card border border-card-border rounded-xl shadow-xl max-h-48 overflow-y-auto"
                 style={{ animation: "fadeInScale 0.15s ease-out" }}
               >
-                {employees.map((emp) => (
-                  <button
-                    key={emp.id}
-                    onClick={() => { setAssignee(emp.name); setShowDropdown(false); }}
-                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-accent/5 transition-colors ${
-                      assignee === emp.name ? "bg-accent/10 text-accent font-medium" : "text-foreground"
-                    }`}
-                  >
-                    {emp.avatar_url ? (
-                      <img src={emp.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[9px] font-bold text-muted">
-                        {emp.name?.charAt(0)?.toUpperCase()}
+                {employees.map((emp) => {
+                  const isSelected = assignees.includes(emp.name);
+                  return (
+                    <button
+                      key={emp.id}
+                      onClick={() => toggleAssignee(emp.name)}
+                      className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-accent/5 transition-colors ${
+                        isSelected ? "bg-accent/10 text-accent font-medium" : "text-foreground"
+                      }`}
+                    >
+                      {emp.avatar_url ? (
+                        <img src={emp.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[9px] font-bold text-muted">
+                          {emp.name?.charAt(0)?.toUpperCase()}
+                        </div>
+                      )}
+                      {emp.name}
+                      <div className={`w-4 h-4 ml-auto rounded border-2 flex items-center justify-center transition-colors ${
+                        isSelected ? "bg-accent border-accent" : "border-gray-300"
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
                       </div>
-                    )}
-                    {emp.name}
-                    {assignee === emp.name && (
-                      <svg className="w-4 h-4 ml-auto text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2362,7 +2727,7 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
 
         <button
           onClick={handleAdd}
-          disabled={!input.trim() || !assignee}
+          disabled={!input.trim() || assignees.length === 0}
           className="w-full py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold hover:shadow-md transition-all disabled:opacity-30 btn-press"
         >
           Add Action Item
@@ -2376,8 +2741,8 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
           <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
         </div>
       ) : actions.length > 0 ? (
-        <div className="retro-glass-strong border border-white/40 rounded-2xl overflow-hidden shadow-md">
-          <div className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3 bg-gradient-to-r from-primary/5 to-accent/5 border-b border-white/40 text-[11px] font-semibold text-muted uppercase tracking-wider">
+        <div className="rounded-2xl overflow-hidden retro-card-depth" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+          <div className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 border-b border-primary/10 text-[11px] font-semibold text-muted uppercase tracking-wider" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.6), rgba(230, 236, 247, 0.5))" }}>
             <span>Action</span>
             <span>Assignee</span>
             <span className="text-right">Due Date</span>
@@ -2386,7 +2751,8 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
           <div className="divide-y divide-card-border/60">
             {actions.map((a) => {
               const due = a.due_date ? formatDueDate(a.due_date) : null;
-              const empMatch = employees.find((e) => e.name === a.assignee);
+              const assigneeNames = a.assignee ? a.assignee.split(", ") : [];
+              const empMatches = assigneeNames.map((n) => employees.find((e) => e.name === n)).filter(Boolean);
               return (
                 <div key={a.id} className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 items-center hover:bg-card-border/10 transition-colors">
                   <div className="min-w-0">
@@ -2394,14 +2760,31 @@ function ActionItemsPhase({ employees, onNext, onPrev }) {
                     <p className="text-[10px] text-muted">added by {a.user_name}</p>
                   </div>
                   <div className="flex items-center gap-2 min-w-0">
-                    {(empMatch?.avatar_url || a.avatar_url) ? (
-                      <img src={empMatch?.avatar_url || a.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-card-border flex-shrink-0" />
+                    {empMatches.length > 0 ? (
+                      <div className="flex -space-x-1.5 flex-shrink-0">
+                        {empMatches.slice(0, 3).map((emp) =>
+                          emp.avatar_url ? (
+                            <img key={emp.id} src={emp.avatar_url} alt={emp.name} title={emp.name} className="w-7 h-7 rounded-full object-cover border border-card-border" />
+                          ) : (
+                            <div key={emp.id} title={emp.name} className="w-7 h-7 rounded-full bg-card-border flex items-center justify-center text-[10px] font-bold text-muted border border-white">
+                              {emp.name?.charAt(0)?.toUpperCase()}
+                            </div>
+                          )
+                        )}
+                        {empMatches.length > 3 && (
+                          <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center text-[9px] font-bold text-accent border border-white">
+                            +{empMatches.length - 3}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className="w-7 h-7 rounded-full bg-card-border flex items-center justify-center text-[10px] font-bold text-muted flex-shrink-0">
                         {(a.assignee || a.user_name)?.charAt(0)?.toUpperCase()}
                       </div>
                     )}
-                    <span className="text-xs font-medium text-foreground truncate">{a.assignee || a.user_name}</span>
+                    <span className="text-xs font-medium text-foreground truncate">
+                      {assigneeNames.length > 1 ? `${assigneeNames.length} people` : (a.assignee || a.user_name)}
+                    </span>
                   </div>
                   <div className="text-right">
                     {due ? (
@@ -2462,25 +2845,25 @@ function AppreciationPhase({ onNext, onPrev }) {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <PhaseHeader
-        icon="🙏"
+        icon={<HandHeartIcon className="w-8 h-8" />}
         title="Appreciation"
         description="Give shoutouts to teammates who made a difference this sprint."
       />
 
       <div className="retro-gradient-border rounded-2xl overflow-hidden">
-        <div className="retro-glass-strong rounded-2xl p-5 flex gap-2">
+        <div className="rounded-2xl p-5 flex gap-2" style={{ background: "linear-gradient(145deg, rgba(252, 231, 243, 0.3), rgba(240, 247, 244, 0.95), rgba(230, 236, 247, 0.9))" }}>
           <input
             value={who}
             onChange={(e) => setWho(e.target.value)}
             placeholder="Who?"
-            className="w-36 px-4 py-3 bg-white/60 border border-white/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
+            className="w-36 px-4 py-3 bg-background/80 border border-pink-200/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-pink-400/30 transition-all"
           />
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="What did they do that was awesome?"
-            className="flex-1 px-4 py-3 bg-white/60 border border-white/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
+            className="flex-1 px-4 py-3 bg-background/80 border border-pink-200/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-pink-400/30 transition-all"
           />
           <button
             onClick={handleAdd}
@@ -2507,11 +2890,11 @@ function AppreciationPhase({ onNext, onPrev }) {
             return (
               <div
                 key={k.id}
-                className="relative overflow-hidden retro-glass-strong border border-white/40 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 group"
-                style={{ animation: "retroSlideIn 0.4s ease-out both", animationDelay: `${idx * 80}ms` }}
+                className="relative overflow-hidden rounded-2xl p-5 hover:shadow-xl transition-all duration-300 group retro-card-depth"
+                style={{ animation: "retroSlideIn 0.4s ease-out both", animationDelay: `${idx * 80}ms`, background: "linear-gradient(135deg, rgba(252, 231, 243, 0.5), rgba(240, 247, 244, 0.9), rgba(230, 236, 247, 0.85))", border: "1px solid rgba(236, 72, 153, 0.12)" }}
               >
                 <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-pink-400 via-rose-500 to-pink-400 rounded-r-full" />
-                <div className="absolute top-3 right-4 text-2xl opacity-10 group-hover:opacity-20 transition-opacity">💛</div>
+                <div className="absolute top-3 right-4 opacity-10 group-hover:opacity-20 transition-opacity"><HeartIcon className="w-6 h-6 text-pink-400" /></div>
                 <div className="flex items-center gap-3 mb-2.5 pl-3">
                   {k.avatar_url ? (
                     <img src={k.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-pink-400/30 ring-offset-2" />
@@ -2532,7 +2915,7 @@ function AppreciationPhase({ onNext, onPrev }) {
         </div>
       ) : (
         <div className="text-center py-12 text-muted/60">
-          <span className="text-5xl block mb-3 opacity-30 retro-float-slow">💛</span>
+          <span className="block mb-3 opacity-30 retro-float-slow"><HeartIcon className="w-12 h-12 mx-auto text-pink-400" /></span>
           <p className="text-sm font-medium">No shoutouts yet</p>
           <p className="text-xs text-muted/40 mt-0.5">Appreciate your teammates above!</p>
         </div>
@@ -2555,8 +2938,8 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
       <div className="text-center space-y-4 mb-2 retro-slide-in relative">
         <div className="relative inline-flex items-center justify-center">
           <div className="absolute w-24 h-24 rounded-3xl bg-gradient-to-br from-primary/20 to-accent/20 blur-xl retro-icon-pulse" />
-          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center text-5xl retro-icon-pulse">
-            🎉
+          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center retro-icon-pulse">
+            <SparklesIcon className="w-10 h-10" />
           </div>
         </div>
         <h2 className="text-3xl font-extrabold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Retrospective Complete!</h2>
@@ -2567,9 +2950,9 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
       </div>
 
       <div className="retro-gradient-border rounded-3xl retro-slide-in-delay-1">
-        <div className="retro-glass-strong rounded-3xl p-6 space-y-4">
+        <div className="rounded-3xl p-6 space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
           <h3 className="font-bold text-foreground flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
               <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -2580,15 +2963,15 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
             {PHASES.map((phase, idx) => (
               <div
                 key={phase.id}
-                className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 border border-white/50 text-sm hover:from-primary/10 hover:to-accent/10 transition-all"
-                style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 50}ms` }}
+                className="flex items-center gap-2.5 p-3 rounded-xl text-sm transition-all hover:scale-[1.02]"
+                style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 50}ms`, background: "linear-gradient(135deg, rgba(232, 250, 243, 0.7), rgba(230, 236, 247, 0.6))", border: "1px solid rgba(6, 194, 134, 0.1)" }}
               >
-                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent text-white flex items-center justify-center shadow-sm">
+                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent text-white flex items-center justify-center shadow-md shadow-primary/20">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </span>
-                <span className="text-foreground/80 font-medium">{phase.icon} {phase.label}</span>
+                <span className="text-foreground/80 font-medium inline-flex items-center gap-1.5">{phase.icon("w-4 h-4")} {phase.label}</span>
               </div>
             ))}
           </div>
@@ -2624,10 +3007,13 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
 /* ------------------------------------------------------------------ */
 /*  Employee Retro View – follows the facilitator's phase via polling   */
 /* ------------------------------------------------------------------ */
-function EmployeeRetroView({ token, employees, role, icebreakerState, spinTrigger }) {
+function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger }) {
   const [currentPhase, setCurrentPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
+  const [sessionTeamIds, setSessionTeamIds] = useState([]);
   const [hasSession, setHasSession] = useState(false);
+  const [employees, setEmployees] = useState(allEmployees);
+  const teamFetchedRef = useRef(null);
 
   useEffect(() => {
     if (!token) return;
@@ -2645,9 +3031,22 @@ function EmployeeRetroView({ token, employees, role, icebreakerState, spinTrigge
           setHasSession(true);
           setSessionId(data.session.id);
           setCurrentPhase(data.session.current_phase ?? 0);
+          const raw = data.session.team_id || "";
+          const teams = raw ? raw.split(",").filter(Boolean) : [];
+          setSessionTeamIds(teams);
+
+          if (teamFetchedRef.current !== (raw || "all")) {
+            teamFetchedRef.current = raw || "all";
+            const filter = raw ? `?team_id=${raw}` : "";
+            fetch(`/api/retro/employees${filter}`)
+              .then((r) => r.json())
+              .then((ed) => { if (active) setEmployees(ed.employees || []); })
+              .catch(() => {});
+          }
         } else {
           setHasSession(false);
           setSessionId(null);
+          setSessionTeamIds([]);
           setCurrentPhase(null);
         }
       } catch {}
@@ -2666,11 +3065,20 @@ function EmployeeRetroView({ token, employees, role, icebreakerState, spinTrigge
 
         <div className="relative inline-flex items-center justify-center">
           <div className="absolute w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/15 to-accent/15 blur-xl retro-icon-pulse" />
-          <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center text-3xl retro-icon-pulse">
-            🔄
+          <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center retro-icon-pulse">
+            <ArrowPathIcon className="w-8 h-8" />
           </div>
         </div>
         <h1 className="text-2xl font-extrabold bg-gradient-to-r from-foreground via-foreground to-accent bg-clip-text text-transparent">Sprint Retrospective</h1>
+        {sessionTeamIds.length > 0 && (
+          <div className="flex justify-center gap-1.5 flex-wrap">
+            {sessionTeamIds.map((tid) => (
+              <span key={tid} className={`inline-block text-[10px] font-semibold px-2.5 py-1 rounded-full border ${getTeamColor(tid)}`}>
+                {getTeamLabel(tid)}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="text-muted text-sm">Waiting for the facilitator to start the session...</p>
         <div className="flex justify-center pt-4">
           <div className="relative w-10 h-10">
@@ -2686,16 +3094,25 @@ function EmployeeRetroView({ token, employees, role, icebreakerState, spinTrigge
   return (
     <SessionContext.Provider value={sessionId}>
       <div className="space-y-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-3">
+          {sessionTeamIds.length > 0 && (
+            <div className="flex justify-center gap-1.5 flex-wrap">
+              {sessionTeamIds.map((tid) => (
+                <span key={tid} className={`text-[10px] font-semibold px-3 py-1.5 rounded-full border shadow-sm ${getTeamColor(tid)}`}>
+                  {getTeamLabel(tid)}
+                </span>
+              ))}
+            </div>
+          )}
           <ProgressBar currentPhase={currentPhase} />
         </div>
 
-        <div className={`min-h-[420px] mx-auto ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}>
+        <div className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}>
           {currentPhase === 0 && <EmployeeIceBreakerView employees={employees} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />}
           {currentPhase === 1 && <EmployeeMoodPicker />}
-          {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} onNext={null} onPrev={null} />}
+          {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={null} onPrev={null} />}
           {currentPhase === 3 && <RetroBoardPhase onNext={null} onPrev={null} />}
-          {currentPhase === 4 && <VotingPhase onNext={null} onPrev={null} />}
+          {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} />}
           {currentPhase === 5 && <VoteResultsPhase onNext={null} onPrev={null} />}
           {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={null} onPrev={null} />}
           {currentPhase === 7 && <AppreciationPhase onNext={null} onPrev={null} />}
@@ -2715,6 +3132,9 @@ export default function RetrospectivePage() {
   const [currentPhase, setCurrentPhase] = useState(0);
   const [started, setStarted] = useState(false);
   const [sessionId, setSessionId] = useState(null);
+  const [selectedTeams, setSelectedTeams] = useState([]);
+  const [sessionTeamIds, setSessionTeamIds] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -2724,9 +3144,16 @@ export default function RetrospectivePage() {
   useEffect(() => {
     fetch("/api/retro/employees")
       .then((r) => r.json())
-      .then((d) => setEmployees(d.employees || []))
+      .then((d) => {
+        setAllEmployees(d.employees || []);
+        setEmployees(d.employees || []);
+      })
       .catch(() => {});
   }, []);
+
+  const filteredEmployees = selectedTeams.length === 0
+    ? allEmployees
+    : allEmployees.filter((e) => (e.teams || []).some((t) => selectedTeams.includes(t)));
 
   useEffect(() => {
     if (!token) return;
@@ -2740,6 +3167,16 @@ export default function RetrospectivePage() {
           setSessionId(d.session.id);
           setCurrentPhase(d.session.current_phase ?? 0);
           setStarted(true);
+          const raw = d.session.team_id || "";
+          const teams = raw ? raw.split(",").filter(Boolean) : [];
+          setSessionTeamIds(teams);
+          setSelectedTeams(teams);
+          if (teams.length > 0) {
+            fetch(`/api/retro/employees?team_id=${raw}`)
+              .then((r) => r.json())
+              .then((ed) => setEmployees(ed.employees || []))
+              .catch(() => {});
+          }
         }
       })
       .catch(() => {})
@@ -2760,15 +3197,25 @@ export default function RetrospectivePage() {
   const startMeeting = async () => {
     if (!token) return;
     try {
+      const teamId = selectedTeams.length > 0 ? selectedTeams.join(",") : null;
       const res = await fetch("/api/retro/session", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ team_id: teamId }),
       });
       const data = await res.json();
       if (data.session) {
         setSessionId(data.session.id);
+        setSessionTeamIds(selectedTeams);
         setCurrentPhase(0);
         setStarted(true);
+
+        const teamFilter = teamId ? `?team_id=${teamId}` : "";
+        fetch(`/api/retro/employees${teamFilter}`)
+          .then((r) => r.json())
+          .then((ed) => setEmployees(ed.employees || []))
+          .catch(() => {});
+
         setTimeout(() => {
           fetch("/api/retro/session", {
             method: "PUT",
@@ -2806,7 +3253,10 @@ export default function RetrospectivePage() {
     }
     setStarted(false);
     setSessionId(null);
+    setSessionTeamIds([]);
+    setSelectedTeams([]);
     setCurrentPhase(0);
+    setEmployees(allEmployees);
   };
 
   if (authLoading || checkingSession) {
@@ -2843,8 +3293,8 @@ export default function RetrospectivePage() {
           <div className="space-y-4 retro-slide-in">
             <div className="relative inline-flex items-center justify-center">
               <div className="absolute w-24 h-24 rounded-3xl bg-gradient-to-br from-primary/15 to-accent/15 blur-xl retro-icon-pulse" />
-              <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center text-5xl retro-icon-pulse">
-                🔄
+              <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center retro-icon-pulse">
+                <ArrowPathIcon className="w-10 h-10" />
               </div>
             </div>
             <h1 className="text-3xl font-extrabold bg-gradient-to-r from-foreground via-foreground to-accent bg-clip-text text-transparent">Sprint Retrospective</h1>
@@ -2854,23 +3304,104 @@ export default function RetrospectivePage() {
             </p>
           </div>
 
+          {/* Team Selection */}
           <div className="retro-gradient-border rounded-3xl retro-slide-in-delay-1">
-            <div className="retro-glass-strong rounded-3xl p-6 text-left">
+            <div className="rounded-3xl p-6 text-left space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
+              <h3 className="font-bold text-foreground flex items-center gap-2 text-sm">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-primary/15 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                Select Team
+              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setSelectedTeams([])}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    selectedTeams.length === 0
+                      ? "bg-accent text-white border-accent shadow-md shadow-accent/20"
+                      : "bg-white/60 text-muted border-card-border hover:bg-white/80"
+                  }`}
+                >
+                  All Teams ({allEmployees.length})
+                </button>
+                {TEAMS.map((team) => {
+                  const count = allEmployees.filter((e) => (e.teams || []).includes(team.id)).length;
+                  const isSelected = selectedTeams.includes(team.id);
+                  return (
+                    <button
+                      key={team.id}
+                      onClick={() => {
+                        setSelectedTeams((prev) =>
+                          prev.includes(team.id)
+                            ? prev.filter((t) => t !== team.id)
+                            : [...prev, team.id]
+                        );
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        isSelected
+                          ? team.color + " shadow-md"
+                          : "bg-white/60 text-muted border-card-border hover:bg-white/80"
+                      }`}
+                    >
+                      {team.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Filtered member preview */}
+              <div className="pt-2 border-t border-card-border/50">
+                <p className="text-xs text-muted mb-2.5">
+                  {filteredEmployees.length} member{filteredEmployees.length !== 1 ? "s" : ""} in this retro
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {filteredEmployees.map((emp) => (
+                    <div
+                      key={emp.id}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/70 border border-card-border/60 text-xs"
+                    >
+                      {emp.avatar_url ? (
+                        <img src={emp.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-primary-light flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-primary-dark">
+                            {emp.name?.charAt(0)?.toUpperCase() || "?"}
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-foreground/80 font-medium">{emp.name}</span>
+                    </div>
+                  ))}
+                  {filteredEmployees.length === 0 && (
+                    <p className="text-xs text-muted/60 italic">No members found for this team</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Meeting flow */}
+          <div className="retro-gradient-border rounded-3xl retro-slide-in-delay-1">
+            <div className="rounded-3xl p-6 text-left" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
               <h3 className="font-bold text-foreground mb-4 flex items-center gap-2 text-sm">
-                <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
-                Meeting Flow — {PHASES.length} Phases
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-primary/15 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                </div>
+                Meeting Flow -- {PHASES.length} Phases
               </h3>
               <div className="space-y-1.5">
                 {PHASES.map((phase, idx) => (
-                  <div key={phase.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 transition-all group">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/8 to-accent/8 border border-white/50 flex items-center justify-center text-sm flex-shrink-0 group-hover:scale-105 transition-transform">
-                      {phase.icon}
+                  <div key={phase.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-primary/8 hover:to-accent/6 transition-all group">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.8), rgba(230, 236, 247, 0.7))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+                      {phase.icon("w-4 h-4")}
                     </div>
                     <span className="text-sm text-foreground/80 font-medium">{phase.label}</span>
                     {idx === 0 && (
-                      <span className="ml-auto text-[10px] font-bold text-accent bg-accent/10 px-2.5 py-0.5 rounded-full">
+                      <span className="ml-auto text-[10px] font-bold text-white bg-gradient-to-r from-accent to-accent-dark px-2.5 py-0.5 rounded-full shadow-sm shadow-accent/20">
                         START
                       </span>
                     )}
@@ -2883,7 +3414,12 @@ export default function RetrospectivePage() {
           <div className="retro-slide-in-delay-2">
             <button
               onClick={startMeeting}
-              className="group inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-primary to-accent text-white rounded-2xl text-sm font-semibold shadow-xl shadow-accent/20 hover:shadow-2xl hover:shadow-accent/30 hover:scale-[1.02] transition-all btn-press btn-shimmer"
+              disabled={filteredEmployees.length === 0}
+              className={`group inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-semibold shadow-xl transition-all btn-press btn-shimmer ${
+                filteredEmployees.length === 0
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                  : "bg-gradient-to-r from-primary to-accent text-white shadow-accent/20 hover:shadow-2xl hover:shadow-accent/30 hover:scale-[1.02]"
+              }`}
             >
               <span>Start Retrospective</span>
               <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2901,25 +3437,31 @@ export default function RetrospectivePage() {
     <SessionContext.Provider value={sessionId}>
       <AppLayout>
         <div className="space-y-8 pb-8">
-          {/* Progress bar + timer */}
-          <div className="max-w-4xl mx-auto space-y-3">
+          <div className="max-w-4xl mx-auto space-y-4">
+            {sessionTeamIds.length > 0 && (
+              <div className="flex justify-center gap-1.5 flex-wrap retro-slide-in">
+                {sessionTeamIds.map((tid) => (
+                  <span key={tid} className={`text-[10px] font-semibold px-3 py-1.5 rounded-full border shadow-sm ${getTeamColor(tid)}`}>
+                    {getTeamLabel(tid)}
+                  </span>
+                ))}
+              </div>
+            )}
             <ProgressBar currentPhase={currentPhase} />
             <div className="flex justify-end retro-slide-in-delay-1">
               <PhaseTimer phaseIndex={currentPhase} />
             </div>
           </div>
 
-          {/* Phase content */}
           <div
             key={currentPhase}
-            className={`min-h-[420px] mx-auto ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}
-            style={{ animation: "retroSlideIn 0.45s cubic-bezier(0.22, 1, 0.36, 1)" }}
+            className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}
           >
             {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={next} broadcastIcebreakerState={broadcastIcebreakerState} broadcastSpin={broadcastSpin} />}
             {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={next} onPrev={prev} />}
-            {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} onNext={next} onPrev={prev} />}
+            {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={next} onPrev={prev} />}
             {currentPhase === 3 && <RetroBoardPhase onNext={next} onPrev={prev} />}
-            {currentPhase === 4 && <VotingPhase onNext={next} onPrev={prev} />}
+            {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={next} onPrev={prev} />}
             {currentPhase === 5 && <VoteResultsPhase onNext={next} onPrev={prev} />}
             {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={next} onPrev={prev} />}
             {currentPhase === 7 && <AppreciationPhase onNext={next} onPrev={prev} />}

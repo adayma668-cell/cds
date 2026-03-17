@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import EmptyState from "@/components/EmptyState";
 import ConfirmModal from "@/components/ConfirmModal";
+import { TargetIcon, NotepadIcon, LightbulbIcon, BellAlertIcon } from "@/lib/icons";
 
 export default function NotesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -16,10 +17,10 @@ export default function NotesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const CATEGORIES = [
-    { value: "goal", label: "Goal", icon: "🎯", color: "bg-primary-light text-primary-dark border-primary/20" },
-    { value: "note", label: "Note", icon: "📝", color: "bg-accent-light text-accent border-accent/20" },
-    { value: "idea", label: "Idea", icon: "💡", color: "bg-amber-100 text-amber-700 border-amber-200" },
-    { value: "reminder", label: "Reminder", icon: "🔔", color: "bg-purple-100 text-purple-700 border-purple-200" },
+    { value: "goal", label: "Goal", icon: <TargetIcon className="w-3.5 h-3.5" />, color: "bg-primary-light text-primary-dark border-primary/20" },
+    { value: "note", label: "Note", icon: <NotepadIcon className="w-3.5 h-3.5" />, color: "bg-accent-light text-accent border-accent/20" },
+    { value: "idea", label: "Idea", icon: <LightbulbIcon className="w-3.5 h-3.5" />, color: "bg-amber-100 text-amber-700 border-amber-200" },
+    { value: "reminder", label: "Reminder", icon: <BellAlertIcon className="w-3.5 h-3.5" />, color: "bg-purple-100 text-purple-700 border-purple-200" },
   ];
 
   const storageKey = user ? `standup-notes-${user.id}` : null;
@@ -221,7 +222,7 @@ export default function NotesPage() {
                       <p className="text-sm text-foreground">{note.text}</p>
                     )}
                     <div className="flex items-center gap-2 mt-1.5">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${cat.color}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium inline-flex items-center gap-1 ${cat.color}`}>
                         {cat.icon} {cat.label}
                       </span>
                       <span className="text-xs text-muted">
@@ -281,7 +282,7 @@ export default function NotesPage() {
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-muted line-through">{note.text}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium mt-1.5 inline-block ${cat.color}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium mt-1.5 inline-flex items-center gap-1 ${cat.color}`}>
                       {cat.icon} {cat.label}
                     </span>
                   </div>

@@ -94,7 +94,7 @@ export async function PATCH(req) {
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, done } = await req.json();
+  const { id, done, content } = await req.json();
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
   const { data: oldItem } = await supabaseAdmin
@@ -102,6 +102,34 @@ export async function PATCH(req) {
     .select("*")
     .eq("id", id)
     .single();
+
+  if (content !== undefined) {
+    if (oldItem?.user_id !== user.id)
+      return NextResponse.json({ error: "You can only edit your own items" }, { status: 403 });
+    if (!content?.trim())
+      return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
+
+    const { error } = await supabaseAdmin
+      .from("retro_items")
+      .update({ content: content.trim() })
+      .eq("id", id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const actorName = user.user_metadata?.name || user.email;
+    await logAudit({
+      entityType: "retro_item",
+      entityId: id,
+      action: "edited",
+      actorId: user.id,
+      actorName,
+      oldData: oldItem,
+      newData: { ...oldItem, content: content.trim() },
+      metadata: { phase: oldItem?.phase, session_id: oldItem?.session_id },
+    });
+
+    return NextResponse.json({ success: true, item: { ...oldItem, content: content.trim() } });
+  }
 
   const { error } = await supabaseAdmin
     .from("retro_items")

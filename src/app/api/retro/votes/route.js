@@ -50,16 +50,6 @@ export async function POST(req) {
     return NextResponse.json({ error: "Maximum 5 votes reached" }, { status: 400 });
   }
 
-  const { data: dupe } = await supabaseAdmin
-    .from("retro_votes")
-    .select("id")
-    .eq("session_id", session_id)
-    .eq("user_id", user.id)
-    .eq("item_id", item_id)
-    .maybeSingle();
-
-  if (dupe) return NextResponse.json({ error: "Already voted" }, { status: 400 });
-
   const { error: insertErr } = await supabaseAdmin.from("retro_votes").insert({
     session_id,
     user_id: user.id,
@@ -92,12 +82,22 @@ export async function DELETE(req) {
   if (!item_id) return NextResponse.json({ error: "item_id required" }, { status: 400 });
   if (!session_id) return NextResponse.json({ error: "session_id required" }, { status: 400 });
 
+  const { data: voteRows } = await supabaseAdmin
+    .from("retro_votes")
+    .select("id")
+    .eq("session_id", session_id)
+    .eq("user_id", user.id)
+    .eq("item_id", item_id)
+    .limit(1);
+
+  if (!voteRows || voteRows.length === 0) {
+    return NextResponse.json({ error: "No vote to remove" }, { status: 400 });
+  }
+
   const { error: delErr } = await supabaseAdmin
     .from("retro_votes")
     .delete()
-    .eq("session_id", session_id)
-    .eq("user_id", user.id)
-    .eq("item_id", item_id);
+    .eq("id", voteRows[0].id);
 
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
 

@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMeetingChannel } from "@/hooks/useMeetingChannel";
 import StandupForm from "@/components/StandupForm";
 import AppLayout from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { getTeamLabel, getTeamColor } from "@/lib/teams";
+
+const TIMER_SECONDS = 120;
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 const ALLOWED_ROLES = ["employee", "scrum_master"];
 
@@ -91,10 +99,123 @@ function WaitingRoom({ submittedData }) {
   );
 }
 
-function ActiveMeetingView({ meetingState }) {
-  const { currentMember, currentIndex, totalMembers } = meetingState;
+function EmployeeTimer({ timerSeconds, isTimerRunning }) {
+  const [seconds, setSeconds] = useState(timerSeconds ?? TIMER_SECONDS);
+  const [running, setRunning] = useState(isTimerRunning ?? false);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (timerSeconds != null) setSeconds(timerSeconds);
+  }, [timerSeconds]);
+
+  useEffect(() => {
+    setRunning(isTimerRunning ?? false);
+  }, [isTimerRunning]);
+
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (running && seconds > 0) {
+      intervalRef.current = setInterval(() => {
+        setSeconds((p) => {
+          if (p <= 1) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+            return 0;
+          }
+          return p - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [running]);
+
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius;
+  const progress = seconds / TIMER_SECONDS;
+  const offset = circumference * (1 - progress);
+  const isWarning = seconds <= 30 && seconds > 0;
+  const isFinished = seconds === 0;
+
+  const statusLabel = isFinished
+    ? "Time's up"
+    : running
+    ? "Speaking"
+    : seconds === TIMER_SECONDS
+    ? "Ready"
+    : "Paused";
+
+  return (
+    <div className="relative w-28 h-28 sm:w-32 sm:h-32">
+      <div
+        className={`absolute inset-0 rounded-full transition-all duration-700 ${
+          isFinished
+            ? "timer-glow-red"
+            : isWarning
+            ? "timer-glow-red timer-pulse-glow"
+            : running
+            ? "timer-glow-green timer-pulse-glow"
+            : "timer-glow-idle"
+        }`}
+      />
+      {running && !isFinished && (
+        <div
+          className={`absolute inset-0 rounded-full timer-pulse-ring ${
+            isWarning ? "border-danger/40" : "border-primary/30"
+          }`}
+        />
+      )}
+      <svg className="w-full h-full -rotate-90 relative z-10" viewBox="0 0 120 120">
+        <defs>
+          <linearGradient id="emp-timer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="var(--primary)" />
+            <stop offset="50%" stopColor="var(--accent)" />
+            <stop offset="100%" stopColor="var(--primary)" />
+          </linearGradient>
+          <linearGradient id="emp-timer-warn" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="50%" stopColor="#f97316" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+          <filter id="emp-glow">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="emp-glow-warn">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <circle cx="60" cy="60" r={radius} fill="none" stroke="currentColor" strokeWidth="5" className="text-card-border/40" />
+        <circle
+          cx="60" cy="60" r={radius} fill="none" strokeWidth="5.5" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          stroke={`url(#${isWarning ? "emp-timer-warn" : "emp-timer-grad"})`}
+          filter={`url(#${isWarning ? "emp-glow-warn" : "emp-glow"})`}
+          className="transition-all duration-1000 ease-linear"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+        <span className={`text-2xl sm:text-[1.7rem] font-extrabold tabular-nums tracking-tight transition-colors duration-300 ${
+          isFinished ? "text-danger" : isWarning ? "text-danger timer-text-pulse" : "text-foreground"
+        }`}>
+          {formatTime(seconds)}
+        </span>
+        <span className={`text-[9px] font-semibold uppercase tracking-[0.15em] mt-1 transition-colors duration-300 ${
+          isFinished ? "text-danger/70" : isWarning ? "text-danger/70" : running ? "text-primary" : "text-muted"
+        }`}>
+          {statusLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ActiveMeetingView({ meetingState, userId }) {
+  const { currentMember, currentIndex, totalMembers, allMembers, timerSeconds, isRunning: isTimerRunning } = meetingState;
 
   if (!currentMember) return null;
+
+  const isMyTurn = userId && currentMember?.user_id === userId;
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -109,6 +230,13 @@ function ActiveMeetingView({ meetingState }) {
         </p>
       </div>
 
+      {isMyTurn && (
+        <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 text-center space-y-1 animate-in fade-in">
+          <p className="text-sm font-bold text-primary-dark">It&apos;s Your Turn!</p>
+          <p className="text-xs text-primary-dark/70">You&apos;re up — share your standup update with the team</p>
+        </div>
+      )}
+
       {/* Progress */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-muted">
@@ -121,43 +249,71 @@ function ActiveMeetingView({ meetingState }) {
             style={{ width: `${((currentIndex + 1) / totalMembers) * 100}%` }}
           />
         </div>
+
+        {/* Member Dots */}
+        {allMembers && allMembers.length > 0 && (
+          <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+            {allMembers.map((m, i) => (
+              <div
+                key={m.id}
+                title={m.name}
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all overflow-hidden shrink-0 ${
+                  i === currentIndex
+                    ? "bg-primary text-white scale-110 shadow-md shadow-primary/30 ring-2 ring-primary"
+                    : i < currentIndex
+                    ? "bg-primary-light text-primary-dark"
+                    : "bg-card-border text-muted"
+                }`}
+              >
+                {m.avatar_url ? (
+                  <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  (m.name || "?").charAt(0).toUpperCase()
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Now Speaking Card */}
       <div className="bg-card rounded-2xl border border-card-border shadow-sm overflow-hidden">
-        <div className="px-6 sm:px-8 py-5 border-b border-card-border bg-accent-light/20 flex items-center gap-4">
-          {currentMember.avatar_url ? (
-            <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-accent/20">
-              <img src={currentMember.avatar_url} alt="" className="w-full h-full object-cover" />
-            </div>
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center shrink-0">
-              <span className="text-lg font-bold text-accent">
-                {(currentMember.name || "?").charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-foreground truncate">
-                {currentMember.name}
-              </h2>
-              <span className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-primary text-white animate-pulse">
-                NOW SPEAKING
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <p className="text-sm text-muted truncate">{currentMember.email}</p>
-              {(currentMember.teams || []).map((t) => (
-                <span
-                  key={t}
-                  className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${getTeamColor(t)}`}
-                >
-                  {getTeamLabel(t)}
+        <div className="px-6 sm:px-8 py-5 border-b border-card-border bg-accent-light/20 flex items-center justify-between">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            {currentMember.avatar_url ? (
+              <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-accent/20">
+                <img src={currentMember.avatar_url} alt="" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center shrink-0">
+                <span className="text-lg font-bold text-accent">
+                  {(currentMember.name || "?").charAt(0).toUpperCase()}
                 </span>
-              ))}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-foreground truncate">
+                  {currentMember.name}
+                </h2>
+                <span className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-primary text-white animate-pulse">
+                  NOW SPEAKING
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <p className="text-sm text-muted truncate">{currentMember.email}</p>
+                {(currentMember.teams || []).map((t) => (
+                  <span
+                    key={t}
+                    className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${getTeamColor(t)}`}
+                  >
+                    {getTeamLabel(t)}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
+          <EmployeeTimer key={currentIndex} timerSeconds={timerSeconds} isTimerRunning={isTimerRunning} />
         </div>
 
         <div className="p-6 sm:p-8 space-y-4">
@@ -288,7 +444,7 @@ function CompletedMeetingView({ meetingState }) {
 }
 
 export default function Submit() {
-  const { loading } = useAuth({ allowedRoles: ALLOWED_ROLES });
+  const { user, loading } = useAuth({ allowedRoles: ALLOWED_ROLES });
   const { meetingState } = useMeetingChannel("employee");
   const [submittedData, setSubmittedData] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
@@ -332,9 +488,11 @@ export default function Submit() {
 
   const meetingPhase = meetingState?.phase;
 
+  const isInMeeting = submittedData && meetingPhase && meetingPhase !== "lobby";
+
   return (
     <AppLayout>
-      <div className="max-w-lg mx-auto px-4 sm:px-6 py-10 space-y-6">
+      <div className={`mx-auto px-4 sm:px-6 py-10 space-y-6 ${isInMeeting ? "max-w-3xl" : "max-w-lg"}`}>
         {/* Form phase — not yet submitted */}
         {!submittedData && (
           <>
@@ -355,7 +513,7 @@ export default function Submit() {
 
         {/* Meeting active — show current speaker in sync */}
         {submittedData && meetingPhase === "active" && (
-          <ActiveMeetingView meetingState={meetingState} />
+          <ActiveMeetingView meetingState={meetingState} userId={user?.id} />
         )}
 
         {/* Meeting completed */}

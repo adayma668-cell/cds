@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import AppLayout from "@/components/AppLayout";
@@ -51,7 +51,7 @@ export default function AdminTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -61,11 +61,28 @@ export default function AdminTicketsPage() {
     const data = await res.json();
     setTickets(data.tickets || []);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     if (user) fetchTickets();
-  }, [user]);
+  }, [user, fetchTickets]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("admin-tickets-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tickets" },
+        () => fetchTickets()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchTickets]);
 
   if (authLoading) {
     return (

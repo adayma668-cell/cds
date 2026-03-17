@@ -62,7 +62,7 @@ export async function POST(req) {
     data: { publicUrl },
   } = supabaseAdmin.storage.from("avatars").getPublicUrl(path);
 
-  return NextResponse.json({ url: publicUrl });
+  return NextResponse.json({ url: `${publicUrl}?t=${Date.now()}` });
 }
 
 export async function DELETE(req) {

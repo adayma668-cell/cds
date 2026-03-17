@@ -7,6 +7,7 @@ import AppLayout from "@/components/AppLayout";
 
 const ENTITY_TYPES = [
   { value: "", label: "All Types" },
+  { value: "meeting", label: "Meetings" },
   { value: "ticket", label: "Tickets" },
   { value: "standup", label: "Standups" },
   { value: "retro_session", label: "Retro Sessions" },
@@ -33,6 +34,11 @@ const ACTION_COLORS = {
 };
 
 const ENTITY_ICONS = {
+  meeting: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+  ),
   ticket: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -307,6 +313,12 @@ export default function AuditLogPage() {
                         {log.action === "phase_changed" && log.metadata && (
                           <p className="text-xs text-muted mt-1">
                             Phase {log.metadata.from_phase} → <span className="font-medium text-foreground/80">Phase {log.metadata.to_phase}</span>
+                          </p>
+                        )}
+                        {log.entity_type === "meeting" && log.action === "completed" && log.metadata && (
+                          <p className="text-xs text-muted mt-1">
+                            {log.metadata.memberCount && <span>{log.metadata.memberCount} members</span>}
+                            {log.metadata.team && <span> &middot; Team: <span className="font-medium text-foreground/80">{log.metadata.team}</span></span>}
                           </p>
                         )}
                         {(log.new_data?.ticket_number || log.old_data?.ticket_number) && (

@@ -1,0 +1,1 @@
+ALTER TABLE retro_sessions ADD COLUMN team_id TEXT DEFAULT NULL;

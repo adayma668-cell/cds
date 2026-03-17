@@ -34,9 +34,13 @@ export async function POST(req) {
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  let body = {};
+  try { body = await req.json(); } catch {}
+  const team_id = body.team_id || null;
+
   const { data: existing } = await supabaseAdmin
     .from("retro_sessions")
-    .select("id")
+    .select("*")
     .eq("status", "active")
     .maybeSingle();
 
@@ -49,6 +53,7 @@ export async function POST(req) {
     .insert({
       created_by: user.id,
       status: "active",
+      team_id,
     })
     .select()
     .single();
@@ -63,6 +68,7 @@ export async function POST(req) {
     actorId: user.id,
     actorName,
     newData: data,
+    metadata: { team_id },
   });
 
   return NextResponse.json({ session: data });

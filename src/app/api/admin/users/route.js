@@ -161,9 +161,13 @@ export async function PATCH(req) {
   }
 
   const authUpdate = {};
-  if (name !== undefined) authUpdate.user_metadata = { name };
   if (email !== undefined) authUpdate.email = email;
   if (password) authUpdate.password = password;
+
+  if (name !== undefined) {
+    const { data: { user: existingUser } } = await supabaseAdmin.auth.admin.getUserById(userId);
+    authUpdate.user_metadata = { ...(existingUser?.user_metadata || {}), name };
+  }
 
   if (Object.keys(authUpdate).length > 0) {
     const { error: authError } =

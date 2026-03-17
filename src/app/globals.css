@@ -599,15 +599,17 @@ nav {
 }
 
 .retro-glass {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: linear-gradient(135deg, rgba(240, 247, 244, 0.85) 0%, rgba(230, 236, 247, 0.78) 50%, rgba(232, 250, 243, 0.82) 100%);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 4px 24px rgba(0, 50, 100, 0.06);
 }
 
 .retro-glass-strong {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
+  background: linear-gradient(145deg, rgba(240, 247, 244, 0.92) 0%, rgba(230, 236, 247, 0.88) 40%, rgba(232, 250, 243, 0.9) 100%);
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 32px rgba(0, 50, 100, 0.07);
 }
 
 /* ---- Standup Timer: Premium Effects ---- */
@@ -675,12 +677,86 @@ nav {
   animation: retroTimerCritical 1s ease-in-out infinite;
 }
 
+/* ---- Retro Progress: Animated Shimmer & Glow ---- */
+
+@keyframes retroProgressShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes retroNodeGlow {
+  0%, 100% { box-shadow: 0 0 12px rgba(0, 50, 150, 0.25), 0 0 24px rgba(0, 50, 150, 0.12); }
+  50% { box-shadow: 0 0 20px rgba(0, 50, 150, 0.4), 0 0 40px rgba(6, 194, 134, 0.18); }
+}
+
+@keyframes retroActiveNode {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes retroPhaseIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes retroCardFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.retro-progress-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: retroProgressShimmer 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.retro-node-glow {
+  animation: retroNodeGlow 2.5s ease-in-out infinite;
+}
+
+.retro-active-node {
+  animation: retroActiveNode 2s ease-in-out infinite;
+}
+
+.retro-phase-in {
+  animation: retroPhaseIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.retro-card-depth {
+  box-shadow:
+    0 1px 2px rgba(0, 50, 100, 0.04),
+    0 4px 12px rgba(0, 50, 100, 0.06),
+    0 12px 36px rgba(0, 50, 100, 0.08);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.retro-card-depth:hover {
+  box-shadow:
+    0 2px 4px rgba(0, 50, 100, 0.05),
+    0 8px 20px rgba(0, 50, 100, 0.08),
+    0 20px 48px rgba(0, 50, 100, 0.1);
+  transform: translateY(-2px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .timer-pulse-ring,
   .timer-dot-pulse,
   .timer-pulse-glow,
   .timer-text-pulse,
-  .retro-timer-critical {
+  .retro-timer-critical,
+  .retro-progress-shimmer::after,
+  .retro-node-glow,
+  .retro-active-node {
     animation: none;
   }
 }

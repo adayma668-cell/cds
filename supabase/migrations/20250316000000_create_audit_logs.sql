@@ -1,3 +1,9 @@
+-- ============================================================
+-- RUN THIS IN SUPABASE:
+-- Go to Supabase Dashboard -> SQL Editor -> New Query
+-- Paste this entire file and click "Run"
+-- ============================================================
+
 -- Audit trail table for tracking all changes across the application
 CREATE TABLE IF NOT EXISTS audit_logs (
   id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,

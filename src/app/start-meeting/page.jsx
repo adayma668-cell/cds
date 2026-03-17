@@ -276,6 +276,9 @@ export default function StartMeeting() {
       currentIndex: 0,
       totalMembers: filteredStandups.length,
       currentMember: filteredStandups[0],
+      allMembers: filteredStandups,
+      timerSeconds: TIMER_SECONDS,
+      isRunning: true,
     });
   };
 
@@ -291,6 +294,9 @@ export default function StartMeeting() {
         currentIndex: nextIdx,
         totalMembers,
         currentMember: filteredStandups[nextIdx],
+        allMembers: filteredStandups,
+        timerSeconds: TIMER_SECONDS,
+        isRunning: true,
       });
     } else {
       setPhase("completed");
@@ -300,12 +306,38 @@ export default function StartMeeting() {
         totalMembers,
         allMembers: filteredStandups,
       });
+
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) {
+          fetch("/api/meeting/finish", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              memberCount: totalMembers,
+              team: selectedTeam === "all" ? null : selectedTeam,
+            }),
+          }).catch(() => {});
+        }
+      });
     }
   };
 
   const handlePauseResume = () => {
     if (seconds === 0) return;
-    setIsRunning((prev) => !prev);
+    const nextRunning = !isRunning;
+    setIsRunning(nextRunning);
+    broadcastState({
+      phase: "active",
+      currentIndex,
+      totalMembers,
+      currentMember: filteredStandups[currentIndex],
+      allMembers: filteredStandups,
+      timerSeconds: seconds,
+      isRunning: nextRunning,
+    });
   };
 
   const handleRestart = () => {
