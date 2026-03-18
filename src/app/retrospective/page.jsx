@@ -7,6 +7,7 @@ import AppLayout from "@/components/AppLayout";
 import { useRetroChannel } from "@/hooks/useRetroChannel";
 import { useOpenActionsChannel } from "@/hooks/useOpenActionsChannel";
 import { useRetroBoardChannel } from "@/hooks/useRetroBoardChannel";
+import { useRetroGroupChannel } from "@/hooks/useRetroGroupChannel";
 import { useVoteTrackerChannel } from "@/hooks/useVoteTrackerChannel";
 import { useRetroPhaseSyncChannel } from "@/hooks/useRetroPhaseSyncChannel";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
@@ -28,11 +29,12 @@ const PHASES = [
   { id: 1, label: "Set the Stage", icon: (cls = "w-4 h-4") => <TargetIcon className={cls} />, short: "Stage" },
   { id: 2, label: "Open Actions", icon: (cls = "w-4 h-4") => <PinIcon className={cls} />, short: "Actions" },
   { id: 3, label: "Retro Board", icon: (cls = "w-4 h-4") => <NotepadIcon className={cls} />, short: "Board" },
-  { id: 4, label: "Vote", icon: (cls = "w-4 h-4") => <BallotIcon className={cls} />, short: "Vote" },
-  { id: 5, label: "Results", icon: (cls = "w-4 h-4") => <ChartBarIcon className={cls} />, short: "Results" },
-  { id: 6, label: "Action Items", icon: (cls = "w-4 h-4") => <RocketIcon className={cls} />, short: "New Actions" },
-  { id: 7, label: "Appreciation", icon: (cls = "w-4 h-4") => <HandHeartIcon className={cls} />, short: "Thanks" },
-  { id: 8, label: "Close & Summary", icon: (cls = "w-4 h-4") => <ClipboardCheckIcon className={cls} />, short: "Summary" },
+  { id: 4, label: "AI Group", icon: (cls = "w-4 h-4") => <SparklesIcon className={cls} />, short: "Group" },
+  { id: 5, label: "Vote", icon: (cls = "w-4 h-4") => <BallotIcon className={cls} />, short: "Vote" },
+  { id: 6, label: "Results", icon: (cls = "w-4 h-4") => <ChartBarIcon className={cls} />, short: "Results" },
+  { id: 7, label: "Action Items", icon: (cls = "w-4 h-4") => <RocketIcon className={cls} />, short: "New Actions" },
+  { id: 8, label: "Appreciation", icon: (cls = "w-4 h-4") => <HandHeartIcon className={cls} />, short: "Thanks" },
+  { id: 9, label: "Close & Summary", icon: (cls = "w-4 h-4") => <ClipboardCheckIcon className={cls} />, short: "Summary" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -43,11 +45,12 @@ const PHASE_DURATIONS = {
   1: 3 * 60,   // Set the Stage: 3 min
   2: 5 * 60,   // Open Actions: 5 min
   3: 10 * 60,  // Retro Board: 10 min
-  4: 5 * 60,   // Vote: 5 min
-  5: 3 * 60,   // Results: 3 min
-  6: 7 * 60,   // Action Items: 7 min
-  7: 3 * 60,   // Appreciation: 3 min
-  8: 2 * 60,   // Summary: 2 min
+  4: 3 * 60,   // AI Group: 3 min
+  5: 5 * 60,   // Vote: 5 min
+  6: 3 * 60,   // Results: 3 min
+  7: 7 * 60,   // Action Items: 7 min
+  8: 3 * 60,   // Appreciation: 3 min
+  9: 2 * 60,   // Summary: 2 min
 };
 
 function useTimerSounds() {
@@ -1280,7 +1283,7 @@ function EmployeeMoodPicker() {
 }
 
 /* Admin view: live tracker + reveal */
-function SetTheStageAdmin({ employees, onNext, onPrev }) {
+function SetTheStageAdmin({ employees, onNext, onPrev, actionEvent, broadcastAction }) {
   const token = useAccessToken();
   const sessionId = useSessionId();
   const [moods, setMoods] = useState([]);
@@ -1288,6 +1291,12 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
   const [polling, setPolling] = useState(true);
   const [myMood, setMyMood] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!actionEvent || actionEvent.type !== "mood_reveal") return;
+    setRevealed(true);
+    setPolling(false);
+  }, [actionEvent]);
 
   const fetchMoods = useCallback(async () => {
     if (!token || !sessionId) return;
@@ -1475,7 +1484,11 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
       {/* Reveal button */}
       {!revealed && (
         <button
-          onClick={() => { setRevealed(true); setPolling(false); }}
+          onClick={() => {
+            setRevealed(true);
+            setPolling(false);
+            if (broadcastAction) broadcastAction({ type: "mood_reveal" });
+          }}
           className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-orange-500/25 transition-all btn-press"
         >
           <span className="inline-flex items-center gap-1.5"><SparklesIcon className="w-4 h-4" /> Reveal Results ({totalSubmitted} response{totalSubmitted !== 1 ? "s" : ""})</span>
@@ -1559,9 +1572,9 @@ function SetTheStageAdmin({ employees, onNext, onPrev }) {
 }
 
 /* Wrapper that picks the right view based on role */
-function SetTheStagePhase({ employees, role, onNext, onPrev }) {
+function SetTheStagePhase({ employees, role, onNext, onPrev, actionEvent, broadcastAction }) {
   const isAdmin = role === "scrum_master" || role === "super_admin";
-  if (isAdmin) return <SetTheStageAdmin employees={employees} onNext={onNext} onPrev={onPrev} />;
+  if (isAdmin) return <SetTheStageAdmin employees={employees} onNext={onNext} onPrev={onPrev} actionEvent={actionEvent} broadcastAction={broadcastAction} />;
   return <EmployeeMoodPicker />;
 }
 
@@ -2160,7 +2173,381 @@ function RetroBoardPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Phase 4 – Voting (5 votes per employee, sorted by highest votes)   */
+/*  Phase 4 – AI Group                                                 */
+/* ------------------------------------------------------------------ */
+
+const GROUP_BADGE_COLORS = [
+  "bg-violet-500", "bg-teal-500", "bg-pink-500", "bg-indigo-500",
+  "bg-orange-500", "bg-cyan-500", "bg-lime-600", "bg-fuchsia-500",
+];
+
+function GroupedBoardColumn({ col, groupedItems, groupNames, allGroupNames, isAdmin, onRename, onDrop }) {
+  const totalCount = Object.values(groupedItems).reduce((s, arr) => s + arr.length, 0);
+  const emptyGroups = allGroupNames.filter((g) => !groupedItems[g] || groupedItems[g].length === 0);
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden border border-card-border/40 flex flex-col"
+      style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.06), 0 1px 3px rgba(0, 50, 100, 0.04)" }}
+    >
+      <div className={`${col.headerBg} ${col.headerBorder} px-4 py-3 flex items-center gap-2`}>
+        {col.icon("w-5 h-5 text-inherit")}
+        <h3 className="text-sm font-bold text-foreground flex-1">{col.title}</h3>
+        <span className={`${col.badge} text-white text-[10px] font-bold w-6 h-6 rounded-lg flex items-center justify-center shadow-sm`}>
+          {totalCount}
+        </span>
+      </div>
+      <div className="p-3 space-y-3 flex-1 min-h-[120px]">
+        {groupNames.map((gName, gIdx) => {
+          const items = groupedItems[gName];
+          if (!items || items.length === 0) return null;
+          const badgeColor = GROUP_BADGE_COLORS[gIdx % GROUP_BADGE_COLORS.length];
+          return (
+            <GroupSection
+              key={gName}
+              groupName={gName}
+              items={items}
+              col={col}
+              badgeColor={badgeColor}
+              isAdmin={isAdmin}
+              onRename={onRename}
+              onDrop={onDrop}
+              phase={col.phase}
+            />
+          );
+        })}
+        {isAdmin && emptyGroups.length > 0 && totalCount > 0 && null}
+        {isAdmin && (
+          <ColumnDropZone col={col} onDrop={onDrop} isEmpty={totalCount === 0} />
+        )}
+        {!isAdmin && totalCount === 0 && (
+          <p className="text-xs text-muted/40 text-center py-6 italic">No items in this column</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ColumnDropZone({ col, onDrop, isEmpty }) {
+  const [over, setOver] = useState(false);
+  return (
+    <div
+      className={`rounded-xl border-2 border-dashed transition-all duration-200 ${over ? `${col.noteBg} border-current opacity-100` : "border-transparent opacity-0 hover:opacity-60 hover:border-card-border/30"} ${isEmpty ? "py-8 opacity-60 border-card-border/30" : "py-3"}`}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setOver(false);
+        const raw = e.dataTransfer.getData("text/plain");
+        if (!raw) return;
+        try {
+          const { itemId, sourceGroup } = JSON.parse(raw);
+          onDrop(itemId, sourceGroup, sourceGroup, col.phase);
+        } catch { /* ignore */ }
+      }}
+    >
+      <p className={`text-[10px] text-muted/50 text-center italic ${isEmpty ? "" : ""}`}>
+        {isEmpty ? "Drop items here" : "Drop to keep group"}
+      </p>
+    </div>
+  );
+}
+
+function GroupSection({ groupName, items, col, badgeColor, isAdmin, onRename, onDrop, phase }) {
+  const [editing, setEditing] = useState(false);
+  const [nameVal, setNameVal] = useState(groupName);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { setNameVal(groupName); }, [groupName]);
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+
+  const saveRename = () => {
+    const trimmed = nameVal.trim();
+    if (trimmed && trimmed !== groupName) onRename(groupName, trimmed);
+    else setNameVal(groupName);
+    setEditing(false);
+  };
+
+  const handleSectionDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const raw = e.dataTransfer.getData("text/plain");
+    if (!raw) return;
+    try {
+      const { itemId, sourceGroup } = JSON.parse(raw);
+      onDrop(itemId, sourceGroup, groupName, phase);
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <div
+      className={`rounded-xl p-2 transition-all duration-200 ${dragOver ? "ring-2 ring-primary/40 bg-primary/5" : ""}`}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+      onDrop={handleSectionDrop}
+    >
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className={`${badgeColor} text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm`}>
+          {items.length}
+        </span>
+        {editing && isAdmin ? (
+          <input
+            ref={inputRef}
+            value={nameVal}
+            onChange={(e) => setNameVal(e.target.value)}
+            onBlur={saveRename}
+            onKeyDown={(e) => { if (e.key === "Enter") saveRename(); if (e.key === "Escape") { setNameVal(groupName); setEditing(false); } }}
+            className="flex-1 text-xs font-bold text-foreground bg-white/80 rounded-lg px-2 py-1 border border-card-border/40 focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        ) : (
+          <span
+            className={`text-xs font-bold text-foreground/80 ${isAdmin ? "cursor-pointer hover:underline decoration-dotted underline-offset-2" : ""}`}
+            onClick={() => { if (isAdmin) setEditing(true); }}
+            title={isAdmin ? "Click to rename group" : ""}
+          >
+            {groupName}
+          </span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {items.map((item, idx) => (
+          <div
+            key={item.id}
+            draggable={isAdmin}
+            onDragStart={(e) => {
+              e.stopPropagation();
+              e.dataTransfer.setData("text/plain", JSON.stringify({ itemId: item.id, sourceGroup: groupName }));
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            className={`${col.noteBg} rounded-xl px-3 py-2 transition-all duration-200 ${isAdmin ? "cursor-grab active:cursor-grabbing hover:shadow-md hover:-translate-y-0.5" : ""} border border-white/50`}
+            style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 30}ms` }}
+          >
+            <p className={`text-[13px] ${col.noteText} leading-relaxed font-medium`}>{item.content}</p>
+            <span className="text-[10px] text-muted/60 mt-1 block">{item.user_name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AIGroupPhase({ role, onNext, onPrev, groupEvent, groupBroadcast }) {
+  const token = useAccessToken();
+  const sessionId = useSessionId();
+  const [groups, setGroups] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [source, setSource] = useState(null);
+  const isAdmin = role === "scrum_master" || role === "super_admin";
+
+  const fetchGroups = useCallback(async () => {
+    if (!token || !sessionId) return;
+    try {
+      const res = await fetch(`/api/retro/group-items?session_id=${sessionId}&_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (data.groups && Object.keys(data.groups).length > 0) {
+        setGroups(data.groups);
+      }
+    } catch (err) {
+      console.error("Fetch groups error:", err);
+    }
+    setFetching(false);
+  }, [token, sessionId]);
+
+  useEffect(() => { fetchGroups(); }, [fetchGroups]);
+
+  useEffect(() => {
+    if (!groupEvent) return;
+    if (groupEvent.type === "refresh") {
+      fetchGroups();
+    }
+  }, [groupEvent, fetchGroups]);
+
+  const analyzeItems = async () => {
+    if (!token || !sessionId) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/retro/group-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json();
+      setGroups(data.groups || {});
+      setSource(data.source);
+      groupBroadcast("refresh", { sessionId });
+    } catch (err) {
+      console.error("AI grouping error:", err);
+    }
+    setLoading(false);
+  };
+
+  const handleRename = async (oldName, newName) => {
+    if (!token || !sessionId) return;
+    const updated = {};
+    for (const [k, v] of Object.entries(groups)) {
+      updated[k === oldName ? newName : k] = v;
+    }
+    setGroups(updated);
+    try {
+      await fetch("/api/retro/group-items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rename: { old_name: oldName, new_name: newName, session_id: sessionId } }),
+      });
+      groupBroadcast("refresh", { sessionId });
+    } catch (err) {
+      console.error("Rename group error:", err);
+    }
+  };
+
+  const handleDrop = async (itemId, sourceGroupName, targetGroupName, targetPhase) => {
+    if (!token || !isAdmin) return;
+    let draggedItem = null;
+    for (const [gName, gItems] of Object.entries(groups)) {
+      const found = gItems.find((it) => it.id === itemId);
+      if (found) { draggedItem = found; break; }
+    }
+    if (!draggedItem) return;
+    if (sourceGroupName === targetGroupName && draggedItem.phase === targetPhase) return;
+
+    const updated = {};
+    for (const [k, v] of Object.entries(groups)) {
+      updated[k] = v.filter((it) => it.id !== itemId);
+    }
+    const movedItem = { ...draggedItem, phase: targetPhase };
+    if (updated[targetGroupName]) {
+      updated[targetGroupName] = [...updated[targetGroupName], movedItem];
+    } else {
+      updated[targetGroupName] = [movedItem];
+    }
+    for (const k of Object.keys(updated)) {
+      if (updated[k].length === 0) delete updated[k];
+    }
+    setGroups(updated);
+
+    try {
+      await fetch("/api/retro/group-items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items: [{ id: itemId, group_name: targetGroupName }] }),
+      });
+      groupBroadcast("refresh", { sessionId });
+    } catch (err) {
+      console.error("Move item error:", err);
+    }
+  };
+
+  const groupNames = Object.keys(groups);
+  const totalItems = Object.values(groups).reduce((sum, arr) => sum + arr.length, 0);
+  const hasGroups = groupNames.length > 0;
+
+  const getColumnGroupedItems = (phase) => {
+    const result = {};
+    for (const gName of groupNames) {
+      const phaseItems = (groups[gName] || []).filter((it) => it.phase === phase);
+      if (phaseItems.length > 0) result[gName] = phaseItems;
+    }
+    return result;
+  };
+
+  return (
+    <div className="w-full space-y-5">
+      <PhaseHeader
+        icon={<SparklesIcon className="w-8 h-8" />}
+        title="AI Group"
+        description="AI analyzes and groups items by domain — facilitator can rename groups and drag items between them."
+      />
+
+      {isAdmin && (
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={analyzeItems}
+            disabled={loading}
+            className="group flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-bold text-white transition-all duration-300 btn-press disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+            style={{
+              background: "linear-gradient(135deg, #06c286 0%, #3b82f6 100%)",
+              boxShadow: "0 4px 15px rgba(6, 194, 134, 0.3), 0 2px 6px rgba(59, 130, 246, 0.2)",
+            }}
+          >
+            {loading ? (
+              <>
+                <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                Analyzing items...
+              </>
+            ) : (
+              <>
+                <SparklesIcon className="w-5 h-5" />
+                {hasGroups ? "Re-analyze & Group" : "Analyze & Group Items"}
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {!isAdmin && fetching && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <ArrowPathIcon className="w-8 h-8 text-primary animate-spin" />
+          <p className="text-sm text-muted">Loading groups...</p>
+        </div>
+      )}
+
+      {!isAdmin && !fetching && !hasGroups && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <SparklesIcon className="w-12 h-12 text-muted/30" />
+          <p className="text-sm text-muted">Waiting for the facilitator to group items...</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/15 blur-xl animate-pulse" />
+            <SparklesIcon className="absolute inset-0 m-auto w-8 h-8 text-primary animate-bounce" />
+          </div>
+          <p className="text-sm font-medium text-foreground">AI is analyzing {totalItems || "your"} items...</p>
+          <p className="text-xs text-muted">Grouping by prefix and domain</p>
+        </div>
+      )}
+
+      {hasGroups && !loading && (
+        <>
+          <div className="flex items-center justify-center gap-2 text-xs text-muted">
+            <span className="font-semibold text-foreground">{groupNames.length}</span> groups
+            <span className="mx-1">·</span>
+            <span className="font-semibold text-foreground">{totalItems}</span> items
+            {source && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">{source === "groq" ? "AI" : source === "prefix" ? "Prefix" : "Fallback"}</span>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {BOARD_COLUMNS.map((col) => (
+              <GroupedBoardColumn
+                key={col.phase}
+                col={col}
+                groupedItems={getColumnGroupedItems(col.phase)}
+                groupNames={groupNames}
+                allGroupNames={groupNames}
+                isAdmin={isAdmin}
+                onRename={handleRename}
+                onDrop={handleDrop}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      <PhaseNav onPrev={onPrev} onNext={onNext} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Phase 5 – Voting (5 votes per employee, sorted by highest votes)   */
 /* ------------------------------------------------------------------ */
 const MAX_VOTES = 5;
 const VOTE_PHASES = ["went_well", "didnt_go_well", "should_try", "puzzles_us"];
@@ -2174,6 +2561,7 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
   const [loading, setLoading] = useState(true);
   const [voteSummary, setVoteSummary] = useState({});
   const [showTracker, setShowTracker] = useState(true);
+  const [globalGroupNames, setGlobalGroupNames] = useState([]);
   const isAdmin = role === "scrum_master" || role === "super_admin";
   const busyRef = useRef(false);
   const myVotesRef = useRef(myVotes);
@@ -2188,19 +2576,35 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
       try {
         const hdrs = { Authorization: `Bearer ${token}` };
         const ts = Date.now();
-        const [itemsRes, votesRes] = await Promise.all([
-          fetch(`/api/retro/items?phase=all_board&session_id=${sessionId}&_t=${ts}`, { headers: hdrs, cache: "no-store" }),
+        const [groupRes, votesRes] = await Promise.all([
+          fetch(`/api/retro/group-items?session_id=${sessionId}&_t=${ts}`, { headers: hdrs, cache: "no-store" }),
           fetch(`/api/retro/votes?session_id=${sessionId}&_t=${ts}`, { headers: hdrs, cache: "no-store" }),
         ]);
         if (cancelled) return;
-        const itemsData = await itemsRes.json();
+        const groupData = await groupRes.json();
         const votesData = await votesRes.json();
+
+        const gNames = Object.keys(groupData.groups || {});
+
         const grouped = {};
         for (const p of VOTE_PHASES) grouped[p] = [];
-        for (const item of (itemsData.items || [])) {
-          if (grouped[item.phase]) grouped[item.phase].push(item);
+
+        for (const [gName, gItems] of Object.entries(groupData.groups || {})) {
+          for (const item of gItems) {
+            if (grouped[item.phase]) {
+              grouped[item.phase].push({ ...item, group_name: gName });
+            }
+          }
         }
+
+        for (const item of (groupData.ungrouped || [])) {
+          if (grouped[item.phase]) {
+            grouped[item.phase].push(item);
+          }
+        }
+
         setAllItems(grouped);
+        setGlobalGroupNames(gNames);
         setMyVotes(votesData.votes || []);
       } catch (err) { console.error("VotingPhase fetch error:", err); }
       if (!cancelled) setLoading(false);
@@ -2254,7 +2658,10 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
       }
       return next;
     });
-    if (user?.id) broadcastVoteChange(user.id, newVotes.length);
+    if (user?.id) {
+      broadcastVoteChange(user.id, newVotes.length);
+      setVoteSummary((prev) => ({ ...prev, [user.id]: newVotes.length }));
+    }
     broadcastItemVote(itemId, 1);
 
     try {
@@ -2270,6 +2677,7 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
           for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: Math.max((i.votes || 0) - 1, 0) } : i); }
           return next;
         });
+        if (user?.id) setVoteSummary((prev) => ({ ...prev, [user.id]: Math.max((prev[user.id] || 0) - 1, 0) }));
       }
     } catch {
       setMyVotes((prev) => { const idx = prev.indexOf(itemId); if (idx === -1) return prev; const arr = [...prev]; arr.splice(idx, 1); return arr; });
@@ -2278,6 +2686,7 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
         for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: Math.max((i.votes || 0) - 1, 0) } : i); }
         return next;
       });
+      if (user?.id) setVoteSummary((prev) => ({ ...prev, [user.id]: Math.max((prev[user.id] || 0) - 1, 0) }));
     } finally {
       busyRef.current = false;
     }
@@ -2298,7 +2707,10 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
       }
       return next;
     });
-    if (user?.id) broadcastVoteChange(user.id, newVotes.length);
+    if (user?.id) {
+      broadcastVoteChange(user.id, newVotes.length);
+      setVoteSummary((prev) => ({ ...prev, [user.id]: newVotes.length }));
+    }
     broadcastItemVote(itemId, -1);
 
     try {
@@ -2314,6 +2726,7 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
           for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: (i.votes || 0) + 1 } : i); }
           return next;
         });
+        if (user?.id) setVoteSummary((prev) => ({ ...prev, [user.id]: (prev[user.id] || 0) + 1 }));
       }
     } catch {
       setMyVotes((prev) => [...prev, itemId]);
@@ -2322,16 +2735,10 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
         for (const p of VOTE_PHASES) { next[p] = (next[p] || []).map((i) => i.id === itemId ? { ...i, votes: (i.votes || 0) + 1 } : i); }
         return next;
       });
+      if (user?.id) setVoteSummary((prev) => ({ ...prev, [user.id]: (prev[user.id] || 0) + 1 }));
     } finally {
       busyRef.current = false;
     }
-  };
-
-  const colConfig = {
-    went_well: { title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, noteBg: "bg-emerald-100", noteText: "text-emerald-900", text: "text-emerald-600", badge: "bg-emerald-500", border: "border-emerald-400" },
-    didnt_go_well: { title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, noteBg: "bg-rose-100", noteText: "text-rose-900", text: "text-rose-600", badge: "bg-rose-500", border: "border-rose-400" },
-    should_try: { title: "What do we want to try?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, noteBg: "bg-sky-100", noteText: "text-sky-900", text: "text-sky-600", badge: "bg-sky-500", border: "border-sky-400" },
-    puzzles_us: { title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, noteBg: "bg-amber-100", noteText: "text-amber-900", text: "text-amber-600", badge: "bg-amber-500", border: "border-amber-400" },
   };
 
   if (loading) {
@@ -2465,76 +2872,97 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {VOTE_PHASES.map((phase) => {
-          const cfg = colConfig[phase];
-          const items = allItems[phase] || [];
+        {BOARD_COLUMNS.map((col) => {
+          const items = allItems[col.phase] || [];
+          const grouped = {};
+          for (const item of items) {
+            const gName = item.group_name || "Ungrouped";
+            if (!grouped[gName]) grouped[gName] = [];
+            grouped[gName].push(item);
+          }
+          const orderedGNames = globalGroupNames.filter(g => grouped[g] && grouped[g].length > 0);
+          for (const g of Object.keys(grouped)) {
+            if (!orderedGNames.includes(g)) orderedGNames.push(g);
+          }
+          const totalCount = items.length;
+
           return (
-            <div key={phase} className="flex flex-col rounded-2xl overflow-hidden border retro-card-depth" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%)", borderColor: "rgba(6, 194, 134, 0.1)" }}>
-              <div className={`flex items-center gap-2.5 px-5 py-4 border-b-4 ${cfg.border}`} style={{ background: `linear-gradient(135deg, ${cfg.noteBg === "bg-emerald-100" ? "rgba(209, 250, 229, 0.6)" : cfg.noteBg === "bg-rose-100" ? "rgba(255, 228, 230, 0.6)" : cfg.noteBg === "bg-sky-100" ? "rgba(224, 242, 254, 0.6)" : "rgba(254, 243, 199, 0.6)"} 0%, rgba(240, 247, 244, 0.4) 100%)` }}>
-                <span>{cfg.icon("w-5 h-5")}</span>
-                <h3 className="text-sm font-bold text-gray-800 flex-1">{cfg.title}</h3>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${cfg.badge} text-white shadow-sm`}>{items.length}</span>
+            <div
+              key={col.phase}
+              className="rounded-2xl overflow-hidden border border-card-border/40 flex flex-col"
+              style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.06), 0 1px 3px rgba(0, 50, 100, 0.04)" }}
+            >
+              <div className={`${col.headerBg} ${col.headerBorder} px-4 py-3 flex items-center gap-2`}>
+                {col.icon("w-5 h-5 text-inherit")}
+                <h3 className="text-sm font-bold text-foreground flex-1">{col.title}</h3>
+                <span className={`${col.badge} text-white text-[10px] font-bold w-6 h-6 rounded-lg flex items-center justify-center shadow-sm`}>
+                  {totalCount}
+                </span>
               </div>
-              <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2.5" style={{ maxHeight: 500 }}>
-                {items.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-10">No items</p>
+              <div className="p-3 space-y-3 flex-1 min-h-[120px]">
+                {totalCount === 0 ? (
+                  <p className="text-xs text-muted/40 text-center py-6 italic">No items in this column</p>
                 ) : (
-                  items.map((item, idx) => {
-                    const myCount = myVoteCount(item.id);
-                    const voted = myCount > 0;
+                  orderedGNames.map((gName) => {
+                    const gItems = grouped[gName];
+                    if (!gItems || gItems.length === 0) return null;
+                    const globalIdx = globalGroupNames.indexOf(gName);
+                    const badgeColor = GROUP_BADGE_COLORS[(globalIdx !== -1 ? globalIdx : orderedGNames.indexOf(gName)) % GROUP_BADGE_COLORS.length];
+                    const repId = gItems[0].id;
+                    const groupVotes = gItems.reduce((s, it) => s + (it.votes || 0), 0);
+                    const myGroupVotes = gItems.reduce((s, it) => s + myVoteCount(it.id), 0);
+                    const voted = myGroupVotes > 0;
+
                     return (
                       <div
-                        key={item.id}
-                        className={`relative ${cfg.noteBg} rounded-xl px-4 py-3 transition-all duration-300 border ${voted ? "ring-2 ring-accent shadow-lg border-accent/30" : "border-white/50 hover:shadow-md"}`}
-                        style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 40}ms` }}
+                        key={gName}
+                        className={`rounded-xl p-2 transition-all duration-200 ${voted ? "ring-2 ring-accent shadow-lg bg-accent/5" : ""}`}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-0.5">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className={`${badgeColor} text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm`}>
+                            {gItems.length}
+                          </span>
+                          <span className="text-xs font-bold text-foreground/80 flex-1">{gName}</span>
+                          <div className="flex items-center gap-1.5">
+                            {groupVotes > 0 && (
+                              <span className={`text-[10px] font-bold ${col.noteText} bg-white/60 px-1.5 py-0.5 rounded-md`}>
+                                {groupVotes} {groupVotes === 1 ? "vote" : "votes"}
+                              </span>
+                            )}
+                            {voted && (
+                              <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
+                                You: {myGroupVotes}
+                              </span>
+                            )}
                             <button
-                              onClick={() => castVote(item.id)}
-                              disabled={remaining <= 0}
-                              className={`w-8 h-6 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                                remaining > 0
-                                  ? "bg-white/80 text-gray-500 hover:bg-accent/20 hover:text-accent hover:scale-110 border border-white/60 shadow-sm"
-                                  : "bg-gray-100/50 text-gray-300 cursor-not-allowed"
+                              onClick={() => voted ? removeVote(repId) : castVote(repId)}
+                              disabled={!voted && remaining <= 0}
+                              className={`flex items-center justify-center rounded-lg transition-all duration-200 ${
+                                voted
+                                  ? "w-8 h-8 bg-accent text-white shadow-md shadow-accent/30 hover:bg-red-500 hover:shadow-red-500/30 hover:scale-110"
+                                  : remaining > 0
+                                    ? "w-8 h-8 bg-white/80 text-gray-400 border border-white/60 shadow-sm hover:bg-accent/15 hover:text-accent hover:border-accent/30 hover:scale-110"
+                                    : "w-8 h-8 bg-gray-100/50 text-gray-300 cursor-not-allowed"
                               }`}
-                              title={remaining > 0 ? "Upvote" : "No votes left"}
+                              title={voted ? "Remove vote from group" : remaining > 0 ? "Vote for this group" : "No votes left"}
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                              <svg className={`w-4 h-4 transition-transform duration-200 ${voted ? "rotate-45" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                               </svg>
                             </button>
-                            <span className={`text-xs font-black leading-none ${(item.votes || 0) > 0 ? cfg.text : "text-gray-400"}`}>{item.votes || 0}</span>
-                            {voted && (
-                              <button
-                                onClick={() => removeVote(item.id)}
-                                className="w-8 h-6 rounded-lg flex items-center justify-center bg-white/80 text-gray-400 hover:bg-red-100 hover:text-red-500 border border-white/60 shadow-sm transition-all duration-200 hover:scale-110"
-                                title="Remove one vote"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                            )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-[13px] ${cfg.noteText} leading-snug font-medium`}>{item.content}</p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              {item.avatar_url ? (
-                                <img src={item.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
-                              ) : (
-                                <div className={`w-4 h-4 rounded-full ${cfg.badge} flex items-center justify-center text-[7px] font-bold text-white`}>
-                                  {item.user_name?.charAt(0)?.toUpperCase()}
-                                </div>
-                              )}
-                              <span className="text-[10px] text-gray-500">{item.user_name}</span>
-                              {myCount > 0 && (
-                                <span className="ml-auto text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
-                                  You: {myCount}
-                                </span>
-                              )}
+                        </div>
+                        <div className="space-y-1.5">
+                          {gItems.map((item, idx) => (
+                            <div
+                              key={item.id}
+                              className={`${col.noteBg} rounded-xl px-3 py-2 border border-white/50`}
+                              style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 30}ms` }}
+                            >
+                              <p className={`text-[13px] ${col.noteText} leading-relaxed font-medium`}>{item.content}</p>
+                              <span className="text-[10px] text-muted/60 mt-1 block">{item.user_name}</span>
                             </div>
-                          </div>
+                          ))}
                         </div>
                       </div>
                     );
@@ -2552,7 +2980,7 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
 }
 
 /* ------------------------------------------------------------------ */
-/*  Phase 5 – Vote Results (sorted by highest votes)                   */
+/*  Phase 6 – Vote Results (sorted by highest votes)                   */
 /* ------------------------------------------------------------------ */
 const RESULT_COL_CONFIG = [
   { phase: "went_well", title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, bg: "bg-emerald-100", text: "text-emerald-900", border: "border-emerald-400", badge: "bg-emerald-500", barBg: "bg-emerald-400" },
@@ -2682,7 +3110,7 @@ function VoteResultsPhase({ onNext, onPrev }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Phase 6 – Action Items (persisted)                                 */
+/*  Phase 7 – Action Items (persisted)                                 */
 /* ------------------------------------------------------------------ */
 function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcast }) {
   const { items: actions, loading, addItem, removeItem, externalAdd, externalRemove } = useRetroItems("action_items", { all: true });
@@ -2938,7 +3366,7 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
 }
 
 /* ------------------------------------------------------------------ */
-/*  Phase 7 – Appreciation (persisted)                                 */
+/*  Phase 8 – Appreciation (persisted)                                 */
 /* ------------------------------------------------------------------ */
 function AppreciationPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
   const { items: kudos, loading, addItem, externalAdd } = useRetroItems("appreciation");
@@ -3044,7 +3472,7 @@ function AppreciationPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Phase 7 – Close & Summary                                          */
+/*  Phase 9 – Close & Summary                                          */
 /* ------------------------------------------------------------------ */
 function CloseSummaryPhase({ onPrev, onFinish }) {
   return (
@@ -3122,54 +3550,50 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Facilitator Widget – floating indicator in bottom-right             */
+/*  Facilitator Widget – inline indicator below progress bar            */
 /* ------------------------------------------------------------------ */
 function FacilitatorWidget({ facilitatorInfo, currentPhase }) {
   if (!facilitatorInfo) return null;
   const phase = PHASES[currentPhase] || PHASES[0];
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 retro-slide-in">
-      <div
-        className="flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border border-card-border/40 backdrop-blur-xl"
-        style={{
-          background: "linear-gradient(145deg, rgba(255,255,255,0.92) 0%, rgba(240,247,244,0.95) 50%, rgba(230,236,247,0.92) 100%)",
-          boxShadow: "0 8px 32px rgba(0,50,100,0.10), 0 2px 8px rgba(6,194,134,0.08)",
-        }}
-      >
-        {/* Live pulse */}
-        <div className="relative flex-shrink-0">
-          <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-          </span>
-          {facilitatorInfo.avatar ? (
-            <img
-              src={facilitatorInfo.avatar}
-              alt={facilitatorInfo.name}
-              className="w-9 h-9 rounded-xl object-cover border-2 border-white shadow-sm"
-            />
-          ) : (
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/15 via-accent/10 to-primary/20 border-2 border-white shadow-sm flex items-center justify-center">
-              <span className="text-xs font-bold text-primary-dark">
-                {facilitatorInfo.name?.charAt(0)?.toUpperCase() || "?"}
-              </span>
-            </div>
-          )}
-        </div>
+    <div
+      className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-card-border/40 backdrop-blur-sm retro-slide-in"
+      style={{
+        background: "linear-gradient(145deg, rgba(255,255,255,0.88) 0%, rgba(240,247,244,0.92) 50%, rgba(230,236,247,0.88) 100%)",
+        boxShadow: "0 2px 10px rgba(0,50,100,0.06), 0 1px 4px rgba(6,194,134,0.06)",
+      }}
+    >
+      <div className="relative flex-shrink-0">
+        <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+        </span>
+        {facilitatorInfo.avatar ? (
+          <img
+            src={facilitatorInfo.avatar}
+            alt={facilitatorInfo.name}
+            className="w-8 h-8 rounded-lg object-cover border-2 border-white shadow-sm"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/15 via-accent/10 to-primary/20 border-2 border-white shadow-sm flex items-center justify-center">
+            <span className="text-[10px] font-bold text-primary-dark">
+              {facilitatorInfo.name?.charAt(0)?.toUpperCase() || "?"}
+            </span>
+          </div>
+        )}
+      </div>
 
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Facilitator</span>
-          </div>
-          <p className="text-sm font-semibold text-foreground truncate max-w-[140px]">
-            {facilitatorInfo.name}
-          </p>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            {phase.icon("w-3 h-3 text-muted")}
-            <span className="text-[11px] text-muted font-medium">{phase.label}</span>
-          </div>
-        </div>
+      <div className="min-w-0">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-accent">Facilitator</span>
+        <p className="text-xs font-semibold text-foreground truncate max-w-[120px] leading-tight">
+          {facilitatorInfo.name}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-1 pl-1.5 border-l border-card-border/40">
+        {phase.icon("w-3.5 h-3.5 text-muted")}
+        <span className="text-[11px] text-muted font-medium whitespace-nowrap">{phase.short}</span>
       </div>
     </div>
   );
@@ -3178,7 +3602,7 @@ function FacilitatorWidget({ facilitatorInfo, currentPhase }) {
 /* ------------------------------------------------------------------ */
 /*  Employee Retro View – follows the facilitator's phase via polling   */
 /* ------------------------------------------------------------------ */
-function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, phaseEvent: parentPhaseEvent, finishEvent: parentFinishEvent }) {
+function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, groupEvent, groupBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, phaseEvent: parentPhaseEvent, finishEvent: parentFinishEvent }) {
   const [currentPhase, setCurrentPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [sessionTeamIds, setSessionTeamIds] = useState([]);
@@ -3308,21 +3732,24 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
             </div>
           )}
           <ProgressBar currentPhase={currentPhase} />
+          <div className="flex items-center justify-start retro-slide-in-delay-1">
+            <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
+          </div>
         </div>
 
-        <div className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}>
+        <div className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5, 6].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}>
           {currentPhase === 0 && <EmployeeIceBreakerView employees={employees} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />}
           {currentPhase === 1 && <EmployeeMoodPicker />}
           {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={null} onPrev={null} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
           {currentPhase === 3 && <RetroBoardPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-          {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
-          {currentPhase === 5 && <VoteResultsPhase onNext={null} onPrev={null} />}
-          {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-          {currentPhase === 7 && <AppreciationPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-          {currentPhase === 8 && <CloseSummaryPhase onPrev={null} onFinish={null} />}
+          {currentPhase === 4 && <AIGroupPhase role={role} onNext={null} onPrev={null} groupEvent={groupEvent} groupBroadcast={groupBroadcast} />}
+          {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
+          {currentPhase === 6 && <VoteResultsPhase onNext={null} onPrev={null} />}
+          {currentPhase === 7 && <ActionItemsPhase employees={employees} onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+          {currentPhase === 8 && <AppreciationPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+          {currentPhase === 9 && <CloseSummaryPhase onPrev={null} onFinish={null} />}
         </div>
       </div>
-      <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
     </SessionContext.Provider>
   );
 }
@@ -3347,9 +3774,10 @@ export default function RetrospectivePage() {
   const isFacilitator = isAdmin && !!user?.id && !!facilitatorInfo?.id && user.id === facilitatorInfo.id;
   const { icebreakerState, spinTrigger, broadcastIcebreakerState, broadcastSpin } = useRetroChannel(isAdmin ? "admin" : "employee");
   const { event: boardEvent, broadcast: boardBroadcast } = useRetroBoardChannel();
+  const { event: groupEvent, broadcast: groupBroadcast } = useRetroGroupChannel();
   const { toggleEvent, broadcastToggle } = useOpenActionsChannel();
   const { voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote } = useVoteTrackerChannel();
-  const { phaseEvent, finishEvent, broadcastPhase, broadcastFinish, broadcastStart } = useRetroPhaseSyncChannel();
+  const { phaseEvent, finishEvent, actionEvent, broadcastPhase, broadcastFinish, broadcastStart, broadcastAction } = useRetroPhaseSyncChannel();
 
   useEffect(() => {
     fetch("/api/retro/employees")
@@ -3536,7 +3964,7 @@ export default function RetrospectivePage() {
   if (!isAdmin) {
     return (
       <AppLayout>
-        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} phaseEvent={phaseEvent} finishEvent={finishEvent} />
+        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} groupEvent={groupEvent} groupBroadcast={groupBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} phaseEvent={phaseEvent} finishEvent={finishEvent} />
       </AppLayout>
     );
   }
@@ -3713,36 +4141,43 @@ export default function RetrospectivePage() {
               </div>
             )}
             <ProgressBar currentPhase={currentPhase} />
-            <div className="flex justify-end retro-slide-in-delay-1">
+            <div className="flex items-center justify-between retro-slide-in-delay-1">
+              <div className="flex items-center gap-2">
+                <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
+                {!canNavigate && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/50">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    <span className="text-[11px] font-medium text-emerald-700">Syncing</span>
+                  </div>
+                )}
+              </div>
               <PhaseTimer phaseIndex={currentPhase} />
             </div>
-            {!canNavigate && (
-              <div className="flex items-center justify-center gap-2 py-2 retro-slide-in-delay-1">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                </span>
-                <span className="text-xs font-medium text-muted">Syncing with facilitator — {facilitatorInfo?.name}</span>
-              </div>
-            )}
           </div>
 
           <div
             key={currentPhase}
-            className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}
+            className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5, 6].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}
           >
-            {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={navNext} broadcastIcebreakerState={broadcastIcebreakerState} broadcastSpin={broadcastSpin} />}
-            {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} />}
+            {currentPhase === 0 && (
+              canNavigate
+                ? <IceBreakerPhase employees={employees} onNext={next} broadcastIcebreakerState={broadcastIcebreakerState} broadcastSpin={broadcastSpin} />
+                : <EmployeeIceBreakerView employees={employees} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />
+            )}
+            {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} actionEvent={actionEvent} broadcastAction={canNavigate ? broadcastAction : null} />}
             {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
             {currentPhase === 3 && <RetroBoardPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
-            {currentPhase === 5 && <VoteResultsPhase onNext={navNext} onPrev={navPrev} />}
-            {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 7 && <AppreciationPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 8 && <CloseSummaryPhase onPrev={navPrev} onFinish={navFinish} />}
+            {currentPhase === 4 && <AIGroupPhase role={role} onNext={navNext} onPrev={navPrev} groupEvent={groupEvent} groupBroadcast={groupBroadcast} />}
+            {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
+            {currentPhase === 6 && <VoteResultsPhase onNext={navNext} onPrev={navPrev} />}
+            {currentPhase === 7 && <ActionItemsPhase employees={employees} onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 8 && <AppreciationPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 9 && <CloseSummaryPhase onPrev={navPrev} onFinish={navFinish} />}
           </div>
         </div>
-        <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
       </AppLayout>
     </SessionContext.Provider>
   );

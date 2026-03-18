@@ -14,6 +14,7 @@ const CHANNEL_NAME = "retro-phase-sync";
 export function useRetroPhaseSyncChannel() {
   const [phaseEvent, setPhaseEvent] = useState(null);
   const [finishEvent, setFinishEvent] = useState(null);
+  const [actionEvent, setActionEvent] = useState(null);
   const channelRef = useRef(null);
 
   const broadcastPhase = useCallback((payload) => {
@@ -40,6 +41,14 @@ export function useRetroPhaseSyncChannel() {
     });
   }, []);
 
+  const broadcastAction = useCallback((payload) => {
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "in_phase_action",
+      payload: { ...payload, ts: Date.now() },
+    });
+  }, []);
+
   useEffect(() => {
     const channel = supabase.channel(CHANNEL_NAME, {
       config: { broadcast: { self: false } },
@@ -57,6 +66,10 @@ export function useRetroPhaseSyncChannel() {
       setPhaseEvent({ ...payload, phase: 0 });
     });
 
+    channel.on("broadcast", { event: "in_phase_action" }, ({ payload }) => {
+      setActionEvent(payload);
+    });
+
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         channelRef.current = channel;
@@ -69,5 +82,5 @@ export function useRetroPhaseSyncChannel() {
     };
   }, []);
 
-  return { phaseEvent, finishEvent, broadcastPhase, broadcastFinish, broadcastStart };
+  return { phaseEvent, finishEvent, actionEvent, broadcastPhase, broadcastFinish, broadcastStart, broadcastAction };
 }
