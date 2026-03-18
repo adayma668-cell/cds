@@ -10,9 +10,9 @@ import EmptyState from "@/components/EmptyState";
 import ConfirmModal from "@/components/ConfirmModal";
 
 const STATUS_OPTIONS = [
-  { value: "to_be_done", label: "To Be Done", color: "bg-amber-100 text-amber-700 border-amber-200" },
-  { value: "in_progress", label: "In Progress", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  { value: "closed", label: "Closed", color: "bg-green-100 text-green-700 border-green-200" },
+  { value: "to_be_done", label: "To Be Done", color: "bg-amber-100 text-amber-700 border-amber-200", hoverColor: "hover:bg-amber-100 hover:text-amber-700 hover:border-amber-200" },
+  { value: "in_progress", label: "In Progress", color: "bg-blue-100 text-blue-700 border-blue-200", hoverColor: "hover:bg-blue-100 hover:text-blue-700 hover:border-blue-200" },
+  { value: "closed", label: "Closed", color: "bg-green-100 text-green-700 border-green-200", hoverColor: "hover:bg-green-100 hover:text-green-700 hover:border-green-200" },
 ];
 
 function formatDate(dateStr) {
@@ -29,7 +29,6 @@ export default function TasksPage() {
   const { user, loading: authLoading } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
   const [form, setForm] = useState({
     ticket_number: "",
     due_date: "",
@@ -46,14 +45,13 @@ export default function TasksPage() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    const url = filter === "all" ? "/api/tickets" : `/api/tickets?status=${filter}`;
-    const res = await fetch(url, {
+    const res = await fetch("/api/tickets", {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });
     const data = await res.json();
     setTickets(data.tickets || []);
     setLoading(false);
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -201,13 +199,10 @@ export default function TasksPage() {
           {STATUS_OPTIONS.map((s) => (
             <div
               key={s.value}
-              onClick={() => setFilter(filter === s.value ? "all" : s.value)}
-              className={`rounded-xl border p-4 cursor-pointer card-hover transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 ${
-                filter === s.value ? s.color : "bg-card border-card-border hover:bg-background"
-              }`}
+              className={`rounded-xl border p-4 bg-card border-card-border transition-all ${s.hoverColor}`}
             >
               <p className="text-2xl font-bold">{statusCounts[s.value]}</p>
-              <p className={`text-xs font-semibold mt-0.5 ${filter === s.value ? "" : "text-muted"}`}>
+              <p className="text-xs font-semibold mt-0.5 text-muted">
                 {s.label}
               </p>
             </div>
