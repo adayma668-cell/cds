@@ -47,9 +47,9 @@ export async function GET(req) {
   const { data: sessions, error } = await supabaseAdmin
     .from("retro_sessions")
     .select("*")
-    .eq("status", "finished")
+    .in("status", ["finished", "archived"])
     .order("finished_at", { ascending: false })
-    .limit(20);
+    .limit(50);
 
   if (error) {
     console.error("Failed to fetch retro history:", error);

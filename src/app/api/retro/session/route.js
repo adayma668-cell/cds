@@ -148,7 +148,7 @@ export async function PATCH(req) {
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { session_id } = await req.json();
+  const { session_id, archive } = await req.json();
   if (!session_id) return NextResponse.json({ error: "session_id required" }, { status: 400 });
 
   const { data: oldSession } = await supabaseAdmin
@@ -157,10 +157,11 @@ export async function PATCH(req) {
     .eq("id", session_id)
     .single();
 
+  const newStatus = archive ? "archived" : "finished";
   const finishedAt = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from("retro_sessions")
-    .update({ status: "finished", finished_at: finishedAt })
+    .update({ status: newStatus, finished_at: finishedAt })
     .eq("id", session_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -169,11 +170,11 @@ export async function PATCH(req) {
   await logAudit({
     entityType: "retro_session",
     entityId: session_id,
-    action: "finished",
+    action: newStatus,
     actorId: user.id,
     actorName,
     oldData: oldSession,
-    newData: { ...oldSession, status: "finished", finished_at: finishedAt },
+    newData: { ...oldSession, status: newStatus, finished_at: finishedAt },
   });
 
   return NextResponse.json({ success: true });

@@ -198,6 +198,8 @@ export default function StartMeeting() {
   const [pendingAll, setPendingAll] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const [abandoning, setAbandoning] = useState(false);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -378,6 +380,42 @@ export default function StartMeeting() {
     clearTimer();
     endTimeRef.current = null;
     broadcastState({ phase: "lobby" });
+  };
+
+  const handleAbandon = async () => {
+    setAbandoning(true);
+    clearTimer();
+    setIsRunning(false);
+    endTimeRef.current = null;
+    broadcastState({ phase: "lobby" });
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await fetch("/api/meeting/finish", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            memberCount: currentIndex + 1,
+            team: selectedTeam === "all" ? null : selectedTeam,
+            abandoned: true,
+            abandonedAt: currentIndex + 1,
+            totalMembers,
+          }),
+        });
+      }
+    } catch {}
+
+    setPhase("lobby");
+    setCurrentIndex(0);
+    setSeconds(TIMER_SECONDS);
+    setShowAbandonConfirm(false);
+    setAbandoning(false);
   };
 
   const handleRefresh = async () => {
@@ -676,10 +714,21 @@ export default function StartMeeting() {
                 <span>
                   Member {currentIndex + 1} of {totalMembers}
                 </span>
-                <span>
-                  {Math.round(((currentIndex + 1) / totalMembers) * 100)}%
-                  complete
-                </span>
+                <div className="flex items-center gap-3">
+                  <span>
+                    {Math.round(((currentIndex + 1) / totalMembers) * 100)}%
+                    complete
+                  </span>
+                  <button
+                    onClick={() => setShowAbandonConfirm(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-red-400 hover:text-white hover:bg-danger border border-red-200 hover:border-danger transition-all cursor-pointer"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    End Meeting
+                  </button>
+                </div>
               </div>
               <div className="w-full h-2 bg-card-border rounded-full overflow-hidden">
                 <div
@@ -838,6 +887,58 @@ export default function StartMeeting() {
                 </button>
               </div>
             </div>
+
+            {/* Abandon Confirmation Modal */}
+            {showAbandonConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div
+                  className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                  onClick={() => !abandoning && setShowAbandonConfirm(false)}
+                />
+                <div className="relative bg-card rounded-2xl border border-card-border shadow-2xl max-w-sm w-full p-6 space-y-5 animate-in fade-in zoom-in-95">
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-foreground">
+                      Abandon Meeting?
+                    </h3>
+                    <p className="text-sm text-muted leading-relaxed">
+                      This will end the meeting immediately. Progress for{" "}
+                      <span className="font-semibold text-foreground">
+                        {currentIndex + 1} of {totalMembers}
+                      </span>{" "}
+                      members will be saved, but remaining members will be skipped.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowAbandonConfirm(false)}
+                      disabled={abandoning}
+                      className="flex-1 rounded-lg border border-card-border py-2.5 text-sm font-semibold text-muted hover:bg-background transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAbandon}
+                      disabled={abandoning}
+                      className="flex-1 rounded-lg bg-danger text-white py-2.5 text-sm font-semibold hover:bg-red-600 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {abandoning ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Ending...
+                        </span>
+                      ) : (
+                        "Yes, Abandon"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

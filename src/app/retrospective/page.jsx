@@ -104,7 +104,24 @@ function useTimerSounds() {
   return { playTick, playFinish };
 }
 
-const _phaseTimerState = {};
+const TIMER_STORAGE_KEY = "retro_phase_timers";
+
+function _loadTimerCache() {
+  try {
+    const raw = sessionStorage.getItem(TIMER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function _saveTimerCache(state) {
+  try { sessionStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+
+let _phaseTimerState = null;
+function _getTimerState() {
+  if (!_phaseTimerState) _phaseTimerState = _loadTimerCache();
+  return _phaseTimerState;
+}
 
 function PhaseTimer({ phaseIndex }) {
   const { playTick, playFinish } = useTimerSounds();
@@ -123,21 +140,35 @@ function PhaseTimer({ phaseIndex }) {
 
   useEffect(() => {
     const d = PHASE_DURATIONS[phaseIndex] || 5 * 60;
-    const cached = _phaseTimerState[phaseIndex];
+    const cache = _getTimerState();
+    const cached = cache[phaseIndex];
 
     if (cached && prevPhaseRef.current !== phaseIndex) {
       endTimeRef.current = cached.endTime;
       pausedMsRef.current = cached.pausedMs;
       finishedFiredRef.current = cached.finished;
       setDuration(cached.duration);
-      setRunning(cached.running);
-      setFinished(cached.finished);
+
       if (cached.finished) {
+        setRunning(false);
+        setFinished(true);
         setTimeLeft(0);
       } else if (cached.pausedMs != null) {
+        setRunning(false);
+        setFinished(false);
         setTimeLeft(Math.max(0, Math.ceil(cached.pausedMs / 1000)));
       } else {
-        setTimeLeft(Math.max(0, Math.ceil((cached.endTime - Date.now()) / 1000)));
+        const remaining = Math.max(0, Math.ceil((cached.endTime - Date.now()) / 1000));
+        if (remaining <= 0) {
+          finishedFiredRef.current = true;
+          setRunning(false);
+          setFinished(true);
+          setTimeLeft(0);
+        } else {
+          setRunning(true);
+          setFinished(false);
+          setTimeLeft(remaining);
+        }
       }
     } else if (prevPhaseRef.current !== phaseIndex) {
       endTimeRef.current = Date.now() + d * 1000;
@@ -154,13 +185,16 @@ function PhaseTimer({ phaseIndex }) {
   }, [phaseIndex]);
 
   useEffect(() => {
-    _phaseTimerState[phaseIndex] = {
+    const cache = _getTimerState();
+    cache[phaseIndex] = {
       endTime: endTimeRef.current,
       pausedMs: pausedMsRef.current,
       duration,
       running,
       finished,
     };
+    _phaseTimerState = cache;
+    _saveTimerCache(cache);
   });
 
   useEffect(() => {
@@ -3787,6 +3821,12 @@ export default function RetrospectivePage() {
   const [expandedSession, setExpandedSession] = useState(null);
   const [expandedData, setExpandedData] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState("all");
+  const [showFacilitatorMenu, setShowFacilitatorMenu] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   const isAdmin = ALLOWED_ROLES.includes(role);
   const isFacilitator = isAdmin && !!user?.id && !!facilitatorInfo?.id && user.id === facilitatorInfo.id;
@@ -3823,6 +3863,12 @@ export default function RetrospectivePage() {
   }, [token]);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  useEffect(() => {
+    if (!token || started) return;
+    const interval = setInterval(fetchHistory, 10000);
+    return () => clearInterval(interval);
+  }, [token, started, fetchHistory]);
 
   const toggleSession = async (sessionId) => {
     if (expandedSession === sessionId) {
@@ -3968,6 +4014,8 @@ export default function RetrospectivePage() {
         broadcastFinish({ sessionId });
       } catch {}
     }
+    _phaseTimerState = {};
+    _saveTimerCache({});
     setStarted(false);
     setSessionId(null);
     setSessionTeamIds([]);
@@ -3977,6 +4025,40 @@ export default function RetrospectivePage() {
     setEmployees(allEmployees);
     setMeetingTitle("");
     fetchHistory();
+  };
+
+  const handleEndMeeting = async () => {
+    setEnding(true);
+    await finish();
+    setShowEndConfirm(false);
+    setEnding(false);
+  };
+
+  const handleArchiveMeeting = async () => {
+    setArchiving(true);
+    try {
+      if (token && sessionId) {
+        await fetch("/api/retro/session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ session_id: sessionId, archive: true }),
+        });
+        broadcastFinish({ sessionId });
+      }
+      _phaseTimerState = {};
+      _saveTimerCache({});
+      setStarted(false);
+      setSessionId(null);
+      setSessionTeamIds([]);
+      setSelectedTeams([]);
+      setCurrentPhase(0);
+      setFacilitatorInfo(null);
+      setEmployees(allEmployees);
+      setMeetingTitle("");
+      fetchHistory();
+    } catch {}
+    setShowArchiveConfirm(false);
+    setArchiving(false);
   };
 
   /* Phase sync: other admins follow the facilitator in real-time */
@@ -3995,6 +4077,8 @@ export default function RetrospectivePage() {
   /* Session finish sync: other admins reset when facilitator ends */
   useEffect(() => {
     if (!finishEvent || isFacilitator) return;
+    _phaseTimerState = {};
+    _saveTimerCache({});
     setStarted(false);
     setSessionId(null);
     setSessionTeamIds([]);
@@ -4086,12 +4170,40 @@ export default function RetrospectivePage() {
 
           {/* Completed Sessions */}
           <div className="mt-10 space-y-4 retro-slide-in-delay-1">
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Past Retrospectives
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Past Retrospectives
+              </h2>
+              <div className="flex gap-1.5 flex-wrap">
+                {[
+                  { id: "all", label: "All" },
+                  { id: "finished", label: "Completed" },
+                  { id: "archived", label: "Archived" },
+                ].map((f) => {
+                  const count = f.id === "all"
+                    ? completedSessions.length
+                    : completedSessions.filter((s) => s.status === f.id).length;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setHistoryFilter(f.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        historyFilter === f.id
+                          ? f.id === "archived"
+                            ? "bg-red-50 text-danger border-red-200"
+                            : "bg-accent/10 text-accent border-accent/20"
+                          : "bg-white/60 text-muted border-card-border hover:bg-white/80"
+                      }`}
+                    >
+                      {f.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {completedSessions.length === 0 ? (
               <div className="retro-gradient-border rounded-2xl">
@@ -4101,8 +4213,11 @@ export default function RetrospectivePage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {completedSessions.map((session) => {
+                {completedSessions
+                  .filter((s) => historyFilter === "all" || s.status === historyFilter)
+                  .map((session) => {
                   const isExpanded = expandedSession === session.id;
+                  const isArchived = session.status === "archived";
                   const dateStr = session.finished_at
                     ? new Date(session.finished_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                     : "";
@@ -4112,28 +4227,54 @@ export default function RetrospectivePage() {
                   const totalItems = session.stats
                     ? session.stats.went_well + session.stats.didnt_go_well + session.stats.should_try + session.stats.action_items + session.stats.appreciation
                     : 0;
+                  const phaseStopped = session.current_phase != null ? session.current_phase + 1 : null;
 
                   return (
                     <div key={session.id} className="retro-gradient-border rounded-2xl">
                       <div
                         className="rounded-2xl overflow-hidden"
-                        style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}
+                        style={{ background: isArchived
+                          ? "linear-gradient(145deg, rgba(254, 242, 242, 0.95) 0%, rgba(254, 226, 226, 0.6) 50%, rgba(240, 247, 244, 0.8) 100%)"
+                          : "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)"
+                        }}
                       >
                         {/* Session header - clickable */}
                         <button
                           onClick={() => toggleSession(session.id)}
                           className="w-full p-5 text-left flex items-center gap-4 cursor-pointer hover:bg-white/30 transition-colors"
                         >
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-white/60 flex items-center justify-center flex-shrink-0">
-                            <ClipboardCheckIcon className="w-5 h-5" />
+                          <div className={`w-10 h-10 rounded-xl border border-white/60 flex items-center justify-center flex-shrink-0 ${
+                            isArchived
+                              ? "bg-gradient-to-br from-red-100/60 to-red-50/40"
+                              : "bg-gradient-to-br from-primary/10 to-accent/10"
+                          }`}>
+                            {isArchived ? (
+                              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                              </svg>
+                            ) : (
+                              <ClipboardCheckIcon className="w-5 h-5" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-foreground text-sm truncate">
-                              {session.title || "Untitled Retrospective"}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-foreground text-sm truncate">
+                                {session.title || "Untitled Retrospective"}
+                              </h3>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${
+                                isArchived
+                                  ? "bg-red-50 text-danger border-red-200"
+                                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              }`}>
+                                {isArchived ? "Archived" : "Completed"}
+                              </span>
+                            </div>
                             <div className="flex items-center gap-3 mt-0.5">
                               <span className="text-xs text-muted">{dateStr} at {timeStr}</span>
                               <span className="text-xs text-muted">by {session.facilitator_name}</span>
+                              {isArchived && phaseStopped && (
+                                <span className="text-[10px] text-muted/60">stopped at step {phaseStopped}/{PHASES.length}</span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-3 flex-shrink-0">
@@ -4474,19 +4615,162 @@ export default function RetrospectivePage() {
             <ProgressBar currentPhase={currentPhase} />
             <div className="flex items-center justify-between retro-slide-in-delay-1">
               <div className="flex items-center gap-2">
-                <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
-                {!canNavigate && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/50">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                    </span>
-                    <span className="text-[11px] font-medium text-emerald-700">Syncing</span>
+                {canNavigate ? (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowFacilitatorMenu((v) => !v)}
+                      className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-card-border/40 backdrop-blur-sm cursor-pointer hover:border-accent/30 transition-all"
+                      style={{
+                        background: "linear-gradient(145deg, rgba(255,255,255,0.88) 0%, rgba(240,247,244,0.92) 50%, rgba(230,236,247,0.88) 100%)",
+                        boxShadow: "0 2px 10px rgba(0,50,100,0.06), 0 1px 4px rgba(6,194,134,0.06)",
+                      }}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </span>
+                        {facilitatorInfo?.avatar ? (
+                          <img src={facilitatorInfo.avatar} alt="" className="w-8 h-8 rounded-lg object-cover border-2 border-white shadow-sm" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/15 via-accent/10 to-primary/20 border-2 border-white shadow-sm flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-primary-dark">{facilitatorInfo?.name?.charAt(0)?.toUpperCase() || "?"}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-accent">Facilitator</span>
+                        <p className="text-xs font-semibold text-foreground truncate max-w-[120px] leading-tight">{facilitatorInfo?.name}</p>
+                      </div>
+                      <svg className={`w-3.5 h-3.5 text-muted/60 transition-transform ${showFacilitatorMenu ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {showFacilitatorMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowFacilitatorMenu(false)} />
+                        <div className="absolute left-0 top-full mt-2 z-50 w-52 rounded-xl border border-card-border bg-card shadow-xl overflow-hidden">
+                          <button
+                            onClick={() => { setShowFacilitatorMenu(false); setShowEndConfirm(true); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-amber-50 transition-colors cursor-pointer"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <p className="font-semibold text-sm">End Meeting</p>
+                              <p className="text-[11px] text-muted">Save progress & finish</p>
+                            </div>
+                          </button>
+                          <div className="border-t border-card-border/50" />
+                          <button
+                            onClick={() => { setShowFacilitatorMenu(false); setShowArchiveConfirm(true); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-red-50 transition-colors cursor-pointer"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <p className="font-semibold text-sm">Archive Meeting</p>
+                              <p className="text-[11px] text-muted">Discard & archive session</p>
+                            </div>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
+                ) : (
+                  <>
+                    <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/50">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      </span>
+                      <span className="text-[11px] font-medium text-emerald-700">Syncing</span>
+                    </div>
+                  </>
                 )}
               </div>
               <PhaseTimer phaseIndex={currentPhase} />
             </div>
+
+            {/* End Meeting Confirmation */}
+            {showEndConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !ending && setShowEndConfirm(false)} />
+                <div className="relative bg-card rounded-2xl border border-card-border shadow-2xl max-w-sm w-full p-6 space-y-5">
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-foreground">End Retrospective?</h3>
+                    <p className="text-sm text-muted leading-relaxed">
+                      This will finish the retrospective at{" "}
+                      <span className="font-semibold text-foreground">{PHASES[currentPhase]?.label} (Step {currentPhase + 1}/{PHASES.length})</span>.
+                      All progress will be saved.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowEndConfirm(false)} disabled={ending} className="flex-1 rounded-lg border border-card-border py-2.5 text-sm font-semibold text-muted hover:bg-background transition-colors cursor-pointer disabled:opacity-50">
+                      Cancel
+                    </button>
+                    <button onClick={handleEndMeeting} disabled={ending} className="flex-1 rounded-lg bg-amber-500 text-white py-2.5 text-sm font-semibold hover:bg-amber-600 transition-colors cursor-pointer disabled:opacity-50">
+                      {ending ? (
+                        <span className="inline-flex items-center gap-2 justify-center">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Ending...
+                        </span>
+                      ) : "Yes, End Meeting"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Archive Meeting Confirmation */}
+            {showArchiveConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !archiving && setShowArchiveConfirm(false)} />
+                <div className="relative bg-card rounded-2xl border border-card-border shadow-2xl max-w-sm w-full p-6 space-y-5">
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-foreground">Archive Retrospective?</h3>
+                    <p className="text-sm text-muted leading-relaxed">
+                      This will archive the session and discard any unfinished work. Currently at{" "}
+                      <span className="font-semibold text-foreground">{PHASES[currentPhase]?.label} (Step {currentPhase + 1}/{PHASES.length})</span>.
+                      This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowArchiveConfirm(false)} disabled={archiving} className="flex-1 rounded-lg border border-card-border py-2.5 text-sm font-semibold text-muted hover:bg-background transition-colors cursor-pointer disabled:opacity-50">
+                      Cancel
+                    </button>
+                    <button onClick={handleArchiveMeeting} disabled={archiving} className="flex-1 rounded-lg bg-danger text-white py-2.5 text-sm font-semibold hover:bg-red-600 transition-colors cursor-pointer disabled:opacity-50">
+                      {archiving ? (
+                        <span className="inline-flex items-center gap-2 justify-center">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Archiving...
+                        </span>
+                      ) : "Yes, Archive"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div
