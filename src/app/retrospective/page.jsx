@@ -8,6 +8,7 @@ import { useRetroChannel } from "@/hooks/useRetroChannel";
 import { useOpenActionsChannel } from "@/hooks/useOpenActionsChannel";
 import { useRetroBoardChannel } from "@/hooks/useRetroBoardChannel";
 import { useVoteTrackerChannel } from "@/hooks/useVoteTrackerChannel";
+import { useRetroPhaseSyncChannel } from "@/hooks/useRetroPhaseSyncChannel";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
 import {
   DiceIcon, TargetIcon, PinIcon, NotepadIcon, BallotIcon, ChartBarIcon,
@@ -3121,14 +3122,69 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Facilitator Widget – floating indicator in bottom-right             */
+/* ------------------------------------------------------------------ */
+function FacilitatorWidget({ facilitatorInfo, currentPhase }) {
+  if (!facilitatorInfo) return null;
+  const phase = PHASES[currentPhase] || PHASES[0];
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 retro-slide-in">
+      <div
+        className="flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border border-card-border/40 backdrop-blur-xl"
+        style={{
+          background: "linear-gradient(145deg, rgba(255,255,255,0.92) 0%, rgba(240,247,244,0.95) 50%, rgba(230,236,247,0.92) 100%)",
+          boxShadow: "0 8px 32px rgba(0,50,100,0.10), 0 2px 8px rgba(6,194,134,0.08)",
+        }}
+      >
+        {/* Live pulse */}
+        <div className="relative flex-shrink-0">
+          <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+          </span>
+          {facilitatorInfo.avatar ? (
+            <img
+              src={facilitatorInfo.avatar}
+              alt={facilitatorInfo.name}
+              className="w-9 h-9 rounded-xl object-cover border-2 border-white shadow-sm"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/15 via-accent/10 to-primary/20 border-2 border-white shadow-sm flex items-center justify-center">
+              <span className="text-xs font-bold text-primary-dark">
+                {facilitatorInfo.name?.charAt(0)?.toUpperCase() || "?"}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Facilitator</span>
+          </div>
+          <p className="text-sm font-semibold text-foreground truncate max-w-[140px]">
+            {facilitatorInfo.name}
+          </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {phase.icon("w-3 h-3 text-muted")}
+            <span className="text-[11px] text-muted font-medium">{phase.label}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Employee Retro View – follows the facilitator's phase via polling   */
 /* ------------------------------------------------------------------ */
-function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote }) {
+function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, phaseEvent: parentPhaseEvent, finishEvent: parentFinishEvent }) {
   const [currentPhase, setCurrentPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [sessionTeamIds, setSessionTeamIds] = useState([]);
   const [hasSession, setHasSession] = useState(false);
   const [employees, setEmployees] = useState(allEmployees);
+  const [facilitatorInfo, setFacilitatorInfo] = useState(null);
   const teamFetchedRef = useRef(null);
 
   useEffect(() => {
@@ -3147,6 +3203,13 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
           setHasSession(true);
           setSessionId(data.session.id);
           setCurrentPhase(data.session.current_phase ?? 0);
+          if (data.session.facilitator_id) {
+            setFacilitatorInfo({
+              id: data.session.facilitator_id,
+              name: data.session.facilitator_name,
+              avatar: data.session.facilitator_avatar,
+            });
+          }
           const raw = data.session.team_id || "";
           const teams = raw ? raw.split(",").filter(Boolean) : [];
           setSessionTeamIds(teams);
@@ -3164,6 +3227,7 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
           setSessionId(null);
           setSessionTeamIds([]);
           setCurrentPhase(null);
+          setFacilitatorInfo(null);
         }
       } catch {}
     };
@@ -3172,6 +3236,29 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
     const interval = setInterval(poll, 3000);
     return () => { active = false; clearInterval(interval); };
   }, [token]);
+
+  /* Real-time phase sync from facilitator (instant, supplements polling) */
+  useEffect(() => {
+    if (!parentPhaseEvent) return;
+    setCurrentPhase(parentPhaseEvent.phase);
+    if (parentPhaseEvent.facilitator) {
+      setFacilitatorInfo(parentPhaseEvent.facilitator);
+    }
+    if (parentPhaseEvent.sessionId && !sessionId) {
+      setSessionId(parentPhaseEvent.sessionId);
+      setHasSession(true);
+    }
+  }, [parentPhaseEvent]);
+
+  /* Real-time finish sync from facilitator */
+  useEffect(() => {
+    if (!parentFinishEvent) return;
+    setHasSession(false);
+    setSessionId(null);
+    setSessionTeamIds([]);
+    setCurrentPhase(null);
+    setFacilitatorInfo(null);
+  }, [parentFinishEvent]);
 
   if (!hasSession || currentPhase === null) {
     return (
@@ -3235,6 +3322,7 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
           {currentPhase === 8 && <CloseSummaryPhase onPrev={null} onFinish={null} />}
         </div>
       </div>
+      <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
     </SessionContext.Provider>
   );
 }
@@ -3243,7 +3331,7 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
 /*  Main Page                                                          */
 /* ------------------------------------------------------------------ */
 export default function RetrospectivePage() {
-  const { role, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const token = useAccessToken();
   const [currentPhase, setCurrentPhase] = useState(0);
   const [started, setStarted] = useState(false);
@@ -3253,12 +3341,15 @@ export default function RetrospectivePage() {
   const [allEmployees, setAllEmployees] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [facilitatorInfo, setFacilitatorInfo] = useState(null);
 
   const isAdmin = ALLOWED_ROLES.includes(role);
+  const isFacilitator = isAdmin && !!user?.id && !!facilitatorInfo?.id && user.id === facilitatorInfo.id;
   const { icebreakerState, spinTrigger, broadcastIcebreakerState, broadcastSpin } = useRetroChannel(isAdmin ? "admin" : "employee");
   const { event: boardEvent, broadcast: boardBroadcast } = useRetroBoardChannel();
   const { toggleEvent, broadcastToggle } = useOpenActionsChannel();
   const { voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote } = useVoteTrackerChannel();
+  const { phaseEvent, finishEvent, broadcastPhase, broadcastFinish, broadcastStart } = useRetroPhaseSyncChannel();
 
   useEffect(() => {
     fetch("/api/retro/employees")
@@ -3286,6 +3377,13 @@ export default function RetrospectivePage() {
           setSessionId(d.session.id);
           setCurrentPhase(d.session.current_phase ?? 0);
           setStarted(true);
+          if (d.session.facilitator_id) {
+            setFacilitatorInfo({
+              id: d.session.facilitator_id,
+              name: d.session.facilitator_name,
+              avatar: d.session.facilitator_avatar,
+            });
+          }
           const raw = d.session.team_id || "";
           const teams = raw ? raw.split(",").filter(Boolean) : [];
           setSessionTeamIds(teams);
@@ -3310,8 +3408,13 @@ export default function RetrospectivePage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ session_id: sessionId, current_phase: phase }),
       });
+      broadcastPhase({
+        phase,
+        sessionId,
+        facilitator: facilitatorInfo,
+      });
     } catch {}
-  }, [token, sessionId]);
+  }, [token, sessionId, broadcastPhase, facilitatorInfo]);
 
   const startMeeting = async () => {
     if (!token) return;
@@ -3329,6 +3432,13 @@ export default function RetrospectivePage() {
         setCurrentPhase(0);
         setStarted(true);
 
+        const fInfo = {
+          id: user?.id,
+          name: user?.user_metadata?.name || user?.email || "Unknown",
+          avatar: user?.user_metadata?.avatar_url || null,
+        };
+        setFacilitatorInfo(fInfo);
+
         const teamFilter = teamId ? `?team_id=${teamId}` : "";
         fetch(`/api/retro/employees${teamFilter}`)
           .then((r) => r.json())
@@ -3341,6 +3451,10 @@ export default function RetrospectivePage() {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ session_id: data.session.id, current_phase: 0 }),
           }).catch(() => {});
+          broadcastStart({
+            sessionId: data.session.id,
+            facilitator: fInfo,
+          });
         }, 100);
       }
     } catch {}
@@ -3368,6 +3482,7 @@ export default function RetrospectivePage() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ session_id: sessionId }),
         });
+        broadcastFinish({ sessionId });
       } catch {}
     }
     setStarted(false);
@@ -3375,8 +3490,34 @@ export default function RetrospectivePage() {
     setSessionTeamIds([]);
     setSelectedTeams([]);
     setCurrentPhase(0);
+    setFacilitatorInfo(null);
     setEmployees(allEmployees);
   };
+
+  /* Phase sync: other admins follow the facilitator in real-time */
+  useEffect(() => {
+    if (!phaseEvent || !isAdmin || isFacilitator) return;
+    setCurrentPhase(phaseEvent.phase);
+    if (phaseEvent.facilitator) {
+      setFacilitatorInfo(phaseEvent.facilitator);
+    }
+    if (phaseEvent.sessionId && !sessionId) {
+      setSessionId(phaseEvent.sessionId);
+      setStarted(true);
+    }
+  }, [phaseEvent]);
+
+  /* Session finish sync: other admins reset when facilitator ends */
+  useEffect(() => {
+    if (!finishEvent || isFacilitator) return;
+    setStarted(false);
+    setSessionId(null);
+    setSessionTeamIds([]);
+    setSelectedTeams([]);
+    setCurrentPhase(0);
+    setFacilitatorInfo(null);
+    setEmployees(allEmployees);
+  }, [finishEvent]);
 
   if (authLoading || checkingSession) {
     return (
@@ -3395,7 +3536,7 @@ export default function RetrospectivePage() {
   if (!isAdmin) {
     return (
       <AppLayout>
-        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />
+        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} phaseEvent={phaseEvent} finishEvent={finishEvent} />
       </AppLayout>
     );
   }
@@ -3552,6 +3693,11 @@ export default function RetrospectivePage() {
   }
 
   /* ---- Active Meeting ---- */
+  const canNavigate = isFacilitator || !facilitatorInfo;
+  const navNext = canNavigate ? next : null;
+  const navPrev = canNavigate ? prev : null;
+  const navFinish = canNavigate ? finish : null;
+
   return (
     <SessionContext.Provider value={sessionId}>
       <AppLayout>
@@ -3570,23 +3716,33 @@ export default function RetrospectivePage() {
             <div className="flex justify-end retro-slide-in-delay-1">
               <PhaseTimer phaseIndex={currentPhase} />
             </div>
+            {!canNavigate && (
+              <div className="flex items-center justify-center gap-2 py-2 retro-slide-in-delay-1">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span className="text-xs font-medium text-muted">Syncing with facilitator — {facilitatorInfo?.name}</span>
+              </div>
+            )}
           </div>
 
           <div
             key={currentPhase}
             className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}
           >
-            {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={next} broadcastIcebreakerState={broadcastIcebreakerState} broadcastSpin={broadcastSpin} />}
-            {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={next} onPrev={prev} />}
-            {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={next} onPrev={prev} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
-            {currentPhase === 3 && <RetroBoardPhase onNext={next} onPrev={prev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={next} onPrev={prev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
-            {currentPhase === 5 && <VoteResultsPhase onNext={next} onPrev={prev} />}
-            {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={next} onPrev={prev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 7 && <AppreciationPhase onNext={next} onPrev={prev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 8 && <CloseSummaryPhase onPrev={prev} onFinish={finish} />}
+            {currentPhase === 0 && <IceBreakerPhase employees={employees} onNext={navNext} broadcastIcebreakerState={broadcastIcebreakerState} broadcastSpin={broadcastSpin} />}
+            {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} />}
+            {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
+            {currentPhase === 3 && <RetroBoardPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 4 && <VotingPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
+            {currentPhase === 5 && <VoteResultsPhase onNext={navNext} onPrev={navPrev} />}
+            {currentPhase === 6 && <ActionItemsPhase employees={employees} onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 7 && <AppreciationPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 8 && <CloseSummaryPhase onPrev={navPrev} onFinish={navFinish} />}
           </div>
         </div>
+        <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
       </AppLayout>
     </SessionContext.Provider>
   );

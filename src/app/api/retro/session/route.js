@@ -27,6 +27,23 @@ export async function GET(req) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  if (data && data.created_by) {
+    const [{ data: facilitator }, authResult] = await Promise.all([
+      supabaseAdmin
+        .from("employees")
+        .select("name, email")
+        .eq("id", data.created_by)
+        .single(),
+      supabaseAdmin.auth.admin.getUserById(data.created_by),
+    ]);
+
+    data.facilitator_id = data.created_by;
+    data.facilitator_name =
+      facilitator?.name || facilitator?.email?.split("@")[0] || "Unknown";
+    data.facilitator_avatar =
+      authResult?.data?.user?.user_metadata?.avatar_url || null;
+  }
+
   return NextResponse.json({ session: data || null });
 }
 
@@ -108,7 +125,14 @@ export async function PUT(req) {
     metadata: { from_phase: oldSession?.current_phase, to_phase: current_phase },
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    changed_by: {
+      id: user.id,
+      name: actorName,
+      avatar: user.user_metadata?.avatar_url || null,
+    },
+  });
 }
 
 export async function PATCH(req) {
