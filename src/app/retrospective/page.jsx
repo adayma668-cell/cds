@@ -18,6 +18,7 @@ import {
   CheckCircleIcon, XCircleIcon, LightbulbIcon, HelpCircleIcon,
   FaceGreatIcon, FaceGoodIcon, FaceNeutralIcon, FaceConcernedIcon, FaceFrustratedIcon,
 } from "@/lib/icons";
+import WaitingLobbyGame from "@/components/WaitingLobbyGame";
 
 const SessionContext = createContext(null);
 function useSessionId() { return useContext(SessionContext); }
@@ -394,14 +395,35 @@ function ProgressBar({ currentPhase }) {
 
       <div className="relative flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            {PHASES.map((_, i) => (
-              <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i <= currentPhase ? "w-3 bg-gradient-to-r from-primary to-accent" : "w-1.5 bg-card-border/40"}`} />
-            ))}
+          <div className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/60 border border-card-border/30 shadow-sm">
+            <div className="relative w-7 h-7 flex items-center justify-center">
+              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 28 28">
+                <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-card-border/30" />
+                <circle
+                  cx="14" cy="14" r="11" fill="none" strokeWidth="2.5" strokeLinecap="round"
+                  stroke="url(#retro-progress-ring)"
+                  strokeDasharray={2 * Math.PI * 11}
+                  strokeDashoffset={2 * Math.PI * 11 * (1 - (currentPhase + 1) / PHASES.length)}
+                  className="transition-all duration-700 ease-out"
+                />
+                <defs>
+                  <linearGradient id="retro-progress-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="var(--primary)" />
+                    <stop offset="100%" stopColor="var(--accent)" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span className="relative text-[10px] font-extrabold tabular-nums bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
+                {currentPhase + 1}
+              </span>
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted/70">Step</span>
+              <span className="text-xs font-bold tabular-nums text-foreground/80">
+                {currentPhase + 1}<span className="text-muted/50 mx-px">/</span>{PHASES.length}
+              </span>
+            </div>
           </div>
-          <span className="text-xs font-bold text-foreground/70 tabular-nums">
-            {currentPhase + 1} / {PHASES.length}
-          </span>
         </div>
         <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-accent/10 to-primary/10 border border-accent/15">
           <span className="retro-active-node">{PHASES[currentPhase].icon("w-4 h-4")}</span>
@@ -449,13 +471,7 @@ function ProgressBar({ currentPhase }) {
                   <span>{phase.icon("w-4 h-4")}</span>
                 )}
               </div>
-              <span
-                className={`text-[9px] mt-2 font-bold transition-all whitespace-nowrap hidden md:block ${
-                  active ? "text-accent scale-105" : done ? "text-primary-dark" : "text-muted/40"
-                }`}
-              >
-                {phase.short}
-              </span>
+              {/* Phase name shown in top-right badge; omitted here to declutter */}
             </div>
           );
         })}
@@ -3554,7 +3570,6 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
 /* ------------------------------------------------------------------ */
 function FacilitatorWidget({ facilitatorInfo, currentPhase }) {
   if (!facilitatorInfo) return null;
-  const phase = PHASES[currentPhase] || PHASES[0];
 
   return (
     <div
@@ -3589,11 +3604,6 @@ function FacilitatorWidget({ facilitatorInfo, currentPhase }) {
         <p className="text-xs font-semibold text-foreground truncate max-w-[120px] leading-tight">
           {facilitatorInfo.name}
         </p>
-      </div>
-
-      <div className="flex items-center gap-1 pl-1.5 border-l border-card-border/40">
-        {phase.icon("w-3.5 h-3.5 text-muted")}
-        <span className="text-[11px] text-muted font-medium whitespace-nowrap">{phase.short}</span>
       </div>
     </div>
   );
@@ -3706,14 +3716,16 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
             ))}
           </div>
         )}
-        <p className="text-muted text-sm">Waiting for the facilitator to start the session...</p>
-        <div className="flex justify-center pt-4">
-          <div className="relative w-10 h-10">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/15 to-accent/15 blur-lg" />
-            <div className="absolute inset-0 rounded-full border-2 border-card-border/40" />
+        <div className="flex items-center justify-center gap-2 text-sm text-muted">
+          <div className="relative w-5 h-5">
             <div className="absolute inset-0 rounded-full border-2 border-accent border-t-transparent animate-spin" />
           </div>
+          <span>Waiting for the facilitator to start the session...</span>
         </div>
+
+        <WaitingLobbyGame />
+
+        <p className="text-[11px] text-muted/60 pt-2">Play while you wait — the session will start automatically</p>
       </div>
     );
   }
@@ -3769,6 +3781,12 @@ export default function RetrospectivePage() {
   const [employees, setEmployees] = useState([]);
   const [checkingSession, setCheckingSession] = useState(true);
   const [facilitatorInfo, setFacilitatorInfo] = useState(null);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [meetingTitle, setMeetingTitle] = useState("");
+  const [completedSessions, setCompletedSessions] = useState([]);
+  const [expandedSession, setExpandedSession] = useState(null);
+  const [expandedData, setExpandedData] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const isAdmin = ALLOWED_ROLES.includes(role);
   const isFacilitator = isAdmin && !!user?.id && !!facilitatorInfo?.id && user.id === facilitatorInfo.id;
@@ -3788,6 +3806,43 @@ export default function RetrospectivePage() {
       })
       .catch(() => {});
   }, []);
+
+  const fetchHistory = useCallback(() => {
+    if (!token) return;
+    fetch("/api/retro/history", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => {
+        if (!r.ok) throw new Error(`History API returned ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        setCompletedSessions(d.sessions || []);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch retro history:", err);
+      });
+  }, [token]);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  const toggleSession = async (sessionId) => {
+    if (expandedSession === sessionId) {
+      setExpandedSession(null);
+      setExpandedData(null);
+      return;
+    }
+    setExpandedSession(sessionId);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/retro/history?session_id=${sessionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await res.json();
+      setExpandedData(d);
+    } catch {
+      setExpandedData(null);
+    }
+    setLoadingHistory(false);
+  };
 
   const filteredEmployees = selectedTeams.length === 0
     ? allEmployees
@@ -3851,7 +3906,7 @@ export default function RetrospectivePage() {
       const res = await fetch("/api/retro/session", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ team_id: teamId }),
+        body: JSON.stringify({ team_id: teamId, title: meetingTitle || null }),
       });
       const data = await res.json();
       if (data.session) {
@@ -3920,6 +3975,8 @@ export default function RetrospectivePage() {
     setCurrentPhase(0);
     setFacilitatorInfo(null);
     setEmployees(allEmployees);
+    setMeetingTitle("");
+    fetchHistory();
   };
 
   /* Phase sync: other admins follow the facilitator in real-time */
@@ -3945,6 +4002,7 @@ export default function RetrospectivePage() {
     setCurrentPhase(0);
     setFacilitatorInfo(null);
     setEmployees(allEmployees);
+    setMeetingTitle("");
   }, [finishEvent]);
 
   if (authLoading || checkingSession) {
@@ -3972,151 +4030,424 @@ export default function RetrospectivePage() {
   /* ---- Landing / Start Screen (admin only) ---- */
   if (!started) {
     return (
+      <>
       <AppLayout>
-        <div className="max-w-lg mx-auto text-center py-12 space-y-8 relative">
+        <div className="max-w-2xl mx-auto py-16 px-4 relative">
           {/* Decorative orbs */}
           <div className="absolute -top-8 -right-16 w-40 h-40 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-3xl pointer-events-none retro-float" />
           <div className="absolute -bottom-12 -left-16 w-36 h-36 rounded-full bg-gradient-to-tr from-accent/8 to-transparent blur-3xl pointer-events-none retro-float-reverse" />
 
-          <div className="space-y-4 retro-slide-in">
-            <div className="relative inline-flex items-center justify-center">
-              <div className="absolute w-24 h-24 rounded-3xl bg-gradient-to-br from-primary/15 to-accent/15 blur-xl retro-icon-pulse" />
-              <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center retro-icon-pulse">
-                <ArrowPathIcon className="w-10 h-10" />
+          {/* Start Retro Card */}
+          <div
+            onClick={() => setShowStartModal(true)}
+            className="retro-gradient-border rounded-3xl cursor-pointer group retro-slide-in"
+          >
+            <div
+              className="rounded-3xl p-10 text-center space-y-6 transition-all group-hover:shadow-xl"
+              style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}
+            >
+              <div className="relative inline-flex items-center justify-center">
+                <div className="absolute w-24 h-24 rounded-3xl bg-gradient-to-br from-primary/15 to-accent/15 blur-xl retro-icon-pulse" />
+                <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <ArrowPathIcon className="w-10 h-10" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h1 className="text-3xl font-extrabold bg-gradient-to-r from-foreground via-foreground to-accent bg-clip-text text-transparent">
+                  Sprint Retrospective
+                </h1>
+                <p className="text-muted max-w-sm mx-auto leading-relaxed text-sm">
+                  Reflect on the last sprint, celebrate wins, identify improvements, and define
+                  concrete action items for the team.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-primary to-accent text-white shadow-xl shadow-accent/20 group-hover:shadow-2xl group-hover:shadow-accent/30 group-hover:scale-[1.02] transition-all btn-shimmer">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Start New Retrospective
+                </span>
+              </div>
+
+              {/* Meeting flow preview */}
+              <div className="flex items-center justify-center gap-1.5 pt-2">
+                {PHASES.slice(0, 5).map((phase) => (
+                  <div key={phase.id} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.8), rgba(230, 236, 247, 0.7))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+                    {phase.icon("w-3.5 h-3.5")}
+                  </div>
+                ))}
+                <span className="text-xs text-muted font-medium ml-1">+{PHASES.length - 5} more phases</span>
               </div>
             </div>
-            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-foreground via-foreground to-accent bg-clip-text text-transparent">Sprint Retrospective</h1>
-            <p className="text-muted max-w-sm mx-auto leading-relaxed text-sm">
-              Reflect on the last sprint, celebrate wins, identify improvements, and define
-              concrete action items for the team.
-            </p>
           </div>
 
-          {/* Team Selection */}
-          <div className="retro-gradient-border rounded-3xl retro-slide-in-delay-1">
-            <div className="rounded-3xl p-6 text-left space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
-              <h3 className="font-bold text-foreground flex items-center gap-2 text-sm">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-primary/15 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
+          {/* Completed Sessions */}
+          <div className="mt-10 space-y-4 retro-slide-in-delay-1">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Past Retrospectives
+            </h2>
+
+            {completedSessions.length === 0 ? (
+              <div className="retro-gradient-border rounded-2xl">
+                <div className="rounded-2xl p-8 text-center" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
+                  <p className="text-sm text-muted">No completed retrospectives yet. Start one above!</p>
                 </div>
-                Select Team
-              </h3>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setSelectedTeams([])}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                    selectedTeams.length === 0
-                      ? "bg-accent text-white border-accent shadow-md shadow-accent/20"
-                      : "bg-white/60 text-muted border-card-border hover:bg-white/80"
-                  }`}
-                >
-                  All Teams ({allEmployees.length})
-                </button>
-                {TEAMS.map((team) => {
-                  const count = allEmployees.filter((e) => (e.teams || []).includes(team.id)).length;
-                  const isSelected = selectedTeams.includes(team.id);
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {completedSessions.map((session) => {
+                  const isExpanded = expandedSession === session.id;
+                  const dateStr = session.finished_at
+                    ? new Date(session.finished_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                    : "";
+                  const timeStr = session.finished_at
+                    ? new Date(session.finished_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                    : "";
+                  const totalItems = session.stats
+                    ? session.stats.went_well + session.stats.didnt_go_well + session.stats.should_try + session.stats.action_items + session.stats.appreciation
+                    : 0;
+
                   return (
-                    <button
-                      key={team.id}
-                      onClick={() => {
-                        setSelectedTeams((prev) =>
-                          prev.includes(team.id)
-                            ? prev.filter((t) => t !== team.id)
-                            : [...prev, team.id]
-                        );
-                      }}
-                      className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                        isSelected
-                          ? team.color + " shadow-md"
-                          : "bg-white/60 text-muted border-card-border hover:bg-white/80"
-                      }`}
-                    >
-                      {team.label} ({count})
-                    </button>
+                    <div key={session.id} className="retro-gradient-border rounded-2xl">
+                      <div
+                        className="rounded-2xl overflow-hidden"
+                        style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}
+                      >
+                        {/* Session header - clickable */}
+                        <button
+                          onClick={() => toggleSession(session.id)}
+                          className="w-full p-5 text-left flex items-center gap-4 cursor-pointer hover:bg-white/30 transition-colors"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-white/60 flex items-center justify-center flex-shrink-0">
+                            <ClipboardCheckIcon className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-foreground text-sm truncate">
+                              {session.title || "Untitled Retrospective"}
+                            </h3>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-xs text-muted">{dateStr} at {timeStr}</span>
+                              <span className="text-xs text-muted">by {session.facilitator_name}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full">{totalItems} items</span>
+                              {session.stats?.moods > 0 && (
+                                <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{session.stats.moods} moods</span>
+                              )}
+                            </div>
+                            <svg
+                              className={`w-4 h-4 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="px-5 pb-5 border-t border-card-border/30">
+                            {loadingHistory ? (
+                              <div className="flex justify-center py-8">
+                                <div className="relative w-8 h-8">
+                                  <div className="absolute inset-0 rounded-full border-2 border-card-border" />
+                                  <div className="absolute inset-0 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                                </div>
+                              </div>
+                            ) : expandedData ? (
+                              <div className="pt-4 space-y-4">
+                                {/* Mood summary */}
+                                {expandedData.moods?.length > 0 && (
+                                  <div className="space-y-2">
+                                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                      <TargetIcon className="w-3.5 h-3.5" /> Set the Stage — Moods
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                      {expandedData.moods.map((m, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/70 border border-card-border/60 text-xs">
+                                          <span>{m.mood === "great" ? "😄" : m.mood === "good" ? "🙂" : m.mood === "neutral" ? "😐" : m.mood === "concerned" ? "😟" : "😤"}</span>
+                                          <span className="text-foreground/70 font-medium">{m.user_name}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Board phases */}
+                                {[
+                                  { phase: "went_well", label: "Went Well", emoji: "🟢" },
+                                  { phase: "didnt_go_well", label: "Didn't Go Well", emoji: "🔴" },
+                                  { phase: "should_try", label: "Should Try", emoji: "🔵" },
+                                ].map(({ phase, label, emoji }) => {
+                                  const items = (expandedData.items || []).filter((i) => i.phase === phase);
+                                  if (items.length === 0) return null;
+                                  return (
+                                    <div key={phase} className="space-y-2">
+                                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>{emoji}</span> {label}
+                                      </h4>
+                                      <div className="space-y-1.5">
+                                        {items.map((item) => (
+                                          <div key={item.id} className="flex items-start gap-2 px-3 py-2 rounded-xl bg-white/70 border border-card-border/40 text-xs">
+                                            {item.avatar_url ? (
+                                              <img src={item.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover mt-0.5 flex-shrink-0" />
+                                            ) : (
+                                              <div className="w-5 h-5 rounded-full bg-primary-light flex items-center justify-center mt-0.5 flex-shrink-0">
+                                                <span className="text-[9px] font-bold text-primary-dark">{item.user_name?.charAt(0)?.toUpperCase()}</span>
+                                              </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-foreground/80 leading-relaxed">{item.content}</p>
+                                              {item.group_name && (
+                                                <span className="inline-block mt-1 text-[10px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+                                                  {item.group_name}
+                                                </span>
+                                              )}
+                                            </div>
+                                            {item.votes_count > 0 && (
+                                              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                                                {item.votes_count} ★
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Action items */}
+                                {(() => {
+                                  const actions = (expandedData.items || []).filter((i) => i.phase === "action_items");
+                                  if (actions.length === 0) return null;
+                                  return (
+                                    <div className="space-y-2">
+                                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <RocketIcon className="w-3.5 h-3.5" /> Action Items
+                                      </h4>
+                                      <div className="space-y-1.5">
+                                        {actions.map((item) => (
+                                          <div key={item.id} className="flex items-start gap-2 px-3 py-2 rounded-xl bg-white/70 border border-card-border/40 text-xs">
+                                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${item.done ? "bg-accent border-accent" : "border-card-border"}`}>
+                                              {item.done && (
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                              )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className={`leading-relaxed ${item.done ? "line-through text-muted" : "text-foreground/80"}`}>{item.content}</p>
+                                              <div className="flex items-center gap-2 mt-1">
+                                                {item.assignee && <span className="text-[10px] text-muted font-medium">→ {item.assignee}</span>}
+                                                {item.due_date && <span className="text-[10px] text-muted">due {item.due_date}</span>}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                {/* Appreciation */}
+                                {(() => {
+                                  const appreciations = (expandedData.items || []).filter((i) => i.phase === "appreciation");
+                                  if (appreciations.length === 0) return null;
+                                  return (
+                                    <div className="space-y-2">
+                                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <HandHeartIcon className="w-3.5 h-3.5" /> Appreciation
+                                      </h4>
+                                      <div className="space-y-1.5">
+                                        {appreciations.map((item) => (
+                                          <div key={item.id} className="flex items-start gap-2 px-3 py-2 rounded-xl bg-white/70 border border-card-border/40 text-xs">
+                                            {item.avatar_url ? (
+                                              <img src={item.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover mt-0.5 flex-shrink-0" />
+                                            ) : (
+                                              <div className="w-5 h-5 rounded-full bg-primary-light flex items-center justify-center mt-0.5 flex-shrink-0">
+                                                <span className="text-[9px] font-bold text-primary-dark">{item.user_name?.charAt(0)?.toUpperCase()}</span>
+                                              </div>
+                                            )}
+                                            <p className="text-foreground/80 leading-relaxed flex-1">{item.content}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                {/* Empty state */}
+                                {(expandedData.items || []).length === 0 && (expandedData.moods || []).length === 0 && (
+                                  <p className="text-sm text-muted text-center py-6 italic">No data recorded for this session</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted text-center py-6 italic">Failed to load session data</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-
-              {/* Filtered member preview */}
-              <div className="pt-2 border-t border-card-border/50">
-                <p className="text-xs text-muted mb-2.5">
-                  {filteredEmployees.length} member{filteredEmployees.length !== 1 ? "s" : ""} in this retro
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {filteredEmployees.map((emp) => (
-                    <div
-                      key={emp.id}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/70 border border-card-border/60 text-xs"
-                    >
-                      {emp.avatar_url ? (
-                        <img src={emp.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-primary-light flex items-center justify-center">
-                          <span className="text-[9px] font-bold text-primary-dark">
-                            {emp.name?.charAt(0)?.toUpperCase() || "?"}
-                          </span>
-                        </div>
-                      )}
-                      <span className="text-foreground/80 font-medium">{emp.name}</span>
-                    </div>
-                  ))}
-                  {filteredEmployees.length === 0 && (
-                    <p className="text-xs text-muted/60 italic">No members found for this team</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Meeting flow */}
-          <div className="retro-gradient-border rounded-3xl retro-slide-in-delay-1">
-            <div className="rounded-3xl p-6 text-left" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
-              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2 text-sm">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-primary/15 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                  </svg>
-                </div>
-                Meeting Flow -- {PHASES.length} Phases
-              </h3>
-              <div className="space-y-1.5">
-                {PHASES.map((phase, idx) => (
-                  <div key={phase.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-primary/8 hover:to-accent/6 transition-all group">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.8), rgba(230, 236, 247, 0.7))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
-                      {phase.icon("w-4 h-4")}
-                    </div>
-                    <span className="text-sm text-foreground/80 font-medium">{phase.label}</span>
-                    {idx === 0 && (
-                      <span className="ml-auto text-[10px] font-bold text-white bg-gradient-to-r from-accent to-accent-dark px-2.5 py-0.5 rounded-full shadow-sm shadow-accent/20">
-                        START
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="retro-slide-in-delay-2">
-            <button
-              onClick={startMeeting}
-              disabled={filteredEmployees.length === 0}
-              className={`group inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-semibold shadow-xl transition-all btn-press btn-shimmer ${
-                filteredEmployees.length === 0
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
-                  : "bg-gradient-to-r from-primary to-accent text-white shadow-accent/20 hover:shadow-2xl hover:shadow-accent/30 hover:scale-[1.02]"
-              }`}
-            >
-              <span>Start Retrospective</span>
-              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </button>
+            )}
           </div>
         </div>
+
+        {/* Modal is rendered via portal-like pattern below */}
       </AppLayout>
+      {showStartModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowStartModal(false)} />
+          <div
+            className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden retro-slide-in"
+            style={{ background: "linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(245,249,252,0.98) 100%)" }}
+          >
+              {/* Modal header */}
+              <div className="relative px-8 pt-8 pb-4">
+                <button
+                  onClick={() => setShowStartModal(false)}
+                  className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-md flex items-center justify-center">
+                    <ArrowPathIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">New Retrospective</h2>
+                    <p className="text-xs text-muted">Set up your retro session</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-8 pb-8 space-y-5">
+                {/* Sprint title input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    Meeting Title
+                  </label>
+                  <input
+                    type="text"
+                    value={meetingTitle}
+                    onChange={(e) => setMeetingTitle(e.target.value)}
+                    placeholder="e.g. Sprint 24 Retrospective"
+                    className="w-full px-4 py-3 rounded-xl border border-card-border bg-white/80 text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
+                  />
+                </div>
+
+                {/* Team Selection */}
+                <div className="space-y-3">
+                  <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Select Team
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setSelectedTeams([])}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        selectedTeams.length === 0
+                          ? "bg-accent text-white border-accent shadow-md shadow-accent/20"
+                          : "bg-white/60 text-muted border-card-border hover:bg-white/80"
+                      }`}
+                    >
+                      All Teams ({allEmployees.length})
+                    </button>
+                    {TEAMS.map((team) => {
+                      const count = allEmployees.filter((e) => (e.teams || []).includes(team.id)).length;
+                      const isSelected = selectedTeams.includes(team.id);
+                      return (
+                        <button
+                          key={team.id}
+                          onClick={() => {
+                            setSelectedTeams((prev) =>
+                              prev.includes(team.id)
+                                ? prev.filter((t) => t !== team.id)
+                                : [...prev, team.id]
+                            );
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                            isSelected
+                              ? team.color + " shadow-md"
+                              : "bg-white/60 text-muted border-card-border hover:bg-white/80"
+                          }`}
+                        >
+                          {team.label} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Members preview */}
+                <div className="rounded-2xl border border-card-border/50 bg-white/50 p-4 space-y-2">
+                  <p className="text-xs text-muted font-medium">
+                    {filteredEmployees.length} member{filteredEmployees.length !== 1 ? "s" : ""} in this retro
+                  </p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {filteredEmployees.map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/70 border border-card-border/60 text-xs"
+                      >
+                        {emp.avatar_url ? (
+                          <img src={emp.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-primary-light flex items-center justify-center">
+                            <span className="text-[9px] font-bold text-primary-dark">
+                              {emp.name?.charAt(0)?.toUpperCase() || "?"}
+                            </span>
+                          </div>
+                        )}
+                        <span className="text-foreground/80 font-medium">{emp.name}</span>
+                      </div>
+                    ))}
+                    {filteredEmployees.length === 0 && (
+                      <p className="text-xs text-muted/60 italic">No members found for this team</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Start button */}
+                <button
+                  onClick={() => {
+                    setShowStartModal(false);
+                    startMeeting();
+                  }}
+                  disabled={filteredEmployees.length === 0}
+                  className={`w-full group flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-semibold shadow-xl transition-all btn-press btn-shimmer cursor-pointer ${
+                    filteredEmployees.length === 0
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                      : "bg-gradient-to-r from-primary to-accent text-white shadow-accent/20 hover:shadow-2xl hover:shadow-accent/30 hover:scale-[1.01]"
+                  }`}
+                >
+                  <span>Start Retrospective</span>
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 

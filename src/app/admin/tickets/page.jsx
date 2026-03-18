@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import AppLayout from "@/components/AppLayout";
@@ -11,6 +11,8 @@ const STATUS_OPTIONS = [
   { value: "in_progress", label: "In Progress", color: "bg-blue-100 text-blue-700 border-blue-200" },
   { value: "closed", label: "Closed", color: "bg-green-100 text-green-700 border-green-200" },
 ];
+
+const POLL_INTERVAL_MS = 5000;
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -50,23 +52,38 @@ export default function AdminTicketsPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
+  const prevTicketsRef = useRef(null);
 
   const fetchTickets = useCallback(async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const res = await fetch("/api/admin/tickets", {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    });
-    const data = await res.json();
-    setTickets(data.tickets || []);
-    setLoading(false);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch("/api/admin/tickets", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const incoming = data.tickets || [];
+
+      const prevHash = JSON.stringify(prevTicketsRef.current);
+      const newHash = JSON.stringify(incoming);
+      if (prevHash !== newHash) {
+        prevTicketsRef.current = incoming;
+        setTickets(incoming);
+      }
+      setLoading(false);
+    } catch {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     if (user) fetchTickets();
   }, [user, fetchTickets]);
 
+  // Supabase Realtime subscription for instant updates
   useEffect(() => {
     if (!user) return;
 
@@ -82,6 +99,13 @@ export default function AdminTicketsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [user, fetchTickets]);
+
+  // Polling fallback to guarantee live updates
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(fetchTickets, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, [user, fetchTickets]);
 
   if (authLoading) {

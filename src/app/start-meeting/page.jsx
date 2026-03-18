@@ -192,6 +192,7 @@ export default function StartMeeting() {
   const [seconds, setSeconds] = useState(TIMER_SECONDS);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef(null);
+  const endTimeRef = useRef(null);
 
   const [submittedAll, setSubmittedAll] = useState([]);
   const [pendingAll, setPendingAll] = useState([]);
@@ -250,23 +251,40 @@ export default function StartMeeting() {
   }, []);
 
   useEffect(() => {
-    if (isRunning && seconds > 0) {
+    if (isRunning && seconds > 0 && endTimeRef.current) {
       intervalRef.current = setInterval(() => {
-        setSeconds((prev) => {
-          if (prev <= 1) {
-            clearTimer();
-            setIsRunning(false);
-            return 0;
-          }
-          return prev - 1;
-        });
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+        setSeconds(remaining);
+        if (remaining <= 0) {
+          clearTimer();
+          setIsRunning(false);
+          endTimeRef.current = null;
+        }
       }, 1000);
     }
     return clearTimer;
   }, [isRunning, clearTimer]);
 
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && endTimeRef.current && isRunning) {
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+        setSeconds(remaining);
+        if (remaining <= 0) {
+          clearTimer();
+          setIsRunning(false);
+          endTimeRef.current = null;
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [isRunning, clearTimer]);
+
   const startMeeting = () => {
     if (filteredStandups.length === 0) return;
+    const endTime = Date.now() + TIMER_SECONDS * 1000;
+    endTimeRef.current = endTime;
     setPhase("active");
     setCurrentIndex(0);
     setSeconds(TIMER_SECONDS);
@@ -278,6 +296,7 @@ export default function StartMeeting() {
       currentMember: filteredStandups[0],
       allMembers: filteredStandups,
       timerSeconds: TIMER_SECONDS,
+      timerEndTime: endTime,
       isRunning: true,
     });
   };
@@ -286,6 +305,8 @@ export default function StartMeeting() {
     clearTimer();
     if (currentIndex < totalMembers - 1) {
       const nextIdx = currentIndex + 1;
+      const endTime = Date.now() + TIMER_SECONDS * 1000;
+      endTimeRef.current = endTime;
       setCurrentIndex(nextIdx);
       setSeconds(TIMER_SECONDS);
       setIsRunning(true);
@@ -296,6 +317,7 @@ export default function StartMeeting() {
         currentMember: filteredStandups[nextIdx],
         allMembers: filteredStandups,
         timerSeconds: TIMER_SECONDS,
+        timerEndTime: endTime,
         isRunning: true,
       });
     } else {
@@ -328,6 +350,13 @@ export default function StartMeeting() {
   const handlePauseResume = () => {
     if (seconds === 0) return;
     const nextRunning = !isRunning;
+    let endTime = null;
+    if (nextRunning) {
+      endTime = Date.now() + seconds * 1000;
+      endTimeRef.current = endTime;
+    } else {
+      endTimeRef.current = null;
+    }
     setIsRunning(nextRunning);
     broadcastState({
       phase: "active",
@@ -336,6 +365,7 @@ export default function StartMeeting() {
       currentMember: filteredStandups[currentIndex],
       allMembers: filteredStandups,
       timerSeconds: seconds,
+      timerEndTime: endTime,
       isRunning: nextRunning,
     });
   };
@@ -346,6 +376,7 @@ export default function StartMeeting() {
     setSeconds(TIMER_SECONDS);
     setIsRunning(false);
     clearTimer();
+    endTimeRef.current = null;
     broadcastState({ phase: "lobby" });
   };
 

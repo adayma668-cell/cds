@@ -99,34 +99,62 @@ function WaitingRoom({ submittedData }) {
   );
 }
 
-function EmployeeTimer({ timerSeconds, isTimerRunning }) {
-  const [seconds, setSeconds] = useState(timerSeconds ?? TIMER_SECONDS);
-  const [running, setRunning] = useState(isTimerRunning ?? false);
+function EmployeeTimer({ timerSeconds, isTimerRunning, timerEndTime }) {
+  const endTimeRef = useRef(isTimerRunning && timerEndTime ? timerEndTime : null);
   const intervalRef = useRef(null);
 
+  const [seconds, setSeconds] = useState(() => {
+    if (isTimerRunning && timerEndTime) {
+      return Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
+    }
+    return timerSeconds ?? TIMER_SECONDS;
+  });
+  const [running, setRunning] = useState(isTimerRunning ?? false);
+
   useEffect(() => {
-    if (timerSeconds != null) setSeconds(timerSeconds);
-  }, [timerSeconds]);
+    if (isTimerRunning && timerEndTime) {
+      endTimeRef.current = timerEndTime;
+      const remaining = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
+      setSeconds(remaining);
+    } else if (timerSeconds != null) {
+      endTimeRef.current = null;
+      setSeconds(timerSeconds);
+    }
+  }, [timerSeconds, timerEndTime, isTimerRunning]);
 
   useEffect(() => {
     setRunning(isTimerRunning ?? false);
-  }, [isTimerRunning]);
+    if (isTimerRunning && timerEndTime) {
+      endTimeRef.current = timerEndTime;
+    } else if (!isTimerRunning) {
+      endTimeRef.current = null;
+    }
+  }, [isTimerRunning, timerEndTime]);
 
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    if (running && seconds > 0) {
+    if (running && endTimeRef.current) {
       intervalRef.current = setInterval(() => {
-        setSeconds((p) => {
-          if (p <= 1) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-            return 0;
-          }
-          return p - 1;
-        });
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+        setSeconds(remaining);
+        if (remaining <= 0) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
       }, 1000);
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [running]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && endTimeRef.current && running) {
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+        setSeconds(remaining);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [running]);
 
   const radius = 52;
@@ -313,7 +341,7 @@ function ActiveMeetingView({ meetingState, userId }) {
               </div>
             </div>
           </div>
-          <EmployeeTimer key={currentIndex} timerSeconds={timerSeconds} isTimerRunning={isTimerRunning} />
+          <EmployeeTimer key={currentIndex} timerSeconds={timerSeconds} isTimerRunning={isTimerRunning} timerEndTime={meetingState.timerEndTime} />
         </div>
 
         <div className="p-6 sm:p-8 space-y-4">

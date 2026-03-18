@@ -54,6 +54,7 @@ export async function POST(req) {
   let body = {};
   try { body = await req.json(); } catch {}
   const team_id = body.team_id || null;
+  const title = body.title || null;
 
   const { data: existing } = await supabaseAdmin
     .from("retro_sessions")
@@ -65,15 +66,23 @@ export async function POST(req) {
     return NextResponse.json({ session: existing });
   }
 
-  const { data, error } = await supabaseAdmin
+  const row = { created_by: user.id, status: "active", team_id };
+  if (title) row.title = title;
+
+  let { data, error } = await supabaseAdmin
     .from("retro_sessions")
-    .insert({
-      created_by: user.id,
-      status: "active",
-      team_id,
-    })
+    .insert(row)
     .select()
     .single();
+
+  if (error && title && error.message?.includes("title")) {
+    delete row.title;
+    ({ data, error } = await supabaseAdmin
+      .from("retro_sessions")
+      .insert(row)
+      .select()
+      .single());
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
