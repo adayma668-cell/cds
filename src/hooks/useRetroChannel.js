@@ -11,8 +11,9 @@ const CHANNEL_NAME = "retro-icebreaker";
  * Employees receive and render the synced read-only view.
  *
  * @param {"admin"|"employee"} role
+ * @param {boolean} [enabled=true] Subscribe only while a retro session is live (saves connections + re-renders).
  */
-export function useRetroChannel(role = "employee") {
+export function useRetroChannel(role = "employee", enabled = true) {
   const [icebreakerState, setIcebreakerState] = useState(null);
   const [spinTrigger, setSpinTrigger] = useState(null);
   const channelRef = useRef(null);
@@ -39,6 +40,13 @@ export function useRetroChannel(role = "employee") {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setIcebreakerState(null);
+      setSpinTrigger(null);
+      channelRef.current = null;
+      return;
+    }
+
     const channel = supabase.channel(CHANNEL_NAME, {
       config: { broadcast: { self: false } },
     });
@@ -82,7 +90,7 @@ export function useRetroChannel(role = "employee") {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [role]);
+  }, [role, enabled]);
 
   return { icebreakerState, spinTrigger, broadcastIcebreakerState, broadcastSpin };
 }

@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase";
 
 const CHANNEL_NAME = "retro-group";
 
-export function useRetroGroupChannel() {
+/** @param {boolean} [enabled=true] */
+export function useRetroGroupChannel(enabled = true) {
   const [event, setEvent] = useState(null);
   const channelRef = useRef(null);
 
@@ -18,6 +19,12 @@ export function useRetroGroupChannel() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setEvent(null);
+      channelRef.current = null;
+      return;
+    }
+
     const channel = supabase.channel(CHANNEL_NAME, {
       config: { broadcast: { self: false } },
     });
@@ -36,7 +43,7 @@ export function useRetroGroupChannel() {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, []);
+  }, [enabled]);
 
   return { event, broadcast };
 }

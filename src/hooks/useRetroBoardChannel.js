@@ -11,8 +11,9 @@ const CHANNEL_NAME = "retro-board";
  * so listeners can filter for their own column.
  *
  * Event types: "add", "remove", "edit"
+ * @param {boolean} [enabled=true]
  */
-export function useRetroBoardChannel() {
+export function useRetroBoardChannel(enabled = true) {
   const [event, setEvent] = useState(null);
   const channelRef = useRef(null);
 
@@ -25,6 +26,12 @@ export function useRetroBoardChannel() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setEvent(null);
+      channelRef.current = null;
+      return;
+    }
+
     const channel = supabase.channel(CHANNEL_NAME, {
       config: { broadcast: { self: false } },
     });
@@ -43,7 +50,7 @@ export function useRetroBoardChannel() {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, []);
+  }, [enabled]);
 
   return { event, broadcast };
 }

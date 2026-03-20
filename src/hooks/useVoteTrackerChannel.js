@@ -11,8 +11,9 @@ const CHANNEL_NAME = "retro-vote-tracker";
  * Events:
  * - vote_change: user vote count update (for admin tracker)
  * - item_vote:   individual item vote delta (for syncing counts across users)
+ * @param {boolean} [enabled=true]
  */
-export function useVoteTrackerChannel() {
+export function useVoteTrackerChannel(enabled = true) {
   const [voteEvent, setVoteEvent] = useState(null);
   const [itemVoteEvent, setItemVoteEvent] = useState(null);
   const channelRef = useRef(null);
@@ -34,6 +35,13 @@ export function useVoteTrackerChannel() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setVoteEvent(null);
+      setItemVoteEvent(null);
+      channelRef.current = null;
+      return;
+    }
+
     const channel = supabase.channel(CHANNEL_NAME, {
       config: { broadcast: { self: false } },
     });
@@ -56,7 +64,7 @@ export function useVoteTrackerChannel() {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, []);
+  }, [enabled]);
 
   return { voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote };
 }

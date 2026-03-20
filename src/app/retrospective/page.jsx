@@ -184,6 +184,7 @@ function PhaseTimer({ phaseIndex }) {
     setEditing(false);
   }, [phaseIndex]);
 
+  /* Persist timer snapshot when meaningful state changes — not on every tick (timeLeft). */
   useEffect(() => {
     const cache = _getTimerState();
     cache[phaseIndex] = {
@@ -195,7 +196,7 @@ function PhaseTimer({ phaseIndex }) {
     };
     _phaseTimerState = cache;
     _saveTimerCache(cache);
-  });
+  }, [phaseIndex, duration, running, finished]);
 
   useEffect(() => {
     if (!running || finished) return;
@@ -209,7 +210,7 @@ function PhaseTimer({ phaseIndex }) {
         setFinished(true);
         playFinish();
       }
-    }, 250);
+    }, 1000);
     return () => clearInterval(id);
   }, [running, finished, playTick, playFinish]);
 
@@ -3646,7 +3647,7 @@ function FacilitatorWidget({ facilitatorInfo, currentPhase }) {
 /* ------------------------------------------------------------------ */
 /*  Employee Retro View – follows the facilitator's phase via polling   */
 /* ------------------------------------------------------------------ */
-function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, groupEvent, groupBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, phaseEvent: parentPhaseEvent, finishEvent: parentFinishEvent }) {
+function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, groupEvent, groupBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, phaseEvent: parentPhaseEvent, finishEvent: parentFinishEvent, onSessionPresenceChange }) {
   const [currentPhase, setCurrentPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [sessionTeamIds, setSessionTeamIds] = useState([]);
@@ -3671,6 +3672,7 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
           setHasSession(true);
           setSessionId(data.session.id);
           setCurrentPhase(data.session.current_phase ?? 0);
+          onSessionPresenceChange?.(true);
           if (data.session.facilitator_id) {
             setFacilitatorInfo({
               id: data.session.facilitator_id,
@@ -3696,14 +3698,15 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
           setSessionTeamIds([]);
           setCurrentPhase(null);
           setFacilitatorInfo(null);
+          onSessionPresenceChange?.(false);
         }
       } catch {}
     };
 
     poll();
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, 8000);
     return () => { active = false; clearInterval(interval); };
-  }, [token]);
+  }, [token, onSessionPresenceChange]);
 
   /* Real-time phase sync from facilitator (instant, supplements polling) */
   useEffect(() => {
@@ -3716,7 +3719,8 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
       setSessionId(parentPhaseEvent.sessionId);
       setHasSession(true);
     }
-  }, [parentPhaseEvent]);
+    onSessionPresenceChange?.(true);
+  }, [parentPhaseEvent, sessionId, onSessionPresenceChange]);
 
   /* Real-time finish sync from facilitator */
   useEffect(() => {
@@ -3726,7 +3730,8 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
     setSessionTeamIds([]);
     setCurrentPhase(null);
     setFacilitatorInfo(null);
-  }, [parentFinishEvent]);
+    onSessionPresenceChange?.(false);
+  }, [parentFinishEvent, onSessionPresenceChange]);
 
   if (!hasSession || currentPhase === null) {
     return (
@@ -3811,6 +3816,8 @@ export default function RetrospectivePage() {
   const [sessionId, setSessionId] = useState(null);
   const [selectedTeams, setSelectedTeams] = useState([]);
   const [sessionTeamIds, setSessionTeamIds] = useState([]);
+  /** Employees who join after start never get `started` on parent; this keeps realtime channels in sync. */
+  const [employeeRetroLive, setEmployeeRetroLive] = useState(false);
   const [allEmployees, setAllEmployees] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -3830,11 +3837,18 @@ export default function RetrospectivePage() {
 
   const isAdmin = ALLOWED_ROLES.includes(role);
   const isFacilitator = isAdmin && !!user?.id && !!facilitatorInfo?.id && user.id === facilitatorInfo.id;
-  const { icebreakerState, spinTrigger, broadcastIcebreakerState, broadcastSpin } = useRetroChannel(isAdmin ? "admin" : "employee");
-  const { event: boardEvent, broadcast: boardBroadcast } = useRetroBoardChannel();
-  const { event: groupEvent, broadcast: groupBroadcast } = useRetroGroupChannel();
-  const { toggleEvent, broadcastToggle } = useOpenActionsChannel();
-  const { voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote } = useVoteTrackerChannel();
+  const retroChannelsActive = isAdmin ? started : started || employeeRetroLive;
+  const onEmployeeSessionPresenceChange = useCallback((live) => {
+    setEmployeeRetroLive(!!live);
+  }, []);
+  const { icebreakerState, spinTrigger, broadcastIcebreakerState, broadcastSpin } = useRetroChannel(
+    isAdmin ? "admin" : "employee",
+    retroChannelsActive,
+  );
+  const { event: boardEvent, broadcast: boardBroadcast } = useRetroBoardChannel(retroChannelsActive);
+  const { event: groupEvent, broadcast: groupBroadcast } = useRetroGroupChannel(retroChannelsActive);
+  const { toggleEvent, broadcastToggle } = useOpenActionsChannel(retroChannelsActive);
+  const { voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote } = useVoteTrackerChannel(retroChannelsActive);
   const { phaseEvent, finishEvent, actionEvent, broadcastPhase, broadcastFinish, broadcastStart, broadcastAction } = useRetroPhaseSyncChannel();
 
   useEffect(() => {
@@ -3866,7 +3880,10 @@ export default function RetrospectivePage() {
 
   useEffect(() => {
     if (!token || started) return;
-    const interval = setInterval(fetchHistory, 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      fetchHistory();
+    }, 30000);
     return () => clearInterval(interval);
   }, [token, started, fetchHistory]);
 
@@ -3923,11 +3940,13 @@ export default function RetrospectivePage() {
               .then((ed) => setEmployees(ed.employees || []))
               .catch(() => {});
           }
+        } else if (!isAdmin) {
+          setEmployeeRetroLive(false);
         }
       })
       .catch(() => {})
       .finally(() => setCheckingSession(false));
-  }, [token]);
+  }, [token, isAdmin]);
 
   const syncPhase = useCallback(async (phase) => {
     if (!token || !sessionId) return;
@@ -4017,6 +4036,7 @@ export default function RetrospectivePage() {
     _phaseTimerState = {};
     _saveTimerCache({});
     setStarted(false);
+    setEmployeeRetroLive(false);
     setSessionId(null);
     setSessionTeamIds([]);
     setSelectedTeams([]);
@@ -4048,6 +4068,7 @@ export default function RetrospectivePage() {
       _phaseTimerState = {};
       _saveTimerCache({});
       setStarted(false);
+      setEmployeeRetroLive(false);
       setSessionId(null);
       setSessionTeamIds([]);
       setSelectedTeams([]);
@@ -4080,6 +4101,7 @@ export default function RetrospectivePage() {
     _phaseTimerState = {};
     _saveTimerCache({});
     setStarted(false);
+    setEmployeeRetroLive(false);
     setSessionId(null);
     setSessionTeamIds([]);
     setSelectedTeams([]);
@@ -4106,7 +4128,7 @@ export default function RetrospectivePage() {
   if (!isAdmin) {
     return (
       <AppLayout>
-        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} groupEvent={groupEvent} groupBroadcast={groupBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} phaseEvent={phaseEvent} finishEvent={finishEvent} />
+        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} groupEvent={groupEvent} groupBroadcast={groupBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} phaseEvent={phaseEvent} finishEvent={finishEvent} onSessionPresenceChange={onEmployeeSessionPresenceChange} />
       </AppLayout>
     );
   }
