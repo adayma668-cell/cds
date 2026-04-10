@@ -69,6 +69,20 @@ export async function GET(request) {
     });
   }
 
+  if (data?.length > 0) {
+    const userIds = [...new Set(data.map((s) => s.user_id))];
+    const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    const avatarMap = {};
+    (authUsers || []).forEach((u) => {
+      if (userIds.includes(u.id)) {
+        avatarMap[u.id] = u.user_metadata?.avatar_url || null;
+      }
+    });
+    data.forEach((s) => {
+      s.avatar_url = avatarMap[s.user_id] || null;
+    });
+  }
+
   return NextResponse.json({ standups: data });
 }
 

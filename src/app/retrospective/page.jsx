@@ -361,25 +361,25 @@ function PhaseTimer({ phaseIndex, isFacilitator = true, broadcastTimer, timerEve
   const progressOffset = circumference * (1 - pct / 100);
 
   return (
-    <div className={`inline-flex items-center gap-4 px-5 py-3 rounded-2xl border transition-all duration-500 ${
+    <div className={`inline-flex items-center gap-4 px-5 py-3 rounded-2xl border transition-all duration-500 backdrop-blur-sm ${
       finished
-        ? "border-red-300/40 retro-timer-critical"
+        ? "border-red-200/50 retro-timer-critical"
         : isCritical
-        ? "border-red-300/40 retro-timer-critical"
+        ? "border-red-200/50 retro-timer-critical"
         : isWarning
-        ? "border-amber-300/40"
-        : "border-primary/15"
+        ? "border-amber-200/50"
+        : "border-white/30"
     }`} style={{
       background: finished || isCritical
-        ? "linear-gradient(135deg, rgba(254, 242, 242, 0.92), rgba(254, 226, 226, 0.85))"
+        ? "linear-gradient(145deg, rgba(254, 242, 242, 0.88), rgba(254, 226, 226, 0.82))"
         : isWarning
-        ? "linear-gradient(135deg, rgba(255, 251, 235, 0.92), rgba(254, 243, 199, 0.85))"
-        : "linear-gradient(135deg, rgba(232, 250, 243, 0.92), rgba(230, 236, 247, 0.88))",
+        ? "linear-gradient(145deg, rgba(255, 251, 235, 0.88), rgba(254, 243, 199, 0.82))"
+        : "linear-gradient(145deg, rgba(255, 255, 255, 0.85), rgba(240, 247, 244, 0.82))",
       boxShadow: finished || isCritical
-        ? "0 8px 32px rgba(220, 38, 38, 0.12), 0 2px 8px rgba(220, 38, 38, 0.06)"
+        ? "0 8px 32px rgba(220, 38, 38, 0.1), 0 2px 8px rgba(220, 38, 38, 0.05)"
         : isWarning
-        ? "0 8px 32px rgba(245, 158, 11, 0.12), 0 2px 8px rgba(245, 158, 11, 0.06)"
-        : "0 8px 32px rgba(0, 50, 100, 0.08), 0 2px 8px rgba(6, 194, 134, 0.06)"
+        ? "0 8px 32px rgba(245, 158, 11, 0.1), 0 2px 8px rgba(245, 158, 11, 0.05)"
+        : "0 8px 32px rgba(0, 50, 100, 0.06), 0 2px 8px rgba(6, 194, 134, 0.04)"
     }}>
       {/* Gradient progress ring */}
       <div className="relative w-12 h-12 flex-shrink-0">
@@ -525,56 +525,57 @@ function PhaseTimer({ phaseIndex, isFacilitator = true, broadcastTimer, timerEve
 function ProgressBar({ currentPhase }) {
   const progressPct = (currentPhase / (PHASES.length - 1)) * 100;
   return (
-    <div className="relative rounded-3xl px-6 py-5 retro-slide-in retro-card-depth overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95) 0%, rgba(230, 236, 247, 0.92) 50%, rgba(240, 247, 244, 0.95) 100%)", border: "1px solid rgba(6, 194, 134, 0.15)" }}>
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.03] via-transparent to-accent/[0.03] pointer-events-none" />
+    <div className="relative rounded-[20px] px-6 py-5 retro-slide-in overflow-hidden backdrop-blur-sm" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.85) 0%, rgba(240, 247, 244, 0.82) 40%, rgba(230, 236, 247, 0.85) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)", boxShadow: "0 8px 40px rgba(0, 50, 100, 0.06), 0 1px 3px rgba(6, 194, 134, 0.04)" }}>
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] via-transparent to-accent/[0.02] pointer-events-none" />
 
       <div className="relative flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/60 border border-card-border/30 shadow-sm">
-            <div className="relative w-7 h-7 flex items-center justify-center">
-              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 28 28">
-                <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-card-border/30" />
+          <div className="relative flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/70 border border-card-border/20 shadow-sm backdrop-blur-sm">
+            <div className="relative w-8 h-8 flex items-center justify-center">
+              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 32 32">
+                <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-card-border/20" />
                 <circle
-                  cx="14" cy="14" r="11" fill="none" strokeWidth="2.5" strokeLinecap="round"
+                  cx="16" cy="16" r="13" fill="none" strokeWidth="2.5" strokeLinecap="round"
                   stroke="url(#retro-progress-ring)"
-                  strokeDasharray={2 * Math.PI * 11}
-                  strokeDashoffset={2 * Math.PI * 11 * (1 - (currentPhase + 1) / PHASES.length)}
+                  strokeDasharray={2 * Math.PI * 13}
+                  strokeDashoffset={2 * Math.PI * 13 * (1 - (currentPhase + 1) / PHASES.length)}
                   className="transition-all duration-700 ease-out"
                 />
                 <defs>
                   <linearGradient id="retro-progress-ring" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="var(--primary)" />
-                    <stop offset="100%" stopColor="var(--accent)" />
+                    <stop offset="0%" stopColor="var(--accent)" />
+                    <stop offset="100%" stopColor="var(--primary)" />
                   </linearGradient>
                 </defs>
               </svg>
-              <span className="relative text-[10px] font-extrabold tabular-nums bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
+              <span className="relative text-[11px] font-extrabold tabular-nums bg-gradient-to-br from-accent to-primary bg-clip-text text-transparent">
                 {currentPhase + 1}
               </span>
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted/70">Step</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted/50">Phase</span>
               <span className="text-xs font-bold tabular-nums text-foreground/80">
-                {currentPhase + 1}<span className="text-muted/50 mx-px">/</span>{PHASES.length}
+                {currentPhase + 1}<span className="text-muted/30 mx-0.5">/</span>{PHASES.length}
               </span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-accent/10 to-primary/10 border border-accent/15">
+        <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl backdrop-blur-sm" style={{ background: "linear-gradient(135deg, rgba(6, 194, 134, 0.08) 0%, rgba(0, 50, 150, 0.06) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
           <span className="retro-active-node">{PHASES[currentPhase].icon("w-4 h-4")}</span>
-          <span className="text-xs font-bold text-accent">{PHASES[currentPhase].label}</span>
+          <span className="text-xs font-bold text-accent tracking-tight">{PHASES[currentPhase].label}</span>
         </div>
       </div>
 
       <div className="relative flex items-center justify-between">
-        <div className="absolute top-[18px] left-5 right-5 h-[3px] rounded-full bg-card-border/30" />
+        <div className="absolute top-[18px] left-5 right-5 h-[3px] rounded-full bg-card-border/20" />
         <div
-          className="absolute top-[18px] left-5 h-[3px] rounded-full transition-all duration-700 ease-out retro-progress-shimmer overflow-hidden"
+          className="absolute top-[18px] left-5 h-[3px] rounded-full transition-all duration-700 ease-out overflow-hidden"
           style={{
             width: `calc(${progressPct}% - 40px + ${currentPhase === PHASES.length - 1 ? "40px" : "0px"})`,
-            background: "linear-gradient(90deg, var(--primary) 0%, var(--accent) 50%, var(--primary) 100%)",
+            background: "linear-gradient(90deg, var(--accent) 0%, var(--primary) 50%, var(--accent) 100%)",
             backgroundSize: "200% 100%",
-            boxShadow: "0 0 12px rgba(6, 194, 134, 0.4), 0 0 4px rgba(0, 50, 150, 0.2)",
+            animation: "retroGradientShift 3s ease-in-out infinite",
+            boxShadow: "0 0 16px rgba(6, 194, 134, 0.35), 0 0 6px rgba(0, 50, 150, 0.15)",
           }}
         />
 
@@ -585,17 +586,17 @@ function ProgressBar({ currentPhase }) {
             <div key={phase.id} className="relative z-10 flex flex-col items-center" style={{ width: 36 }}>
               {active && (
                 <>
-                  <div className="absolute top-0 left-[2px] w-9 h-9 rounded-full" style={{ animation: "retroPulseRing 2s ease-out infinite", background: "radial-gradient(circle, rgba(0, 50, 150, 0.15) 0%, transparent 70%)" }} />
-                  <div className="absolute -inset-1 rounded-full bg-accent/10 blur-md" />
+                  <div className="absolute top-0 left-[2px] w-9 h-9 rounded-full" style={{ animation: "retroPulseRing 2.5s ease-out infinite", background: "radial-gradient(circle, rgba(6, 194, 134, 0.2) 0%, transparent 70%)" }} />
+                  <div className="absolute -inset-1.5 rounded-full bg-accent/8 blur-lg" />
                 </>
               )}
               <div
                 className={`relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
                   done
-                    ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-md shadow-primary/25"
+                    ? "bg-gradient-to-br from-accent to-primary text-white shadow-md shadow-accent/20"
                     : active
-                    ? "bg-gradient-to-br from-accent via-accent-dark to-accent text-white shadow-xl shadow-accent/35 ring-[3px] ring-accent/20 ring-offset-2 ring-offset-transparent retro-node-glow retro-active-node"
-                    : "bg-gradient-to-br from-background to-card border-2 border-card-border/50 text-muted/60"
+                    ? "bg-gradient-to-br from-accent via-accent to-primary text-white shadow-xl shadow-accent/30 ring-[3px] ring-accent/15 ring-offset-2 ring-offset-transparent"
+                    : "bg-white/80 border-2 border-card-border/30 text-muted/50"
                 }`}
               >
                 {done ? (
@@ -620,21 +621,22 @@ function ProgressBar({ currentPhase }) {
 /* ------------------------------------------------------------------ */
 function PhaseHeader({ icon, title, description }) {
   return (
-    <div className="relative text-center mb-6 retro-phase-in">
-      <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-56 h-32 rounded-full bg-gradient-to-br from-primary/12 via-accent/8 to-primary/6 blur-3xl pointer-events-none" />
+    <div className="relative text-center mb-8 retro-phase-in">
+      <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-72 h-36 rounded-full bg-gradient-to-br from-primary/10 via-accent/6 to-primary/4 blur-[60px] pointer-events-none" />
 
       <div className="relative">
-        <div className="relative inline-flex items-center justify-center mb-5">
-          <div className="absolute w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/15 blur-xl retro-icon-pulse" />
-          <div className="relative w-[68px] h-[68px] rounded-2xl flex items-center justify-center retro-icon-pulse" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)", border: "1.5px solid rgba(6, 194, 134, 0.2)", boxShadow: "0 8px 32px rgba(0, 50, 100, 0.1), 0 2px 8px rgba(6, 194, 134, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6)" }}>
+        <div className="relative inline-flex items-center justify-center mb-6">
+          <div className="absolute w-24 h-24 rounded-[20px] bg-gradient-to-br from-primary/15 to-accent/10 blur-2xl retro-icon-pulse" />
+          <div className="absolute w-20 h-20 rounded-[18px] bg-gradient-to-br from-accent/8 to-primary/6 blur-xl animate-pulse" style={{ animationDuration: "3s" }} />
+          <div className="relative w-[72px] h-[72px] rounded-[18px] flex items-center justify-center" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 247, 244, 0.92) 50%, rgba(230, 236, 247, 0.88) 100%)", border: "1.5px solid rgba(6, 194, 134, 0.18)", boxShadow: "0 12px 40px rgba(0, 50, 100, 0.1), 0 4px 12px rgba(6, 194, 134, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -1px 0 rgba(0, 50, 100, 0.03)" }}>
             {icon}
           </div>
         </div>
 
-        <h2 className="text-2xl font-extrabold bg-gradient-to-r from-accent via-foreground to-primary bg-clip-text text-transparent">
+        <h2 className="text-[26px] font-extrabold tracking-tight bg-gradient-to-r from-foreground via-primary to-accent bg-clip-text text-transparent bg-[length:200%_100%]" style={{ animation: "retroGradientShift 6s ease-in-out infinite" }}>
           {title}
         </h2>
-        <p className="text-muted text-sm max-w-md mx-auto mt-2.5 leading-relaxed">{description}</p>
+        <p className="text-muted text-[13px] max-w-lg mx-auto mt-3 leading-relaxed font-medium">{description}</p>
       </div>
     </div>
   );
@@ -646,23 +648,25 @@ function PhaseHeader({ icon, title, description }) {
 function PhaseNav({ onPrev, onNext, nextLabel = "Next Phase" }) {
   if (!onPrev && !onNext) return null;
   return (
-    <div className="flex items-center justify-between pt-6 mt-6 border-t border-card-border/30">
+    <div className="flex items-center justify-between pt-7 mt-7 border-t border-card-border/20">
       <button
         onClick={onPrev}
-        className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-muted hover:text-foreground transition-all btn-press"
-        style={{ background: "linear-gradient(135deg, rgba(240, 247, 244, 0.9), rgba(230, 236, 247, 0.85))", border: "1px solid rgba(6, 194, 134, 0.12)", boxShadow: "0 2px 8px rgba(0, 50, 100, 0.05)" }}
+        className="group flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-sm font-semibold text-muted hover:text-foreground transition-all duration-300 btn-press backdrop-blur-sm"
+        style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(240, 247, 244, 0.6))", border: "1px solid rgba(6, 194, 134, 0.1)", boxShadow: "0 2px 12px rgba(0, 50, 100, 0.04)" }}
       >
-        <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
         Previous
       </button>
       <button
         onClick={onNext}
-        className="group flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-accent via-accent-dark to-accent text-white rounded-2xl text-sm font-bold shadow-xl shadow-accent/25 hover:shadow-2xl hover:shadow-accent/35 hover:scale-[1.02] transition-all btn-press btn-shimmer"
+        className="group relative flex items-center gap-2.5 px-8 py-3 text-white rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 btn-press overflow-hidden"
+        style={{ background: "linear-gradient(135deg, var(--accent) 0%, var(--primary) 50%, var(--accent) 100%)", backgroundSize: "200% 100%", animation: "retroGradientShift 4s ease-in-out infinite", boxShadow: "0 8px 30px rgba(6, 194, 134, 0.3), 0 2px 8px rgba(0, 50, 150, 0.15)" }}
       >
-        {nextLabel}
-        <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+        <span className="relative">{nextLabel}</span>
+        <svg className="relative w-4 h-4 transition-transform duration-300 group-hover:translate-x-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
       </button>
@@ -767,16 +771,16 @@ function SlotMachine({ employees, readOnly, onSpinTriggered, triggerSpin }) {
   const current = employees[displayIdx] || employees[0];
 
   return (
-    <div className="relative retro-gradient-border rounded-3xl overflow-hidden">
-      <div className="rounded-3xl p-6 space-y-5" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 251, 235, 0.6) 50%, rgba(230, 236, 247, 0.9) 100%)" }}>
+    <div className="relative rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(251, 191, 36, 0.15)", boxShadow: "0 8px 40px rgba(251, 191, 36, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03)" }}>
+      <div className="rounded-3xl p-6 space-y-5" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 251, 235, 0.5) 50%, rgba(240, 247, 244, 0.88) 100%)" }}>
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-foreground flex items-center gap-2.5 text-sm">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400/25 to-orange-400/25 shadow-sm shadow-amber-500/10"><TrophyIcon className="w-4 h-4" /></span>
-            Lucky Draw
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-md shadow-amber-500/20"><TrophyIcon className="w-4.5 h-4.5 text-white" /></span>
+            <span className="tracking-tight">Lucky Draw</span>
           </h3>
           {winner && (
-            <span className="text-[11px] font-bold text-primary bg-gradient-to-r from-primary/15 to-accent/15 px-3 py-1.5 rounded-full shadow-sm" style={{ animation: "retroWinnerCelebrate 0.5s ease-out" }}>
-              Selected!
+            <span className="text-[11px] font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-1.5 rounded-full shadow-md shadow-amber-500/20" style={{ animation: "retroWinnerCelebrate 0.5s ease-out" }}>
+              Winner!
             </span>
           )}
         </div>
@@ -1050,30 +1054,30 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
         <>
           {/* Question Card */}
           <div className="retro-slide-in-delay-1">
-            <div className="relative retro-gradient-border rounded-3xl overflow-hidden retro-glow">
-              <div className="rounded-3xl overflow-hidden" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.96), rgba(230, 236, 247, 0.92))" }}>
+            <div className="relative rounded-3xl overflow-hidden" style={{ border: "1px solid rgba(6, 194, 134, 0.12)", boxShadow: "0 12px 48px rgba(0, 50, 100, 0.08), 0 2px 8px rgba(6, 194, 134, 0.04)" }}>
+              <div className="rounded-3xl overflow-hidden" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 247, 244, 0.92) 50%, rgba(230, 236, 247, 0.88) 100%)" }}>
                 <div className="relative px-6 py-4 flex items-center justify-between">
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/8 via-transparent to-accent/8" />
-                  <span className="relative inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-br from-primary to-accent text-white text-[10px] font-black">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5" />
+                  <span className="relative inline-flex items-center gap-2.5 text-xs font-bold uppercase tracking-widest">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gradient-to-br from-accent to-primary text-white text-[10px] font-black shadow-sm">
                       {currentQ + 1}
                     </span>
-                    <span className="text-muted">of {questions.length}</span>
+                    <span className="text-muted/60">of {questions.length}</span>
                     {source === "groq" && (
                       <>
-                        <span className="text-muted/50 mx-1">·</span>
-                        <span className="inline-flex items-center gap-1 text-accent/70 normal-case tracking-normal font-semibold">
+                        <span className="text-muted/30 mx-0.5">·</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent/8 text-accent/80 normal-case tracking-normal font-semibold text-[10px]">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
-                          AI
+                          AI Generated
                         </span>
                       </>
                     )}
                   </span>
                   <button
                     onClick={fetchQuestions}
-                    className="relative group flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-accent transition-colors"
+                    className="relative group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-muted hover:text-accent hover:bg-accent/5 transition-all duration-200"
                   >
                     <svg className="w-3.5 h-3.5 transition-transform group-hover:rotate-180 duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1082,9 +1086,9 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
                   </button>
                 </div>
 
-                <div className="relative px-8 py-10 min-h-[160px] flex items-center justify-center">
-                  <div className="absolute top-4 left-6 text-5xl text-primary/10 font-serif select-none">&ldquo;</div>
-                  <div className="absolute bottom-4 right-6 text-5xl text-primary/10 font-serif select-none">&rdquo;</div>
+                <div className="relative px-10 py-12 min-h-[180px] flex items-center justify-center">
+                  <div className="absolute top-4 left-7 text-6xl text-accent/8 font-serif select-none leading-none">&ldquo;</div>
+                  <div className="absolute bottom-4 right-7 text-6xl text-accent/8 font-serif select-none leading-none">&rdquo;</div>
                   <p
                     key={`${currentQ}-${questions[currentQ]}`}
                     className="relative text-xl font-semibold text-foreground text-center leading-relaxed max-w-lg"
@@ -1094,11 +1098,11 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
                   </p>
                 </div>
 
-                <div className="px-6 py-4 flex items-center justify-between border-t border-card-border/30">
+                <div className="px-6 py-4 flex items-center justify-between border-t border-card-border/20">
                   <button
                     onClick={prevQ}
                     disabled={currentQ === 0}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-muted hover:text-foreground hover:bg-white/60 transition-all disabled:opacity-25 disabled:cursor-not-allowed btn-press"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-muted hover:text-foreground hover:bg-white/60 transition-all duration-200 disabled:opacity-20 disabled:cursor-not-allowed btn-press"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1113,8 +1117,8 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
                         onClick={() => setCurrentQ(idx)}
                         className={`rounded-full transition-all duration-500 ease-out ${
                           idx === currentQ
-                            ? "w-8 h-2.5 bg-gradient-to-r from-primary to-accent shadow-md shadow-accent/30"
-                            : "w-2.5 h-2.5 bg-card-border/60 hover:bg-muted/40 hover:scale-125"
+                            ? "w-8 h-2.5 bg-gradient-to-r from-accent to-primary shadow-md shadow-accent/25"
+                            : "w-2.5 h-2.5 bg-card-border/40 hover:bg-muted/40 hover:scale-125"
                         }`}
                       />
                     ))}
@@ -1123,7 +1127,7 @@ function IceBreakerPhase({ employees, onNext, broadcastIcebreakerState, broadcas
                   <button
                     onClick={nextQ}
                     disabled={currentQ === questions.length - 1}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-muted hover:text-foreground hover:bg-white/60 transition-all disabled:opacity-25 disabled:cursor-not-allowed btn-press"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-muted hover:text-foreground hover:bg-white/60 transition-all duration-200 disabled:opacity-20 disabled:cursor-not-allowed btn-press"
                   >
                     Next
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1281,11 +1285,11 @@ function EmployeeIceBreakerView({ employees, icebreakerState, spinTrigger }) {
 /*  Phase 1 – Set the Stage                                            */
 /* ------------------------------------------------------------------ */
 const MOODS = [
-  { emoji: (cls = "w-6 h-6") => <FaceGreatIcon className={cls} />, label: "Great", bg: "from-green-400/20 to-green-500/10", border: "border-green-400/50", text: "text-green-600", bar: "bg-green-500" },
-  { emoji: (cls = "w-6 h-6") => <FaceGoodIcon className={cls} />, label: "Good", bg: "from-blue-400/20 to-blue-500/10", border: "border-blue-400/50", text: "text-blue-600", bar: "bg-blue-500" },
-  { emoji: (cls = "w-6 h-6") => <FaceNeutralIcon className={cls} />, label: "Neutral", bg: "from-yellow-400/20 to-yellow-500/10", border: "border-yellow-400/50", text: "text-yellow-600", bar: "bg-yellow-500" },
-  { emoji: (cls = "w-6 h-6") => <FaceConcernedIcon className={cls} />, label: "Concerned", bg: "from-orange-400/20 to-orange-500/10", border: "border-orange-400/50", text: "text-orange-600", bar: "bg-orange-500" },
-  { emoji: (cls = "w-6 h-6") => <FaceFrustratedIcon className={cls} />, label: "Frustrated", bg: "from-red-400/20 to-red-500/10", border: "border-red-400/50", text: "text-red-600", bar: "bg-red-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceGreatIcon className={cls} />, label: "Great", bg: "from-emerald-400/15 to-emerald-500/8", border: "border-emerald-400/40", text: "text-emerald-600", bar: "bg-emerald-500", glow: "rgba(16, 185, 129, 0.15)" },
+  { emoji: (cls = "w-6 h-6") => <FaceGoodIcon className={cls} />, label: "Good", bg: "from-blue-400/15 to-blue-500/8", border: "border-blue-400/40", text: "text-blue-600", bar: "bg-blue-500", glow: "rgba(59, 130, 246, 0.15)" },
+  { emoji: (cls = "w-6 h-6") => <FaceNeutralIcon className={cls} />, label: "Neutral", bg: "from-amber-400/15 to-amber-500/8", border: "border-amber-400/40", text: "text-amber-600", bar: "bg-amber-500", glow: "rgba(245, 158, 11, 0.15)" },
+  { emoji: (cls = "w-6 h-6") => <FaceConcernedIcon className={cls} />, label: "Concerned", bg: "from-orange-400/15 to-orange-500/8", border: "border-orange-400/40", text: "text-orange-600", bar: "bg-orange-500", glow: "rgba(249, 115, 22, 0.15)" },
+  { emoji: (cls = "w-6 h-6") => <FaceFrustratedIcon className={cls} />, label: "Frustrated", bg: "from-red-400/15 to-red-500/8", border: "border-red-400/40", text: "text-red-600", bar: "bg-red-500", glow: "rgba(239, 68, 68, 0.15)" },
 ];
 
 const getMoodObj = (label) => MOODS.find((m) => m.label === label);
@@ -1493,22 +1497,22 @@ function EmployeeMoodPicker({ actionEvent }) {
         description="How are you feeling about the last sprint? Pick the icon that matches your mood."
       />
 
-      <div className="flex justify-center gap-3 py-2">
+      <div className="flex justify-center gap-3 py-3">
         {MOODS.map((m) => (
           <button
             key={m.label}
             onClick={() => setSelected(m.label)}
             className={`flex flex-col items-center gap-3 px-5 py-6 rounded-2xl border-2 transition-all duration-300 btn-press ${
               selected === m.label
-                ? `bg-gradient-to-b ${m.bg} ${m.border} scale-110 shadow-xl ring-4 ring-offset-2 ${m.border.replace("border-", "ring-")}/20`
-                : "hover:shadow-lg hover:scale-105 hover:-translate-y-1"
+                ? `bg-gradient-to-b ${m.bg} ${m.border} scale-110 shadow-xl ring-4 ring-offset-2 ${m.border.replace("border-", "ring-")}/15`
+                : "hover:shadow-lg hover:scale-105 hover:-translate-y-1.5"
             }`}
-            style={selected !== m.label ? { background: "linear-gradient(180deg, rgba(240, 247, 244, 0.9), rgba(230, 236, 247, 0.8))", borderColor: "rgba(6, 194, 134, 0.12)" } : undefined}
+            style={selected !== m.label ? { background: "linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.8))", borderColor: "rgba(0, 0, 0, 0.06)" } : { boxShadow: `0 12px 32px ${m.glow || "rgba(0,0,0,0.1)"}, 0 4px 12px rgba(0,0,0,0.04)` }}
           >
-            <span className={`transition-transform duration-300 ${selected === m.label ? "scale-125 retro-icon-pulse" : ""}`}>
+            <span className={`transition-transform duration-300 ${selected === m.label ? "scale-125" : ""}`}>
               {m.emoji("w-10 h-10")}
             </span>
-            <span className={`text-[11px] font-bold ${selected === m.label ? m.text : "text-muted"}`}>
+            <span className={`text-[11px] font-bold tracking-wide ${selected === m.label ? m.text : "text-muted/70"}`}>
               {m.label}
             </span>
           </button>
@@ -1518,9 +1522,10 @@ function EmployeeMoodPicker({ actionEvent }) {
       <button
         onClick={submit}
         disabled={!selected || submitting}
-        className="w-full py-3.5 bg-gradient-to-r from-primary to-accent text-white rounded-2xl text-sm font-semibold shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30 hover:scale-[1.01] transition-all disabled:opacity-40 disabled:shadow-none btn-press btn-shimmer"
+        className="w-full py-3.5 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 disabled:opacity-35 disabled:shadow-none btn-press overflow-hidden relative"
+        style={{ background: "linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)", boxShadow: "0 8px 24px rgba(6, 194, 134, 0.25)" }}
       >
-        {submitting ? "Submitting..." : "Submit My Mood"}
+        <span className="relative z-10">{submitting ? "Submitting..." : "Submit My Mood"}</span>
       </button>
     </div>
   );
@@ -1614,9 +1619,9 @@ function SetTheStageAdmin({ employees, onNext, onPrev, actionEvent, broadcastAct
       />
 
       {/* Admin's own mood picker */}
-      <div className="rounded-2xl p-5 retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.9))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+      <div className="rounded-2xl p-5" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.85))", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 20px rgba(0, 50, 100, 0.05)" }}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Your Mood</h3>
+          <h3 className="text-sm font-bold text-foreground tracking-tight">Your Mood</h3>
           {myMood && (
             <span className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1650,9 +1655,9 @@ function SetTheStageAdmin({ employees, onNext, onPrev, actionEvent, broadcastAct
       </div>
 
       {/* Live tracker card */}
-      <div className="rounded-2xl p-5 space-y-4 retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.9))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+      <div className="rounded-2xl p-5 space-y-4" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.85))", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 20px rgba(0, 50, 100, 0.05)" }}>
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2 tracking-tight">
             <span className={`w-2.5 h-2.5 rounded-full ${polling ? "bg-green-500 animate-pulse shadow-sm shadow-green-500/50" : "bg-card-border"}`} />
             Live Tracker
           </h3>
@@ -1907,8 +1912,8 @@ function PreviousOpenActionsPhase({ employees, role, onNext, onPrev, toggleEvent
       )}
 
       {!loading && actions.length > 0 && (
-        <div className="rounded-2xl overflow-hidden retro-card-depth retro-slide-in-delay-1" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
-          <div className="grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3.5 border-b border-primary/10 text-[11px] font-semibold text-muted uppercase tracking-wider" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.6), rgba(230, 236, 247, 0.5))" }}>
+        <div className="rounded-2xl overflow-hidden retro-slide-in-delay-1" style={{ background: "linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.85) 100%)", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.05), 0 1px 3px rgba(0, 50, 100, 0.03)" }}>
+          <div className="grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3.5 border-b border-card-border/20 text-[10px] font-bold text-muted/60 uppercase tracking-[0.1em]" style={{ background: "rgba(248, 250, 252, 0.7)" }}>
             <span></span>
             <span>Action</span>
             <span>Assignee</span>
@@ -2150,20 +2155,22 @@ function TextCollectionPhase({ title, icon, description, placeholder, phase, onN
     <div className="max-w-2xl mx-auto space-y-6">
       <PhaseHeader icon={icon} title={title} description={description} />
 
-      <div className="flex gap-2 retro-slide-in-delay-1">
+      <div className="flex gap-2.5 retro-slide-in-delay-1">
         <div className="relative flex-1">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder={placeholder}
-            className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-white/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
+            className="w-full px-4 py-3.5 bg-white/80 backdrop-blur-sm border border-card-border/15 rounded-2xl text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent/30 transition-all duration-200"
+            style={{ boxShadow: "0 2px 8px rgba(0, 50, 100, 0.03)" }}
           />
         </div>
         <button
           onClick={handleAdd}
           disabled={!input.trim()}
-          className="px-5 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30 hover:scale-105 transition-all disabled:opacity-30 disabled:shadow-none btn-press"
+          className="px-5 py-3.5 text-white rounded-2xl text-sm font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 disabled:opacity-25 disabled:shadow-none btn-press"
+          style={{ background: "linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)", boxShadow: "0 4px 16px rgba(6, 194, 134, 0.25)" }}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -2180,10 +2187,10 @@ function TextCollectionPhase({ title, icon, description, placeholder, phase, onN
           {items.map((item, idx) => (
             <div
               key={item.id}
-              className="group flex items-center gap-3 p-4 rounded-xl hover:-translate-y-0.5 transition-all duration-300"
-              style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 40}ms`, background: "linear-gradient(135deg, rgba(240, 247, 244, 0.92), rgba(230, 236, 247, 0.85))", border: "1px solid rgba(6, 194, 134, 0.1)", boxShadow: "0 2px 12px rgba(0, 50, 100, 0.06)" }}
+              className="group flex items-center gap-3 p-4 rounded-2xl hover:-translate-y-0.5 transition-all duration-300"
+              style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 40}ms`, background: "rgba(255, 255, 255, 0.8)", border: "1px solid rgba(0, 0, 0, 0.04)", boxShadow: "0 2px 12px rgba(0, 50, 100, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)" }}
             >
-              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 text-accent flex items-center justify-center text-xs font-bold">
+              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-primary/15 text-accent flex items-center justify-center text-xs font-bold">
                 {idx + 1}
               </div>
               {item.avatar_url ? (
@@ -2227,10 +2234,10 @@ function TextCollectionPhase({ title, icon, description, placeholder, phase, onN
 /*  Phase 3 – Retro Board (flat sticky-note columns like reference)    */
 /* ------------------------------------------------------------------ */
 const BOARD_COLUMNS = [
-  { phase: "went_well", title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, noteBg: "bg-emerald-100", noteText: "text-emerald-900", headerBg: "bg-white", headerBorder: "border-b-4 border-emerald-400", badge: "bg-emerald-500", inputBorder: "border-emerald-300", inputFocus: "focus:ring-emerald-400/40", btnBg: "bg-emerald-500 hover:bg-emerald-600" },
-  { phase: "didnt_go_well", title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, noteBg: "bg-rose-100", noteText: "text-rose-900", headerBg: "bg-white", headerBorder: "border-b-4 border-rose-400", badge: "bg-rose-500", inputBorder: "border-rose-300", inputFocus: "focus:ring-rose-400/40", btnBg: "bg-rose-500 hover:bg-rose-600" },
-  { phase: "should_try", title: "What do we want to try next?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, noteBg: "bg-sky-100", noteText: "text-sky-900", headerBg: "bg-white", headerBorder: "border-b-4 border-sky-400", badge: "bg-sky-500", inputBorder: "border-sky-300", inputFocus: "focus:ring-sky-400/40", btnBg: "bg-sky-500 hover:bg-sky-600" },
-  { phase: "puzzles_us", title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, noteBg: "bg-amber-100", noteText: "text-amber-900", headerBg: "bg-white", headerBorder: "border-b-4 border-amber-400", badge: "bg-amber-500", inputBorder: "border-amber-300", inputFocus: "focus:ring-amber-400/40", btnBg: "bg-amber-500 hover:bg-amber-600" },
+  { phase: "went_well", title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, noteBg: "bg-emerald-50", noteText: "text-emerald-800", headerGradient: "from-emerald-500 to-emerald-600", headerBg: "bg-white", headerBorder: "border-b-[3px] border-emerald-400", badge: "bg-emerald-500", inputBorder: "border-emerald-200", inputFocus: "focus:ring-emerald-400/30", btnBg: "bg-emerald-500 hover:bg-emerald-600", accentColor: "rgba(16, 185, 129, 0.1)", noteShadow: "rgba(16, 185, 129, 0.06)" },
+  { phase: "didnt_go_well", title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, noteBg: "bg-rose-50", noteText: "text-rose-800", headerGradient: "from-rose-500 to-rose-600", headerBg: "bg-white", headerBorder: "border-b-[3px] border-rose-400", badge: "bg-rose-500", inputBorder: "border-rose-200", inputFocus: "focus:ring-rose-400/30", btnBg: "bg-rose-500 hover:bg-rose-600", accentColor: "rgba(244, 63, 94, 0.1)", noteShadow: "rgba(244, 63, 94, 0.06)" },
+  { phase: "should_try", title: "What do we want to try next?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, noteBg: "bg-sky-50", noteText: "text-sky-800", headerGradient: "from-sky-500 to-sky-600", headerBg: "bg-white", headerBorder: "border-b-[3px] border-sky-400", badge: "bg-sky-500", inputBorder: "border-sky-200", inputFocus: "focus:ring-sky-400/30", btnBg: "bg-sky-500 hover:bg-sky-600", accentColor: "rgba(14, 165, 233, 0.1)", noteShadow: "rgba(14, 165, 233, 0.06)" },
+  { phase: "puzzles_us", title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, noteBg: "bg-amber-50", noteText: "text-amber-800", headerGradient: "from-amber-500 to-amber-600", headerBg: "bg-white", headerBorder: "border-b-[3px] border-amber-400", badge: "bg-amber-500", inputBorder: "border-amber-200", inputFocus: "focus:ring-amber-400/30", btnBg: "bg-amber-500 hover:bg-amber-600", accentColor: "rgba(245, 158, 11, 0.1)", noteShadow: "rgba(245, 158, 11, 0.06)" },
 ];
 
 function StickyNote({ item, col, idx, isOwner, removeItem, updateItem }) {
@@ -2257,13 +2264,16 @@ function StickyNote({ item, col, idx, isOwner, removeItem, updateItem }) {
 
   return (
     <div
-      className={`group relative ${col.noteBg} rounded-xl px-4 py-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-white/50`}
+      className={`group relative ${col.noteBg} rounded-2xl px-4 py-3.5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}
       style={{
         animation: "retroSlideIn 0.3s ease-out both",
         animationDelay: `${idx * 40}ms`,
-        transform: `rotate(${idx % 3 === 0 ? -0.5 : idx % 3 === 1 ? 0.5 : 0}deg)`,
+        transform: `rotate(${idx % 3 === 0 ? -0.6 : idx % 3 === 1 ? 0.6 : 0}deg)`,
+        border: "1px solid rgba(255, 255, 255, 0.6)",
+        boxShadow: `0 2px 8px ${col.noteShadow || "rgba(0,0,0,0.04)"}, 0 1px 2px rgba(0,0,0,0.02)`,
       }}
     >
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-3 rounded-b-sm opacity-[0.35] pointer-events-none" style={{ background: `linear-gradient(135deg, ${col.accentColor || "rgba(0,0,0,0.08)"}, rgba(0,0,0,0.04))` }} />
       {editing ? (
         <textarea
           ref={inputRef}
@@ -2274,21 +2284,21 @@ function StickyNote({ item, col, idx, isOwner, removeItem, updateItem }) {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSave(); }
             if (e.key === "Escape") { setEditText(item.content); setEditing(false); }
           }}
-          className={`w-full text-[13px] ${col.noteText} leading-relaxed font-medium bg-white/70 rounded-lg px-2 py-1.5 border ${col.inputBorder} focus:outline-none focus:ring-2 ${col.inputFocus} resize-none`}
+          className={`w-full text-[13px] ${col.noteText} leading-relaxed font-medium bg-white/60 rounded-xl px-3 py-2 border ${col.inputBorder} focus:outline-none focus:ring-2 ${col.inputFocus} resize-none`}
           rows={2}
         />
       ) : (
         <p
-          className={`text-[13px] ${col.noteText} leading-relaxed font-medium pr-6 ${isOwner ? "cursor-pointer hover:underline decoration-dotted underline-offset-2" : ""}`}
+          className={`text-[13px] ${col.noteText} leading-relaxed font-medium pr-6 ${isOwner ? "cursor-pointer hover:underline decoration-dotted underline-offset-4 decoration-current/30" : ""}`}
           onClick={() => { if (isOwner) { setEditText(item.content); setEditing(true); } }}
           title={isOwner ? "Click to edit" : ""}
         >
           {item.content}
         </p>
       )}
-      <div className="flex items-center gap-1.5 mt-2">
+      <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-black/[0.04]">
         {item.avatar_url ? (
-          <img src={item.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover ring-1 ring-white" />
+          <img src={item.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover ring-1 ring-white shadow-sm" />
         ) : (
           <div className={`w-5 h-5 rounded-full ${col.badge} flex items-center justify-center text-[8px] font-bold text-white shadow-sm`}>
             {item.user_name?.charAt(0)?.toUpperCase()}
@@ -2296,18 +2306,18 @@ function StickyNote({ item, col, idx, isOwner, removeItem, updateItem }) {
         )}
         <span className="text-[10px] text-gray-500 font-medium">{item.user_name}</span>
         {isOwner && !editing && (
-          <svg className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-60 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3 h-3 text-gray-400/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
         )}
         {item.votes > 0 && (
-          <span className={`ml-auto text-[10px] font-bold ${col.badge} text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm`}>{item.votes}</span>
+          <span className={`ml-auto text-[10px] font-bold ${col.badge} text-white px-2.5 py-0.5 rounded-full min-w-[22px] text-center shadow-sm`}>{item.votes}</span>
         )}
       </div>
       {isOwner && (
         <button
           onClick={() => removeItem(item.id)}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-6 h-6 bg-black/50 backdrop-blur-sm text-white rounded-full flex items-center justify-center text-xs transition-all hover:bg-black/70 hover:scale-110"
+          className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 w-6 h-6 bg-black/40 backdrop-blur-md text-white rounded-lg flex items-center justify-center text-xs transition-all duration-200 hover:bg-red-500 hover:scale-110"
         >
           ×
         </button>
@@ -2347,11 +2357,13 @@ function StickyColumn({ col, boardEvent, boardBroadcast }) {
   };
 
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden border retro-card-depth transition-all duration-300" style={{ minHeight: 420, background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%)", borderColor: "rgba(6, 194, 134, 0.1)" }}>
-      <div className={`flex items-center gap-2.5 px-5 py-4 ${col.headerBorder}`} style={{ background: `linear-gradient(135deg, ${col.noteBg === "bg-emerald-100" ? "rgba(209, 250, 229, 0.6)" : col.noteBg === "bg-rose-100" ? "rgba(255, 228, 230, 0.6)" : col.noteBg === "bg-sky-100" ? "rgba(224, 242, 254, 0.6)" : "rgba(254, 243, 199, 0.6)"} 0%, rgba(240, 247, 244, 0.4) 100%)` }}>
-        <span className="retro-icon-pulse">{col.icon("w-5 h-5")}</span>
-        <h3 className="text-sm font-bold text-gray-800 flex-1">{col.title}</h3>
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${col.badge} text-white shadow-sm`}>{items.length}</span>
+    <div className="flex flex-col rounded-2xl overflow-hidden transition-all duration-300 group/col" style={{ minHeight: 420, background: "linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.85) 100%)", border: "1px solid rgba(0, 0, 0, 0.06)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.05), 0 1px 3px rgba(0, 50, 100, 0.03)" }}>
+      <div className={`flex items-center gap-2.5 px-5 py-4 ${col.headerBorder}`} style={{ background: "rgba(255, 255, 255, 0.8)" }}>
+        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${col.headerGradient} flex items-center justify-center shadow-sm`}>
+          <span className="text-white">{col.icon("w-4 h-4")}</span>
+        </div>
+        <h3 className="text-sm font-bold text-gray-800 flex-1 tracking-tight">{col.title}</h3>
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${col.badge} text-white shadow-sm tabular-nums`}>{items.length}</span>
       </div>
 
       <div className="px-3 pt-3 pb-1">
@@ -2361,27 +2373,29 @@ function StickyColumn({ col, boardEvent, boardBroadcast }) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="Type & press enter..."
-            className={`flex-1 px-3 py-2.5 text-sm border ${col.inputBorder} rounded-xl bg-background/80 placeholder:text-gray-400 ${col.inputFocus} focus:outline-none focus:ring-2 transition-all`}
+            className={`flex-1 px-3.5 py-2.5 text-sm border ${col.inputBorder} rounded-xl bg-white/90 placeholder:text-gray-400/70 ${col.inputFocus} focus:outline-none focus:ring-2 transition-all`}
           />
           <button
             onClick={handleAdd}
             disabled={!input.trim()}
-            className={`px-3.5 py-2.5 ${col.btnBg} text-white rounded-xl text-sm font-bold transition-all disabled:opacity-30 btn-press shadow-md hover:shadow-lg hover:scale-105`}
+            className={`px-3.5 py-2.5 ${col.btnBg} text-white rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-25 btn-press shadow-md hover:shadow-lg hover:scale-105`}
           >
             +
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2.5" style={{ maxHeight: 500 }}>
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ maxHeight: 500 }}>
         {loading ? (
           <div className="flex justify-center py-10">
-            <div className="w-7 h-7 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
+            <div className="w-7 h-7 rounded-full border-2 border-gray-200 border-t-gray-500 animate-spin" />
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-            <span className="mb-3 opacity-20 retro-float-slow">{col.icon("w-10 h-10")}</span>
-            <p className="text-xs font-medium">No notes yet</p>
+          <div className="flex flex-col items-center justify-center py-14 text-gray-400">
+            <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${col.headerGradient} flex items-center justify-center mb-3 opacity-15`}>
+              <span className="text-white">{col.icon("w-7 h-7")}</span>
+            </div>
+            <p className="text-xs font-semibold text-gray-400/80">No notes yet</p>
             <p className="text-[10px] text-gray-300 mt-0.5">Type above to add one</p>
           </div>
         ) : (
@@ -2404,9 +2418,9 @@ function StickyColumn({ col, boardEvent, boardBroadcast }) {
 
 function RetroBoardPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-6">
       <PhaseHeader icon={<NotepadIcon className="w-8 h-8" />} title="Retro Board" description="Add your thoughts to each column — be honest, be constructive!" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         {BOARD_COLUMNS.map((col) => (
           <StickyColumn key={col.phase} col={col} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />
         ))}
@@ -2431,13 +2445,15 @@ function GroupedBoardColumn({ col, groupedItems, groupNames, allGroupNames, isAd
 
   return (
     <div
-      className="rounded-2xl overflow-hidden border border-card-border/40 flex flex-col"
-      style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.06), 0 1px 3px rgba(0, 50, 100, 0.04)" }}
+      className="rounded-2xl overflow-hidden flex flex-col"
+      style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(248,250,252,0.88) 100%)", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.05), 0 1px 3px rgba(0, 50, 100, 0.03)" }}
     >
-      <div className={`${col.headerBg} ${col.headerBorder} px-4 py-3 flex items-center gap-2`}>
-        {col.icon("w-5 h-5 text-inherit")}
-        <h3 className="text-sm font-bold text-foreground flex-1">{col.title}</h3>
-        <span className={`${col.badge} text-white text-[10px] font-bold w-6 h-6 rounded-lg flex items-center justify-center shadow-sm`}>
+      <div className={`${col.headerBorder} px-4 py-3 flex items-center gap-2.5`} style={{ background: "rgba(255, 255, 255, 0.8)" }}>
+        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${col.headerGradient} flex items-center justify-center shadow-sm`}>
+          <span className="text-white">{col.icon("w-3.5 h-3.5")}</span>
+        </div>
+        <h3 className="text-sm font-bold text-foreground flex-1 tracking-tight">{col.title}</h3>
+        <span className={`${col.badge} text-white text-[10px] font-bold w-6 h-6 rounded-lg flex items-center justify-center shadow-sm tabular-nums`}>
           {totalCount}
         </span>
       </div>
@@ -2714,21 +2730,22 @@ function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBr
           <button
             onClick={analyzeItems}
             disabled={loading}
-            className="group flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-bold text-white transition-all duration-300 btn-press disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+            className="group relative flex items-center gap-2.5 px-7 py-3.5 rounded-2xl text-sm font-bold text-white transition-all duration-300 btn-press disabled:opacity-60 disabled:cursor-not-allowed overflow-hidden"
             style={{
-              background: "linear-gradient(135deg, #06c286 0%, #3b82f6 100%)",
-              boxShadow: "0 4px 15px rgba(6, 194, 134, 0.3), 0 2px 6px rgba(59, 130, 246, 0.2)",
+              background: "linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)",
+              boxShadow: "0 8px 30px rgba(6, 194, 134, 0.25), 0 2px 8px rgba(0, 50, 150, 0.15)",
             }}
           >
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
             {loading ? (
               <>
-                <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                Analyzing items...
+                <ArrowPathIcon className="relative w-5 h-5 animate-spin" />
+                <span className="relative">Analyzing items...</span>
               </>
             ) : (
               <>
-                <SparklesIcon className="w-5 h-5" />
-                {hasGroups ? "Re-analyze & Group" : "Analyze & Group Items"}
+                <SparklesIcon className="relative w-5 h-5" />
+                <span className="relative">{hasGroups ? "Re-analyze & Group" : "Analyze & Group Items"}</span>
               </>
             )}
           </button>
@@ -3110,8 +3127,8 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
     <div className="w-full space-y-5">
       <div className="text-center">
         <PhaseHeader icon={<BallotIcon className="w-8 h-8" />} title="Vote on Items" description="You have 5 votes. Upvote the most important items across all columns." />
-        <div className="inline-flex items-center gap-3 mt-3 px-6 py-3 rounded-full retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.92))", border: "1px solid rgba(6, 194, 134, 0.15)" }}>
-          <span className="text-sm font-semibold text-gray-700">Votes remaining:</span>
+        <div className="inline-flex items-center gap-3 mt-3 px-6 py-3 rounded-full backdrop-blur-sm" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.85), rgba(240, 247, 244, 0.82))", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 20px rgba(0, 50, 100, 0.05)" }}>
+          <span className="text-sm font-bold text-gray-700">Votes remaining:</span>
           <div className="flex gap-1.5">
             {Array.from({ length: MAX_VOTES }).map((_, i) => (
               <div
@@ -3129,10 +3146,10 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
       </div>
 
       {isAdmin && (employees || []).length > 0 && (
-        <div className="rounded-2xl overflow-hidden retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.92))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+        <div className="rounded-2xl overflow-hidden" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.85))", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 20px rgba(0, 50, 100, 0.05)" }}>
           <button
             onClick={() => setShowTracker(!showTracker)}
-            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-primary/[0.03] transition-colors"
+            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-accent/[0.02] transition-colors"
           >
             <div className="flex items-center gap-2.5">
               <UsersIcon className="w-4 h-4" />
@@ -3463,10 +3480,10 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
 /*  Phase 6 – Vote Results (sorted by highest votes)                   */
 /* ------------------------------------------------------------------ */
 const RESULT_COL_CONFIG = [
-  { phase: "went_well", title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, bg: "bg-emerald-100", text: "text-emerald-900", border: "border-emerald-400", badge: "bg-emerald-500", barBg: "bg-emerald-400" },
-  { phase: "didnt_go_well", title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, bg: "bg-rose-100", text: "text-rose-900", border: "border-rose-400", badge: "bg-rose-500", barBg: "bg-rose-400" },
-  { phase: "should_try", title: "What to try next?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, bg: "bg-sky-100", text: "text-sky-900", border: "border-sky-400", badge: "bg-sky-500", barBg: "bg-sky-400" },
-  { phase: "puzzles_us", title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, bg: "bg-amber-100", text: "text-amber-900", border: "border-amber-400", badge: "bg-amber-500", barBg: "bg-amber-400" },
+  { phase: "went_well", title: "What went well?", icon: (cls = "w-5 h-5") => <CheckCircleIcon className={cls} />, bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-400", badge: "bg-emerald-500", barBg: "bg-emerald-400", gradient: "from-emerald-500 to-emerald-600" },
+  { phase: "didnt_go_well", title: "What went less well?", icon: (cls = "w-5 h-5") => <XCircleIcon className={cls} />, bg: "bg-rose-50", text: "text-rose-800", border: "border-rose-400", badge: "bg-rose-500", barBg: "bg-rose-400", gradient: "from-rose-500 to-rose-600" },
+  { phase: "should_try", title: "What to try next?", icon: (cls = "w-5 h-5") => <LightbulbIcon className={cls} />, bg: "bg-sky-50", text: "text-sky-800", border: "border-sky-400", badge: "bg-sky-500", barBg: "bg-sky-400", gradient: "from-sky-500 to-sky-600" },
+  { phase: "puzzles_us", title: "What puzzles us?", icon: (cls = "w-5 h-5") => <HelpCircleIcon className={cls} />, bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-400", badge: "bg-amber-500", barBg: "bg-amber-400", gradient: "from-amber-500 to-amber-600" },
 ];
 
 function VoteResultsPhase({ onNext, onPrev }) {
@@ -3518,10 +3535,12 @@ function VoteResultsPhase({ onNext, onPrev }) {
         {RESULT_COL_CONFIG.map((cfg) => {
           const items = allItems[cfg.phase] || [];
           return (
-            <div key={cfg.phase} className="rounded-2xl overflow-hidden border retro-card-depth flex flex-col" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%)", borderColor: "rgba(6, 194, 134, 0.1)" }}>
-              <div className={`flex items-center gap-2.5 px-5 py-4 border-b-4 ${cfg.border}`} style={{ background: `linear-gradient(135deg, ${cfg.bg === "bg-emerald-100" ? "rgba(209, 250, 229, 0.6)" : cfg.bg === "bg-rose-100" ? "rgba(255, 228, 230, 0.6)" : cfg.bg === "bg-sky-100" ? "rgba(224, 242, 254, 0.6)" : "rgba(254, 243, 199, 0.6)"} 0%, rgba(240, 247, 244, 0.4) 100%)` }}>
-                <span>{cfg.icon("w-5 h-5")}</span>
-                <h3 className="text-sm font-bold text-gray-800 flex-1">{cfg.title}</h3>
+            <div key={cfg.phase} className="rounded-2xl overflow-hidden flex flex-col" style={{ background: "linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.85) 100%)", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.05), 0 1px 3px rgba(0, 50, 100, 0.03)" }}>
+              <div className={`flex items-center gap-2.5 px-5 py-4 border-b-[3px] ${cfg.border}`} style={{ background: "rgba(255, 255, 255, 0.8)" }}>
+                <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${cfg.gradient || ""} flex items-center justify-center shadow-sm`}>
+                  <span className="text-white">{cfg.icon("w-4 h-4")}</span>
+                </div>
+                <h3 className="text-sm font-bold text-gray-800 flex-1 tracking-tight">{cfg.title}</h3>
               </div>
               <div className="flex-1 overflow-y-auto" style={{ maxHeight: 520 }}>
                 {items.length === 0 ? (
@@ -4470,22 +4489,22 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
       <div className="absolute -top-12 -right-20 w-44 h-44 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-3xl pointer-events-none retro-float" />
       <div className="absolute -bottom-12 -left-16 w-40 h-40 rounded-full bg-gradient-to-tr from-accent/10 to-transparent blur-3xl pointer-events-none retro-float-reverse" />
 
-      <div className="text-center space-y-4 mb-2 retro-slide-in relative">
+      <div className="text-center space-y-5 mb-3 retro-slide-in relative">
         <div className="relative inline-flex items-center justify-center">
-          <div className="absolute w-24 h-24 rounded-3xl bg-gradient-to-br from-primary/20 to-accent/20 blur-xl retro-icon-pulse" />
-          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center retro-icon-pulse">
+          <div className="absolute w-28 h-28 rounded-[24px] bg-gradient-to-br from-accent/15 to-primary/15 blur-2xl animate-pulse" style={{ animationDuration: "3s" }} />
+          <div className="relative w-20 h-20 rounded-[22px] bg-white border border-card-border/15 shadow-lg flex items-center justify-center" style={{ boxShadow: "0 8px 32px rgba(0, 50, 100, 0.08)" }}>
             <SparklesIcon className="w-10 h-10" />
           </div>
         </div>
-        <h2 className="text-3xl font-extrabold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Retrospective Complete!</h2>
-        <p className="text-muted text-sm max-w-md mx-auto leading-relaxed">
+        <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-accent via-primary to-accent bg-clip-text text-transparent bg-[length:200%_100%]" style={{ animation: "retroGradientShift 6s ease-in-out infinite" }}>Retrospective Complete!</h2>
+        <p className="text-muted/80 text-[13px] max-w-md mx-auto leading-relaxed font-medium">
           Great session! Remember — continuous improvement is a journey, not a destination.
           Take the action items forward and make the next sprint even better.
         </p>
       </div>
 
-      <div className="retro-gradient-border rounded-3xl retro-slide-in-delay-1">
-        <div className="rounded-3xl p-6 space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
+      <div className="rounded-3xl retro-slide-in-delay-1" style={{ border: "1px solid rgba(6, 194, 134, 0.1)", boxShadow: "0 8px 40px rgba(0, 50, 100, 0.06)" }}>
+        <div className="rounded-3xl p-6 space-y-4" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.88) 100%)" }}>
           <h3 className="font-bold text-foreground flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
               <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4498,10 +4517,10 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
             {PHASES.map((phase, idx) => (
               <div
                 key={phase.id}
-                className="flex items-center gap-2.5 p-3 rounded-xl text-sm transition-all hover:scale-[1.02]"
-                style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 50}ms`, background: "linear-gradient(135deg, rgba(232, 250, 243, 0.7), rgba(230, 236, 247, 0.6))", border: "1px solid rgba(6, 194, 134, 0.1)" }}
+                className="flex items-center gap-2.5 p-3 rounded-xl text-sm transition-all duration-200 hover:scale-[1.02]"
+                style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 50}ms`, background: "rgba(255, 255, 255, 0.6)", border: "1px solid rgba(0, 0, 0, 0.04)" }}
               >
-                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent text-white flex items-center justify-center shadow-md shadow-primary/20">
+                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent to-primary text-white flex items-center justify-center shadow-sm">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
@@ -4514,22 +4533,25 @@ function CloseSummaryPhase({ onPrev, onFinish }) {
       </div>
 
       {(onPrev || onFinish) && (
-        <div className="flex items-center justify-between pt-6 mt-6 retro-slide-in-delay-2">
+        <div className="flex items-center justify-between pt-7 mt-7 border-t border-card-border/15 retro-slide-in-delay-2">
           <button
             onClick={onPrev}
-            className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium text-muted hover:text-foreground retro-glass hover:shadow-md border border-white/40 transition-all btn-press"
+            className="group flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-sm font-semibold text-muted hover:text-foreground backdrop-blur-sm transition-all duration-300 btn-press"
+            style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(240, 247, 244, 0.6))", border: "1px solid rgba(6, 194, 134, 0.1)" }}
           >
-            <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back
           </button>
           <button
             onClick={onFinish}
-            className="group flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-2xl text-sm font-semibold shadow-xl shadow-accent/20 hover:shadow-2xl hover:shadow-accent/30 hover:scale-[1.02] transition-all btn-press btn-shimmer"
+            className="group relative flex items-center gap-2.5 px-8 py-3.5 text-white rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 btn-press overflow-hidden"
+            style={{ background: "linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)", boxShadow: "0 8px 30px rgba(6, 194, 134, 0.3), 0 2px 8px rgba(0, 50, 150, 0.15)" }}
           >
-            Finish Retrospective
-            <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            <span className="relative">Finish Retrospective</span>
+            <svg className="relative w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </button>
@@ -5228,57 +5250,64 @@ export default function RetrospectivePage() {
           {/* Start Retro Card */}
           <div
             onClick={() => setShowStartModal(true)}
-            className="retro-gradient-border rounded-3xl cursor-pointer group retro-slide-in"
+            className="rounded-3xl cursor-pointer group retro-slide-in overflow-hidden"
+            style={{ border: "1px solid rgba(6, 194, 134, 0.1)", boxShadow: "0 12px 48px rgba(0, 50, 100, 0.06), 0 2px 8px rgba(6, 194, 134, 0.03)" }}
           >
             <div
-              className="rounded-3xl p-10 text-center space-y-6 transition-all group-hover:shadow-xl"
-              style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}
+              className="rounded-3xl p-10 text-center space-y-7 transition-all duration-500 group-hover:shadow-xl relative overflow-hidden"
+              style={{ background: "linear-gradient(155deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 247, 244, 0.9) 40%, rgba(230, 236, 247, 0.85) 100%)" }}
             >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-accent/5 via-primary/3 to-transparent rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-primary/5 via-accent/3 to-transparent rounded-full translate-y-1/3 -translate-x-1/4 pointer-events-none" />
+
               <div className="relative inline-flex items-center justify-center">
-                <div className="absolute w-24 h-24 rounded-3xl bg-gradient-to-br from-primary/15 to-accent/15 blur-xl retro-icon-pulse" />
-                <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+                <div className="absolute w-28 h-28 rounded-[24px] bg-gradient-to-br from-accent/10 to-primary/10 blur-2xl animate-pulse" style={{ animationDuration: "3s" }} />
+                <div className="relative w-20 h-20 rounded-[22px] bg-white border border-card-border/20 shadow-lg flex items-center justify-center group-hover:scale-105 group-hover:shadow-xl transition-all duration-500" style={{ boxShadow: "0 8px 32px rgba(0, 50, 100, 0.08), 0 2px 8px rgba(6, 194, 134, 0.06)" }}>
                   <ArrowPathIcon className="w-10 h-10" />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h1 className="text-3xl font-extrabold bg-gradient-to-r from-foreground via-foreground to-accent bg-clip-text text-transparent">
+              <div className="relative space-y-3">
+                <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-foreground via-primary to-accent bg-clip-text text-transparent bg-[length:200%_100%]" style={{ animation: "retroGradientShift 8s ease-in-out infinite" }}>
                   Sprint Retrospective
                 </h1>
-                <p className="text-muted max-w-sm mx-auto leading-relaxed text-sm">
+                <p className="text-muted/80 max-w-sm mx-auto leading-relaxed text-[13px] font-medium">
                   Reflect on the last sprint, celebrate wins, identify improvements, and define
                   concrete action items for the team.
                 </p>
               </div>
 
-              <div className="pt-2">
-                <span className="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-primary to-accent text-white shadow-xl shadow-accent/20 group-hover:shadow-2xl group-hover:shadow-accent/30 group-hover:scale-[1.02] transition-all btn-shimmer">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="relative pt-1">
+                <span className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-2xl text-sm font-bold text-white shadow-xl group-hover:shadow-2xl group-hover:scale-[1.03] transition-all duration-300 overflow-hidden relative" style={{ background: "linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)", boxShadow: "0 8px 30px rgba(6, 194, 134, 0.3), 0 2px 8px rgba(0, 50, 150, 0.15)" }}>
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                  <svg className="relative w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  Start New Retrospective
+                  <span className="relative">Start New Retrospective</span>
                 </span>
               </div>
 
               {/* Meeting flow preview */}
-              <div className="flex items-center justify-center gap-1.5 pt-2">
+              <div className="relative flex items-center justify-center gap-2 pt-3">
                 {PHASES.slice(0, 5).map((phase) => (
-                  <div key={phase.id} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.8), rgba(230, 236, 247, 0.7))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+                  <div key={phase.id} className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/80 border border-card-border/15 shadow-sm transition-transform duration-300 group-hover:scale-105" style={{ animationDelay: `${phase.id * 50}ms` }}>
                     {phase.icon("w-3.5 h-3.5")}
                   </div>
                 ))}
-                <span className="text-xs text-muted font-medium ml-1">+{PHASES.length - 5} more phases</span>
+                <span className="text-[11px] text-muted/60 font-semibold ml-1.5">+{PHASES.length - 5} more</span>
               </div>
             </div>
           </div>
 
           {/* Completed Sessions */}
-          <div className="mt-10 space-y-4 retro-slide-in-delay-1">
+          <div className="mt-12 space-y-5 retro-slide-in-delay-1">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2.5 tracking-tight">
+                <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                 Past Retrospectives
               </h2>
               <div className="flex gap-1.5 flex-wrap">
@@ -5615,25 +5644,25 @@ export default function RetrospectivePage() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowStartModal(false)} />
           <div
             className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden retro-slide-in"
-            style={{ background: "linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(245,249,252,0.98) 100%)" }}
+            style={{ background: "linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 50%, rgba(240,247,244,0.98) 100%)", boxShadow: "0 24px 80px rgba(0, 50, 100, 0.15), 0 8px 24px rgba(0, 0, 0, 0.06)" }}
           >
               {/* Modal header */}
               <div className="relative px-8 pt-8 pb-4">
                 <button
                   onClick={() => setShowStartModal(false)}
-                  className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors cursor-pointer"
+                  className="absolute top-5 right-5 w-8 h-8 rounded-xl bg-gray-100/80 hover:bg-gray-200 flex items-center justify-center transition-all duration-200 cursor-pointer hover:rotate-90"
                 >
                   <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/10 via-white to-accent/10 border border-white/60 shadow-md flex items-center justify-center">
+                <div className="flex items-center gap-3.5 mb-1">
+                  <div className="w-11 h-11 rounded-[14px] bg-white border border-card-border/15 shadow-md flex items-center justify-center" style={{ boxShadow: "0 4px 16px rgba(0, 50, 100, 0.08)" }}>
                     <ArrowPathIcon className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-foreground">New Retrospective</h2>
-                    <p className="text-xs text-muted">Set up your retro session</p>
+                    <h2 className="text-xl font-bold text-foreground tracking-tight">New Retrospective</h2>
+                    <p className="text-xs text-muted/70 font-medium">Set up your retro session</p>
                   </div>
                 </div>
               </div>
@@ -5766,11 +5795,11 @@ export default function RetrospectivePage() {
     <SessionContext.Provider value={sessionId}>
       <AppLayout>
         <div className="space-y-8 pb-8">
-          <div className="max-w-4xl mx-auto space-y-4">
+          <div className="max-w-4xl mx-auto space-y-5">
             {sessionTeamIds.length > 0 && (
-              <div className="flex justify-center gap-1.5 flex-wrap retro-slide-in">
+              <div className="flex justify-center gap-2 flex-wrap retro-slide-in">
                 {sessionTeamIds.map((tid) => (
-                  <span key={tid} className={`text-[10px] font-semibold px-3 py-1.5 rounded-full border shadow-sm ${getTeamColor(tid)}`}>
+                  <span key={tid} className={`text-[10px] font-bold px-3.5 py-1.5 rounded-full border shadow-sm ${getTeamColor(tid)}`}>
                     {getTeamLabel(tid)}
                   </span>
                 ))}
@@ -5783,10 +5812,11 @@ export default function RetrospectivePage() {
                   <div className="relative">
                     <button
                       onClick={() => setShowFacilitatorMenu((v) => !v)}
-                      className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border border-card-border/40 backdrop-blur-sm cursor-pointer hover:border-accent/30 transition-all"
+                      className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border backdrop-blur-sm cursor-pointer hover:border-accent/20 transition-all duration-300"
                       style={{
-                        background: "linear-gradient(145deg, rgba(255,255,255,0.88) 0%, rgba(240,247,244,0.92) 50%, rgba(230,236,247,0.88) 100%)",
-                        boxShadow: "0 2px 10px rgba(0,50,100,0.06), 0 1px 4px rgba(6,194,134,0.06)",
+                        background: "linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(248,250,252,0.82) 100%)",
+                        border: "1px solid rgba(0, 0, 0, 0.06)",
+                        boxShadow: "0 2px 12px rgba(0,50,100,0.05), 0 1px 3px rgba(6,194,134,0.04)",
                       }}
                     >
                       <div className="relative flex-shrink-0">

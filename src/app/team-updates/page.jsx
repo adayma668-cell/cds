@@ -37,7 +37,21 @@ function StandupCard({
     <div className="bg-card rounded-xl border border-card-border shadow-sm overflow-hidden card-hover">
       <div className="px-5 py-4 flex items-center justify-between border-b border-card-border bg-background/50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center text-sm font-bold text-accent">
+          {standup.avatar_url ? (
+            <img
+              src={standup.avatar_url}
+              alt={standup.employee_name || "User"}
+              className="w-9 h-9 rounded-full object-cover"
+              onError={(e) => {
+                e.target.style.display = "none";
+                e.target.nextElementSibling.style.display = "flex";
+              }}
+            />
+          ) : null}
+          <div
+            className="w-9 h-9 rounded-full bg-accent-light items-center justify-center text-sm font-bold text-accent"
+            style={{ display: standup.avatar_url ? "none" : "flex" }}
+          >
             {(standup.employee_name || "?").charAt(0).toUpperCase()}
           </div>
           <div>
