@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
+
+const ALLOWED_ROLES = ["scrum_master", "super_admin"];
 
 async function getUser(req) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -91,4 +94,73 @@ export async function GET(req) {
   );
 
   return NextResponse.json({ sessions: enriched });
+}
+
+export async function DELETE(req) {
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: emp } = await supabaseAdmin
+    .from("employees")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!emp || !ALLOWED_ROLES.includes(emp.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const sessionId = searchParams.get("session_id");
+  if (!sessionId) {
+    return NextResponse.json({ error: "session_id is required" }, { status: 400 });
+  }
+
+  const { data: session } = await supabaseAdmin
+    .from("retro_sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .single();
+
+  if (!session) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  if (session.pdf_url) {
+    try {
+      const urlParts = session.pdf_url.split("/retro-pdfs/");
+      if (urlParts[1]) {
+        await supabaseAdmin.storage.from("retro-pdfs").remove([urlParts[1]]);
+      }
+    } catch {}
+  }
+
+  const delResults = await Promise.allSettled([
+    supabaseAdmin.from("retro_votes").delete().eq("session_id", sessionId),
+    supabaseAdmin.from("retro_items").delete().eq("session_id", sessionId),
+    supabaseAdmin.from("retro_moods").delete().eq("session_id", sessionId),
+    supabaseAdmin.from("retro_meeting_worth").delete().eq("session_id", sessionId),
+  ]);
+
+  const { error } = await supabaseAdmin
+    .from("retro_sessions")
+    .delete()
+    .eq("id", sessionId);
+
+  if (error) {
+    console.error("Failed to delete retro session:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const actorName = user.user_metadata?.name || user.email;
+  await logAudit({
+    entityType: "retro_session",
+    entityId: sessionId,
+    action: "deleted",
+    actorId: user.id,
+    actorName,
+    oldData: session,
+  });
+
+  return NextResponse.json({ success: true });
 }

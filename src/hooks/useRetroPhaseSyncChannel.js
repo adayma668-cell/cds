@@ -8,13 +8,16 @@ const CHANNEL_NAME = "retro-phase-sync";
 /**
  * Real-time phase sync via Supabase Broadcast.
  *
- * The facilitator broadcasts phase transitions and session finish events.
- * All other admins and employees receive them and stay in sync without polling.
+ * The facilitator broadcasts phase transitions, session finish events,
+ * and timer state. All other admins and employees receive them and stay
+ * in sync without polling. Late joiners request current timer state on subscribe.
  */
 export function useRetroPhaseSyncChannel() {
   const [phaseEvent, setPhaseEvent] = useState(null);
   const [finishEvent, setFinishEvent] = useState(null);
   const [actionEvent, setActionEvent] = useState(null);
+  const [timerEvent, setTimerEvent] = useState(null);
+  const [timerRequestEvent, setTimerRequestEvent] = useState(null);
   const channelRef = useRef(null);
 
   const broadcastPhase = useCallback((payload) => {
@@ -49,6 +52,22 @@ export function useRetroPhaseSyncChannel() {
     });
   }, []);
 
+  const broadcastTimer = useCallback((payload) => {
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "timer_sync",
+      payload: { ...payload, ts: Date.now() },
+    });
+  }, []);
+
+  const requestTimer = useCallback(() => {
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "timer_request",
+      payload: { ts: Date.now() },
+    });
+  }, []);
+
   useEffect(() => {
     const channel = supabase.channel(CHANNEL_NAME, {
       config: { broadcast: { self: false } },
@@ -70,6 +89,14 @@ export function useRetroPhaseSyncChannel() {
       setActionEvent(payload);
     });
 
+    channel.on("broadcast", { event: "timer_sync" }, ({ payload }) => {
+      setTimerEvent(payload);
+    });
+
+    channel.on("broadcast", { event: "timer_request" }, ({ payload }) => {
+      setTimerRequestEvent(payload);
+    });
+
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         channelRef.current = channel;
@@ -82,5 +109,9 @@ export function useRetroPhaseSyncChannel() {
     };
   }, []);
 
-  return { phaseEvent, finishEvent, actionEvent, broadcastPhase, broadcastFinish, broadcastStart, broadcastAction };
+  return {
+    phaseEvent, finishEvent, actionEvent, timerEvent, timerRequestEvent,
+    broadcastPhase, broadcastFinish, broadcastStart, broadcastAction,
+    broadcastTimer, requestTimer,
+  };
 }

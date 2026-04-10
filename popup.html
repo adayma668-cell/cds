@@ -1,0 +1,1078 @@
+<style>
+  /* ========== SIZE CONTROL ========== */
+  .prg-popup-card {
+    --prg-popup-width: 100%;
+    --prg-popup-max-width: 896px;
+    --prg-popup-scale: 1;
+  }
+
+  .prg-popup-card * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ═══ CARD ═══ */
+  .prg-popup-card {
+    position: relative;
+    width: var(--prg-popup-width);
+    max-width: var(--prg-popup-max-width);
+    min-height: 320px;
+    transform: scale(var(--prg-popup-scale));
+    transform-origin: center center;
+    background: #003078;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    font-family: "Inter", sans-serif;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* ═══ ANIMATED BG ═══ */
+  .prg-popup-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: linear-gradient(
+      135deg,
+      #002560 0%,
+      #003078 40%,
+      #00357a 70%,
+      #002a6b 100%
+    );
+  }
+
+  /* Morphing orbs */
+  .prg-popup-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(65px);
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  .prg-popup-orb--1 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(
+      circle,
+      rgba(59, 130, 246, 0.3),
+      rgba(37, 99, 235, 0.2)
+    );
+    opacity: 0.5;
+    top: -90px;
+    left: -60px;
+    animation: prg-orb-1 14s ease-in-out infinite;
+  }
+
+  .prg-popup-orb--2 {
+    width: 260px;
+    height: 260px;
+    background: radial-gradient(
+      circle,
+      rgba(99, 102, 241, 0.25),
+      rgba(67, 56, 202, 0.15)
+    );
+    opacity: 0.4;
+    bottom: -70px;
+    right: 10%;
+    animation: prg-orb-2 16s ease-in-out infinite;
+  }
+
+  .prg-popup-orb--3 {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(
+      circle,
+      rgba(14, 165, 233, 0.2),
+      rgba(2, 132, 199, 0.1)
+    );
+    opacity: 0.35;
+    top: -40px;
+    right: 25%;
+    animation: prg-orb-3 12s ease-in-out infinite;
+  }
+
+  .prg-popup-orb--4 {
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(
+      circle,
+      rgba(59, 130, 246, 0.15),
+      rgba(30, 64, 175, 0.1)
+    );
+    opacity: 0.25;
+    bottom: 20%;
+    left: 35%;
+    animation: prg-orb-4 10s ease-in-out infinite;
+  }
+
+  @keyframes prg-orb-1 {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+      border-radius: 50%;
+    }
+    25% {
+      transform: translate(30px, 15px) scale(1.08);
+      border-radius: 44% 56% 52% 48%;
+    }
+    50% {
+      transform: translate(12px, 38px) scale(0.95);
+      border-radius: 56% 44% 48% 52%;
+    }
+    75% {
+      transform: translate(-10px, 18px) scale(1.04);
+      border-radius: 48% 52% 44% 56%;
+    }
+  }
+
+  @keyframes prg-orb-2 {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+      border-radius: 50%;
+    }
+    33% {
+      transform: translate(-22px, -18px) scale(1.1);
+      border-radius: 42% 58% 54% 46%;
+    }
+    66% {
+      transform: translate(14px, -30px) scale(0.93);
+      border-radius: 55% 45% 46% 54%;
+    }
+  }
+
+  @keyframes prg-orb-3 {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    50% {
+      transform: translate(-16px, 20px) scale(1.1);
+      border-radius: 40% 60% 55% 45%;
+    }
+  }
+
+  @keyframes prg-orb-4 {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    50% {
+      transform: translate(20px, -14px) scale(1.12);
+      border-radius: 45% 55% 50% 50%;
+    }
+  }
+
+  /* Animated moving diagonal lines */
+  .prg-popup-lines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 2px,
+      transparent 2px,
+      transparent 10px
+    );
+    background-size: 200% 200%;
+    z-index: 0;
+    animation: prg-lines-move 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes prg-lines-move {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    100% {
+      background-position: 0% 0%;
+    }
+  }
+
+  /* Aurora sweep */
+  .prg-popup-aurora {
+    position: absolute;
+    top: 0;
+    left: -55%;
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.04),
+      rgba(147, 197, 253, 0.06),
+      rgba(255, 255, 255, 0.03),
+      transparent
+    );
+    animation: prg-aurora 6.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Spotlight cone — on image area (right side) */
+  .prg-popup-spotlight {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 42%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    clip-path: polygon(35% 0%, 65% 0%, 95% 100%, 5% 100%);
+    background: linear-gradient(
+      180deg,
+      rgba(30, 80, 180, 0.55) 0%,
+      rgba(45, 106, 181, 0.4) 40%,
+      rgba(55, 120, 200, 0.25) 100%
+    );
+  }
+
+  @keyframes prg-aurora {
+    0% {
+      left: -45%;
+      opacity: 0.5;
+    }
+    50% {
+      left: 110%;
+      opacity: 1;
+    }
+    100% {
+      left: -45%;
+      opacity: 0.5;
+    }
+  }
+
+  /* ═══ SPARKLES ═══ */
+  .prg-popup-sparkles {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .prg-popup-spark {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    animation: prg-spark ease-in-out infinite;
+  }
+
+  .prg-popup-spark::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    background: inherit;
+    filter: blur(2px);
+  }
+
+  .prg-popup-spark:nth-child(1) {
+    left: 6%;
+    top: 18%;
+    background: rgba(147, 197, 253, 0.5);
+    animation-duration: 4s;
+    animation-delay: 0s;
+  }
+  .prg-popup-spark:nth-child(2) {
+    left: 20%;
+    top: 60%;
+    background: rgba(196, 181, 253, 0.4);
+    animation-duration: 5s;
+    animation-delay: 0.9s;
+  }
+  .prg-popup-spark:nth-child(3) {
+    left: 33%;
+    top: 28%;
+    background: rgba(255, 255, 255, 0.35);
+    animation-duration: 3.5s;
+    animation-delay: 1.6s;
+  }
+  .prg-popup-spark:nth-child(4) {
+    left: 48%;
+    top: 72%;
+    background: rgba(251, 191, 36, 0.35);
+    animation-duration: 4.5s;
+    animation-delay: 0.3s;
+  }
+  .prg-popup-spark:nth-child(5) {
+    left: 62%;
+    top: 16%;
+    background: rgba(147, 197, 253, 0.4);
+    animation-duration: 5.5s;
+    animation-delay: 2.1s;
+  }
+  .prg-popup-spark:nth-child(6) {
+    left: 78%;
+    top: 48%;
+    background: rgba(255, 255, 255, 0.3);
+    animation-duration: 4s;
+    animation-delay: 1.2s;
+  }
+
+  @keyframes prg-spark {
+    0%,
+    100% {
+      opacity: 0;
+      transform: scale(0.4) translateY(0);
+    }
+    25% {
+      opacity: 1;
+      transform: scale(1.3) translateY(-5px);
+    }
+    50% {
+      opacity: 0.4;
+      transform: scale(0.7) translateY(-11px);
+    }
+    80% {
+      opacity: 0.9;
+      transform: scale(1) translateY(-6px);
+    }
+  }
+
+  /* ═══ FLOATING GEO ═══ */
+  .prg-popup-geo {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .prg-popup-geo--ring {
+    width: 44px;
+    height: 44px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    top: 22px;
+    right: 42%;
+    animation: prg-geo-spin 20s linear infinite;
+  }
+
+  .prg-popup-geo--ring-sm {
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    bottom: 28%;
+    left: 30%;
+    animation: prg-geo-spin 14s linear infinite reverse;
+  }
+
+  .prg-popup-geo--cross {
+    top: 35%;
+    left: 52%;
+    font-size: 15px;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.1);
+    animation: prg-geo-drift 9s ease-in-out infinite;
+  }
+
+  .prg-popup-geo--diamond {
+    width: 10px;
+    height: 10px;
+    background: rgba(251, 191, 36, 0.15);
+    border-radius: 2px;
+    transform: rotate(45deg);
+    top: 55%;
+    left: 22%;
+    animation: prg-geo-drift 8s ease-in-out infinite 2s;
+  }
+
+  .prg-popup-geo--tri {
+    top: 12%;
+    right: 18%;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 10px solid rgba(255, 255, 255, 0.08);
+    animation: prg-geo-drift 10s ease-in-out infinite 1s;
+  }
+
+  /* Plus signs */
+  .prg-popup-plus {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    user-select: none;
+    font-family: "Inter", sans-serif;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.15);
+  }
+
+  .prg-popup-plus--1 {
+    top: 12%;
+    right: 35%;
+    font-size: 30px;
+    animation: prg-float-1 3.5s ease-in-out infinite;
+  }
+
+  .prg-popup-plus--2 {
+    bottom: 18%;
+    left: 8%;
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.12);
+    animation: prg-float-2 4.5s ease-in-out infinite;
+  }
+
+  .prg-popup-plus--3 {
+    top: 60%;
+    right: 52%;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.1);
+    animation: prg-float-1 5s ease-in-out infinite 1s;
+  }
+
+  .prg-popup-plus--4 {
+    top: 8%;
+    left: 42%;
+    font-size: 16px;
+    color: rgba(251, 191, 36, 0.15);
+    animation: prg-float-2 3s ease-in-out infinite 0.5s;
+  }
+
+  /* Large circle outline */
+  .prg-popup-circle-outline {
+    position: absolute;
+    top: 15%;
+    right: 20%;
+    width: 100px;
+    height: 100px;
+    border: 16px solid rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
+    animation: prg-circle-bounce 6s ease-in-out infinite;
+  }
+
+  /* Hexagon */
+  .prg-popup-hex {
+    position: absolute;
+    bottom: 30%;
+    left: 15%;
+    width: 36px;
+    height: 22px;
+    background: rgba(255, 255, 255, 0.06);
+    z-index: 1;
+    pointer-events: none;
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+    animation: prg-float-2 7s ease-in-out infinite 2s;
+  }
+
+  /* Pharma SVG icons */
+  .prg-popup-pharma {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.12;
+  }
+
+  .prg-popup-pharma--pill {
+    top: 18%;
+    right: 12%;
+    animation: prg-float-1 6s ease-in-out infinite 1s;
+  }
+
+  .prg-popup-pharma--molecule {
+    bottom: 12%;
+    left: 20%;
+    animation: prg-float-2 7s ease-in-out infinite 0.5s;
+  }
+
+  .prg-popup-pharma--flask {
+    top: 65%;
+    right: 38%;
+    animation: prg-float-1 5.5s ease-in-out infinite 2s;
+  }
+
+  .prg-popup-pharma--dna {
+    top: 6%;
+    left: 28%;
+    animation: prg-float-2 8s ease-in-out infinite;
+  }
+
+  .prg-popup-pharma--shield {
+    bottom: 40%;
+    right: 8%;
+    animation: prg-float-1 6.5s ease-in-out infinite 1.5s;
+  }
+
+  @keyframes prg-geo-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes prg-geo-drift {
+    0%,
+    100% {
+      transform: translate(0, 0);
+      opacity: 1;
+    }
+    50% {
+      transform: translate(6px, -8px);
+      opacity: 0.4;
+    }
+  }
+
+  @keyframes prg-float-1 {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(5deg);
+    }
+  }
+
+  @keyframes prg-float-2 {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-12px) rotate(-4deg);
+    }
+  }
+
+  @keyframes prg-circle-bounce {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    25% {
+      transform: scale(1.04);
+    }
+    50% {
+      transform: scale(0.97);
+    }
+    75% {
+      transform: scale(1.02);
+    }
+  }
+
+  /* ═══ CONTENT ═══ */
+  .prg-popup-content {
+    position: relative;
+    z-index: 5;
+    padding: 32px 36px 32px;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .prg-popup-cta-wrapper {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  /* Brand tag */
+  .prg-popup-brand {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .prg-popup-brand-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 5px 14px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+  }
+
+  /* Title */
+  .prg-popup-title {
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.15;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  /* Subtitle line below heading */
+  .prg-popup-subtitle {
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.5;
+    margin-bottom: 20px;
+    max-width: 55%;
+  }
+
+  .prg-popup-subtitle-accent {
+    color: #f5a623;
+    font-weight: 600;
+  }
+
+  /* ═══ CTA ═══ */
+  .prg-popup-cta {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 26px;
+    background: #ffffff;
+    color: #003078;
+    border: none;
+    border-radius: 9999px;
+    font-family: "Inter", sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    overflow: hidden;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .prg-popup-cta:hover {
+    transform: translateY(-2px);
+    background: #f0f4ff;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.3);
+  }
+
+  .prg-popup-cta:active {
+    transform: scale(0.96);
+  }
+
+  .prg-popup-cta-shine {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 48, 120, 0.08),
+      transparent
+    );
+    animation: prg-shine 4s ease-in-out infinite;
+  }
+
+  @keyframes prg-shine {
+    0% {
+      left: -100%;
+    }
+    30% {
+      left: 100%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
+  .prg-popup-cta-label {
+    position: relative;
+    z-index: 1;
+  }
+
+  .prg-popup-cta svg {
+    position: relative;
+    z-index: 1;
+    transition: transform 0.3s ease;
+  }
+
+  .prg-popup-cta:hover svg {
+    transform: translateX(3px);
+  }
+
+  /* ═══ IMAGE — absolute bottom right ═══ */
+  .prg-popup-img {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 42%;
+    max-width: 380px;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  .prg-popup-img img {
+    width: 100%;
+    display: block;
+    filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
+  }
+
+  /* ═══ ACCENT BAR ═══ */
+  .prg-popup-accent {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 10;
+    background: linear-gradient(
+      90deg,
+      #3b82f6,
+      #8b5cf6,
+      #06b6d4,
+      #10b981,
+      #f59e0b,
+      #3b82f6
+    );
+    background-size: 300% 100%;
+    animation: prg-accent-flow 4s linear infinite;
+  }
+
+  @keyframes prg-accent-flow {
+    0% {
+      background-position: 0% 0;
+    }
+    100% {
+      background-position: 300% 0;
+    }
+  }
+
+  /* ═══ DOT DECO ═══ */
+  .prg-popup-dots {
+    position: absolute;
+    bottom: 20px;
+    left: 36px;
+    display: grid;
+    grid-template-columns: repeat(3, 5px);
+    gap: 5px;
+    opacity: 0.06;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .prg-popup-dot-item {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  /* ═══ RESPONSIVE — TABLET & MOBILE ═══ */
+  @media (max-width: 600px) {
+    .prg-popup-card {
+      min-height: auto;
+    }
+
+    .prg-popup-content {
+      width: 100%;
+      padding: 20px 18px 12px;
+      text-align: center;
+      align-items: center;
+    }
+
+    .prg-popup-brand {
+      justify-content: center;
+    }
+
+    .prg-popup-cta-wrapper {
+      justify-content: center;
+    }
+
+    .prg-popup-img {
+      position: relative;
+      bottom: auto;
+      right: auto;
+      width: 100%;
+      max-width: none;
+      display: flex;
+      justify-content: center;
+    }
+
+    .prg-popup-img img {
+      width: 75%;
+      max-width: 280px;
+    }
+
+    .prg-popup-title {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .prg-popup-subtitle {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 14px;
+      max-width: 100%;
+    }
+    .prg-popup-cta {
+      padding: 10px 20px;
+      font-size: 13px;
+    }
+    .prg-popup-brand-tag {
+      font-size: 9px;
+    }
+
+    .prg-popup-spotlight {
+      right: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      clip-path: polygon(38% 0%, 62% 0%, 90% 100%, 10% 100%);
+    }
+
+    .prg-popup-orb--1 {
+      width: 150px;
+      height: 150px;
+    }
+    .prg-popup-orb--2 {
+      width: 130px;
+      height: 130px;
+    }
+    .prg-popup-orb--3,
+    .prg-popup-orb--4 {
+      display: none;
+    }
+    .prg-popup-geo--ring,
+    .prg-popup-geo--ring-sm,
+    .prg-popup-geo--tri {
+      display: none;
+    }
+    .prg-popup-plus,
+    .prg-popup-circle-outline,
+    .prg-popup-hex {
+      display: none;
+    }
+    .prg-popup-pharma {
+      display: none;
+    }
+    .prg-popup-dots {
+      display: none;
+    }
+  }
+</style>
+
+<div class="prg-popup-card">
+  <!-- Animated BG -->
+  <div class="prg-popup-bg">
+    <div class="prg-popup-orb prg-popup-orb--1"></div>
+    <div class="prg-popup-orb prg-popup-orb--2"></div>
+    <div class="prg-popup-orb prg-popup-orb--3"></div>
+    <div class="prg-popup-orb prg-popup-orb--4"></div>
+    <div class="prg-popup-lines"></div>
+    <div class="prg-popup-aurora"></div>
+  </div>
+
+  <!-- Sparkles -->
+  <div class="prg-popup-sparkles">
+    <div class="prg-popup-spark"></div>
+    <div class="prg-popup-spark"></div>
+    <div class="prg-popup-spark"></div>
+    <div class="prg-popup-spark"></div>
+    <div class="prg-popup-spark"></div>
+    <div class="prg-popup-spark"></div>
+  </div>
+
+  <!-- Floating geo -->
+  <div class="prg-popup-geo prg-popup-geo--ring"></div>
+  <div class="prg-popup-geo prg-popup-geo--ring-sm"></div>
+  <div class="prg-popup-geo prg-popup-geo--cross">+</div>
+  <div class="prg-popup-geo prg-popup-geo--diamond"></div>
+  <div class="prg-popup-geo prg-popup-geo--tri"></div>
+
+  <!-- Plus signs -->
+  <span class="prg-popup-plus prg-popup-plus--1">+</span>
+  <span class="prg-popup-plus prg-popup-plus--2">+</span>
+  <span class="prg-popup-plus prg-popup-plus--3">+</span>
+  <span class="prg-popup-plus prg-popup-plus--4">+</span>
+
+  <!-- Circle outline -->
+  <div class="prg-popup-circle-outline"></div>
+
+  <!-- Hexagon -->
+  <div class="prg-popup-hex"></div>
+
+  <!-- Pharma icons -->
+  <svg
+    class="prg-popup-pharma prg-popup-pharma--pill"
+    width="36"
+    height="18"
+    viewBox="0 0 36 18"
+    fill="none"
+  >
+    <rect
+      x="1"
+      y="1"
+      width="34"
+      height="16"
+      rx="8"
+      stroke="#ffffff"
+      stroke-width="1.5"
+    />
+    <line x1="18" y1="1" x2="18" y2="17" stroke="#ffffff" stroke-width="1.5" />
+  </svg>
+
+  <svg
+    class="prg-popup-pharma prg-popup-pharma--molecule"
+    width="40"
+    height="40"
+    viewBox="0 0 40 40"
+    fill="none"
+  >
+    <circle cx="20" cy="20" r="6" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="8" cy="8" r="4" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="34" cy="12" r="3.5" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="12" cy="34" r="3.5" stroke="#ffffff" stroke-width="1.5" />
+    <line x1="15" y1="15" x2="11" y2="11" stroke="#ffffff" stroke-width="1.5" />
+    <line x1="25" y1="17" x2="31" y2="13" stroke="#ffffff" stroke-width="1.5" />
+    <line x1="16" y1="25" x2="13" y2="31" stroke="#ffffff" stroke-width="1.5" />
+  </svg>
+
+  <svg
+    class="prg-popup-pharma prg-popup-pharma--flask"
+    width="28"
+    height="34"
+    viewBox="0 0 28 34"
+    fill="none"
+  >
+    <path
+      d="M10 2h8v10l8 16a2 2 0 01-1.8 3H3.8A2 2 0 012 28L10 12V2z"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      stroke-linejoin="round"
+    />
+    <line
+      x1="8"
+      y1="2"
+      x2="20"
+      y2="2"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      stroke-linecap="round"
+    />
+    <path
+      d="M6 24h16"
+      stroke="#ffffff"
+      stroke-width="1.2"
+      stroke-linecap="round"
+      stroke-dasharray="2 3"
+    />
+  </svg>
+
+  <svg
+    class="prg-popup-pharma prg-popup-pharma--dna"
+    width="20"
+    height="44"
+    viewBox="0 0 20 44"
+    fill="none"
+  >
+    <path
+      d="M2 2c0 10 16 10 16 20s-16 10-16 20"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      fill="none"
+    />
+    <path
+      d="M18 2c0 10-16 10-16 20s16 10 16 20"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      fill="none"
+    />
+    <line x1="4" y1="12" x2="16" y2="12" stroke="#ffffff" stroke-width="1" />
+    <line x1="3" y1="22" x2="17" y2="22" stroke="#ffffff" stroke-width="1" />
+    <line x1="4" y1="32" x2="16" y2="32" stroke="#ffffff" stroke-width="1" />
+  </svg>
+
+  <svg
+    class="prg-popup-pharma prg-popup-pharma--shield"
+    width="28"
+    height="32"
+    viewBox="0 0 28 32"
+    fill="none"
+  >
+    <path
+      d="M14 2L2 8v8c0 8 5.3 15.5 12 18 6.7-2.5 12-10 12-18V8L14 2z"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M10 16l3 3 5-6"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+
+  <!-- Content top -->
+  <div class="prg-popup-content">
+    <div class="prg-popup-brand">
+      <span class="prg-popup-brand-tag">Live Event</span>
+    </div>
+
+    <h2 class="prg-popup-title">
+      Join Our LinkedIn Live: PRG's Road to FDA's Emerging Technology Program
+      (ETP)
+    </h2>
+
+    <p class="prg-popup-subtitle">
+      <span class="prg-popup-subtitle-accent"
+        >Join our LinkedIn Live to discover how PRG is building an FDA-aligned
+        digital API facility using continuous flow chemistry, AI-driven
+        manufacturing, and real-time quality.</span
+      >
+    </p>
+
+    <div class="prg-popup-cta-wrapper">
+      <a
+        href="https://www.linkedin.com/events/prg-sroadtofda-semergingtechnol7425559271049879552/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="prg-popup-cta"
+      >
+        <span class="prg-popup-cta-shine"></span>
+        <span class="prg-popup-cta-label">Register Now</span>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path
+            d="M3 7h8M8 3.5l3.5 3.5L8 10.5"
+            stroke="#003078"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- Spotlight behind illustration -->
+  <div class="prg-popup-spotlight"></div>
+
+  <!-- Image — pinned bottom right -->
+  <div class="prg-popup-img">
+    <img
+      src="https://cdn.prod.website-files.com/6772727ca500299a8b9f0feb/69d8ce14a092864bee283b10_popimg.png"
+      alt="People in a LinkedIn live event discussion"
+    />
+  </div>
+
+  <!-- Dot deco -->
+  <div class="prg-popup-dots">
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+    <div class="prg-popup-dot-item"></div>
+  </div>
+
+  <!-- Accent bar -->
+  <div class="prg-popup-accent"></div>
+</div>

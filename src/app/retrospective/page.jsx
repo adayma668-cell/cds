@@ -17,6 +17,7 @@ import {
   TrophyIcon, WarningIcon, StarIcon, UsersIcon, HeartIcon, ArrowPathIcon, MedalIcon,
   CheckCircleIcon, XCircleIcon, LightbulbIcon, HelpCircleIcon,
   FaceGreatIcon, FaceGoodIcon, FaceNeutralIcon, FaceConcernedIcon, FaceFrustratedIcon,
+  ScaleIcon, DownloadIcon,
 } from "@/lib/icons";
 import WaitingLobbyGame from "@/components/WaitingLobbyGame";
 
@@ -35,7 +36,8 @@ const PHASES = [
   { id: 6, label: "Results", icon: (cls = "w-4 h-4") => <ChartBarIcon className={cls} />, short: "Results" },
   { id: 7, label: "Action Items", icon: (cls = "w-4 h-4") => <RocketIcon className={cls} />, short: "New Actions" },
   { id: 8, label: "Appreciation", icon: (cls = "w-4 h-4") => <HandHeartIcon className={cls} />, short: "Thanks" },
-  { id: 9, label: "Close & Summary", icon: (cls = "w-4 h-4") => <ClipboardCheckIcon className={cls} />, short: "Summary" },
+  { id: 9, label: "Time Check", icon: (cls = "w-4 h-4") => <ScaleIcon className={cls} />, short: "Worth It?" },
+  { id: 10, label: "Close & Summary", icon: (cls = "w-4 h-4") => <ClipboardCheckIcon className={cls} />, short: "Summary" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -51,7 +53,8 @@ const PHASE_DURATIONS = {
   6: 3 * 60,   // Results: 3 min
   7: 7 * 60,   // Action Items: 7 min
   8: 3 * 60,   // Appreciation: 3 min
-  9: 2 * 60,   // Summary: 2 min
+  9: 3 * 60,   // Time Check: 3 min
+  10: 2 * 60,  // Summary: 2 min
 };
 
 function useTimerSounds() {
@@ -123,12 +126,13 @@ function _getTimerState() {
   return _phaseTimerState;
 }
 
-function PhaseTimer({ phaseIndex }) {
+function PhaseTimer({ phaseIndex, isFacilitator = true, broadcastTimer, timerEvent, timerRequestEvent, requestTimer }) {
   const { playTick, playFinish } = useTimerSounds();
   const endTimeRef = useRef(0);
   const pausedMsRef = useRef(null);
   const finishedFiredRef = useRef(false);
   const prevPhaseRef = useRef(null);
+  const timerStateRef = useRef({});
 
   const [duration, setDuration] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -138,7 +142,9 @@ function PhaseTimer({ phaseIndex }) {
   const [editMin, setEditMin] = useState("");
   const [editSec, setEditSec] = useState("");
 
+  /* ---- Facilitator: init timer on phase change (local + sessionStorage) ---- */
   useEffect(() => {
+    if (!isFacilitator) return;
     const d = PHASE_DURATIONS[phaseIndex] || 5 * 60;
     const cache = _getTimerState();
     const cached = cache[phaseIndex];
@@ -182,10 +188,11 @@ function PhaseTimer({ phaseIndex }) {
 
     prevPhaseRef.current = phaseIndex;
     setEditing(false);
-  }, [phaseIndex]);
+  }, [phaseIndex, isFacilitator]);
 
-  /* Persist timer snapshot when meaningful state changes — not on every tick (timeLeft). */
+  /* ---- Facilitator: persist timer to sessionStorage ---- */
   useEffect(() => {
+    if (!isFacilitator) return;
     const cache = _getTimerState();
     cache[phaseIndex] = {
       endTime: endTimeRef.current,
@@ -196,8 +203,87 @@ function PhaseTimer({ phaseIndex }) {
     };
     _phaseTimerState = cache;
     _saveTimerCache(cache);
-  }, [phaseIndex, duration, running, finished]);
+  }, [phaseIndex, duration, running, finished, isFacilitator]);
 
+  /* ---- Facilitator: broadcast timer state on meaningful changes ---- */
+  useEffect(() => {
+    if (!isFacilitator || !broadcastTimer) return;
+    const snapshot = {
+      phaseIndex,
+      endTime: endTimeRef.current,
+      pausedMs: pausedMsRef.current,
+      duration,
+      running,
+      finished,
+    };
+    timerStateRef.current = snapshot;
+    broadcastTimer(snapshot);
+  }, [isFacilitator, broadcastTimer, phaseIndex, duration, running, finished]);
+
+  /* ---- Facilitator: respond to timer_request from late joiners ---- */
+  useEffect(() => {
+    if (!isFacilitator || !broadcastTimer || !timerRequestEvent) return;
+    broadcastTimer(timerStateRef.current);
+  }, [timerRequestEvent, isFacilitator, broadcastTimer]);
+
+  /* ---- Non-facilitator: init defaults on phase change ---- */
+  useEffect(() => {
+    if (isFacilitator) return;
+    if (prevPhaseRef.current !== phaseIndex) {
+      const d = PHASE_DURATIONS[phaseIndex] || 5 * 60;
+      endTimeRef.current = Date.now() + d * 1000;
+      pausedMsRef.current = null;
+      finishedFiredRef.current = false;
+      setDuration(d);
+      setTimeLeft(d);
+      setRunning(false);
+      setFinished(false);
+      prevPhaseRef.current = phaseIndex;
+      if (requestTimer) setTimeout(() => requestTimer(), 100);
+    }
+  }, [phaseIndex, isFacilitator, requestTimer]);
+
+  /* ---- Non-facilitator: request timer state on mount ---- */
+  useEffect(() => {
+    if (isFacilitator || !requestTimer) return;
+    const timeout = setTimeout(() => requestTimer(), 300);
+    return () => clearTimeout(timeout);
+  }, [isFacilitator, requestTimer]);
+
+  /* ---- Non-facilitator: apply incoming timer sync from facilitator ---- */
+  useEffect(() => {
+    if (isFacilitator || !timerEvent) return;
+    endTimeRef.current = timerEvent.endTime;
+    pausedMsRef.current = timerEvent.pausedMs ?? null;
+    setDuration(timerEvent.duration);
+
+    if (timerEvent.finished) {
+      finishedFiredRef.current = true;
+      setRunning(false);
+      setFinished(true);
+      setTimeLeft(0);
+    } else if (timerEvent.pausedMs != null) {
+      finishedFiredRef.current = false;
+      setRunning(false);
+      setFinished(false);
+      setTimeLeft(Math.max(0, Math.ceil(timerEvent.pausedMs / 1000)));
+    } else {
+      const remaining = Math.max(0, Math.ceil((timerEvent.endTime - Date.now()) / 1000));
+      if (remaining <= 0) {
+        finishedFiredRef.current = true;
+        setRunning(false);
+        setFinished(true);
+        setTimeLeft(0);
+      } else {
+        finishedFiredRef.current = false;
+        setRunning(true);
+        setFinished(false);
+        setTimeLeft(remaining);
+      }
+    }
+  }, [timerEvent, isFacilitator]);
+
+  /* ---- Countdown interval (both modes) ---- */
   useEffect(() => {
     if (!running || finished) return;
     const id = setInterval(() => {
@@ -214,6 +300,7 @@ function PhaseTimer({ phaseIndex }) {
     return () => clearInterval(id);
   }, [running, finished, playTick, playFinish]);
 
+  /* ---- Facilitator-only action handlers ---- */
   const openEditor = () => {
     pausedMsRef.current = Math.max(0, endTimeRef.current - Date.now());
     setRunning(false);
@@ -338,8 +425,8 @@ function PhaseTimer({ phaseIndex }) {
         </div>
       </div>
 
-      {/* Time display / editor */}
-      {editing ? (
+      {/* Time display / editor — controls only for facilitator */}
+      {editing && isFacilitator ? (
         <div className="flex items-center gap-1.5" style={{ animation: "fadeInScale 0.15s ease-out" }}>
           <input
             type="number"
@@ -372,7 +459,7 @@ function PhaseTimer({ phaseIndex }) {
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
-      ) : (
+      ) : isFacilitator ? (
         <button onClick={openEditor} className="flex flex-col cursor-pointer group" title="Click to set custom time">
           <span className={`text-2xl font-mono font-extrabold tracking-wider leading-none tabular-nums transition-colors group-hover:text-accent ${
             finished ? "text-red-500" : isCritical ? "text-red-500 timer-text-pulse" : isWarning ? "text-amber-600" : "text-foreground"
@@ -385,10 +472,23 @@ function PhaseTimer({ phaseIndex }) {
             {finished ? "Time's up!" : running ? "Running" : "Paused"}
           </span>
         </button>
+      ) : (
+        <div className="flex flex-col">
+          <span className={`text-2xl font-mono font-extrabold tracking-wider leading-none tabular-nums transition-colors ${
+            finished ? "text-red-500" : isCritical ? "text-red-500 timer-text-pulse" : isWarning ? "text-amber-600" : "text-foreground"
+          }`}>
+            {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+          </span>
+          <span className={`text-[9px] font-semibold uppercase tracking-[0.15em] mt-1 transition-colors ${
+            finished ? "text-red-400" : running ? "text-primary" : "text-muted"
+          }`}>
+            {finished ? "Time's up!" : running ? "Running" : "Paused"}
+          </span>
+        </div>
       )}
 
-      {/* Pause / Play */}
-      {!editing && (
+      {/* Pause / Play — facilitator only */}
+      {!editing && isFacilitator && (
         <button
           onClick={togglePause}
           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
@@ -1208,10 +1308,12 @@ function useAccessToken() {
 }
 
 /* Employee mood picker (shown to ALL employees) */
-function EmployeeMoodPicker() {
+function EmployeeMoodPicker({ actionEvent }) {
   const token = useAccessToken();
   const sessionId = useSessionId();
   const [selected, setSelected] = useState(null);
+  const [revealed, setRevealed] = useState(false);
+  const [moods, setMoods] = useState([]);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loadingMy, setLoadingMy] = useState(true);
@@ -1231,6 +1333,19 @@ function EmployeeMoodPicker() {
       })
       .finally(() => setLoadingMy(false));
   }, [token, sessionId]);
+
+  useEffect(() => {
+    if (!actionEvent || actionEvent.type !== "mood_reveal") return;
+    setRevealed(true);
+    if (!token || !sessionId) return;
+    fetch(`/api/retro/mood?session_id=${sessionId}&_t=${Date.now()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d) => setMoods(d.moods || []))
+      .catch((err) => console.error("fetchMoods error:", err));
+  }, [actionEvent, token, sessionId]);
 
   const submit = async () => {
     if (!selected || !token || !sessionId) return;
@@ -1268,12 +1383,20 @@ function EmployeeMoodPicker() {
 
   if (submitted) {
     const m = getMoodObj(selected);
+
+    const moodCounts = MOODS.map((mo) => ({
+      ...mo,
+      count: moods.filter((v) => v.mood === mo.label).length,
+    }));
+    const maxCount = Math.max(...moodCounts.map((mo) => mo.count), 1);
+    const totalSubmitted = moods.length;
+
     return (
-      <div className="max-w-md mx-auto text-center space-y-5">
+      <div className={`${revealed ? "max-w-3xl" : "max-w-md"} mx-auto text-center space-y-5`}>
         <PhaseHeader
           icon={<TargetIcon className="w-8 h-8" />}
           title="Set the Stage"
-          description="Your mood has been recorded. Waiting for the facilitator to reveal results."
+          description={revealed ? "Here's how the team is feeling." : "Your mood has been recorded. Waiting for the facilitator to reveal results."}
         />
         <div
           className={`inline-flex flex-col items-center gap-3 px-10 py-6 rounded-2xl border-2 bg-gradient-to-b ${m?.bg || ""} ${m?.border || ""}`}
@@ -1282,12 +1405,82 @@ function EmployeeMoodPicker() {
           <span>{m?.emoji("w-12 h-12")}</span>
           <span className={`text-sm font-bold ${m?.text}`}>{m?.label}</span>
         </div>
-        <button
-          onClick={changeVote}
-          className="text-xs text-muted hover:text-accent underline underline-offset-2 transition-colors"
-        >
-          Change my response
-        </button>
+        {!revealed && (
+          <button
+            onClick={changeVote}
+            className="text-xs text-muted hover:text-accent underline underline-offset-2 transition-colors"
+          >
+            Change my response
+          </button>
+        )}
+
+        {revealed && (
+          <div
+            className="retro-gradient-border rounded-2xl overflow-hidden text-left"
+            style={{ animation: "retroSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1)" }}
+          >
+            <div className="rounded-2xl p-5 space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center shadow-sm">
+                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                Team Sentiment Matrix
+              </h3>
+
+              <div className="space-y-3">
+                {moodCounts.map((mc) => (
+                  <div key={mc.label} className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 w-28 flex-shrink-0">
+                      <span>{mc.emoji("w-5 h-5")}</span>
+                      <span className={`text-xs font-semibold ${mc.text}`}>{mc.label}</span>
+                    </div>
+                    <div className="flex-1 h-7 bg-card-border/30 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${mc.bar} rounded-full transition-all duration-700 ease-out flex items-center justify-end pr-2`}
+                        style={{ width: `${Math.max((mc.count / maxCount) * 100, mc.count > 0 ? 12 : 0)}%`, opacity: 0.8 }}
+                      >
+                        {mc.count > 0 && (
+                          <span className="text-[10px] font-bold text-white">{mc.count}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-muted w-8 text-right">
+                      {totalSubmitted > 0 ? Math.round((mc.count / totalSubmitted) * 100) : 0}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-card-border/60 pt-4 mt-4">
+                <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Individual Responses</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {moods.map((entry) => {
+                    const em = getMoodObj(entry.mood);
+                    return (
+                      <div
+                        key={entry.user_id}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r ${em?.bg || ""} border ${em?.border || "border-card-border"}`}
+                        style={{ animation: "fadeInUp 0.3s ease-out both" }}
+                      >
+                        {entry.avatar_url ? (
+                          <img src={entry.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-white" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-[10px] font-bold text-muted">
+                            {entry.user_name?.charAt(0)?.toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-sm font-medium text-foreground flex-1 truncate">{entry.user_name}</span>
+                        <span>{em?.emoji("w-5 h-5")}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1626,7 +1819,7 @@ function SetTheStageAdmin({ employees, onNext, onPrev, actionEvent, broadcastAct
 function SetTheStagePhase({ employees, role, onNext, onPrev, actionEvent, broadcastAction }) {
   const isAdmin = role === "scrum_master" || role === "super_admin";
   if (isAdmin) return <SetTheStageAdmin employees={employees} onNext={onNext} onPrev={onPrev} actionEvent={actionEvent} broadcastAction={broadcastAction} />;
-  return <EmployeeMoodPicker />;
+  return <EmployeeMoodPicker actionEvent={actionEvent} />;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2385,7 +2578,7 @@ function GroupSection({ groupName, items, col, badgeColor, isAdmin, onRename, on
   );
 }
 
-function AIGroupPhase({ role, onNext, onPrev, groupEvent, groupBroadcast }) {
+function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBroadcast }) {
   const token = useAccessToken();
   const sessionId = useSessionId();
   const [groups, setGroups] = useState({});
@@ -2516,7 +2709,7 @@ function AIGroupPhase({ role, onNext, onPrev, groupEvent, groupBroadcast }) {
         description="AI analyzes and groups items by domain — facilitator can rename groups and drag items between them."
       />
 
-      {isAdmin && (
+      {isFacilitator && (
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={analyzeItems}
@@ -2542,14 +2735,14 @@ function AIGroupPhase({ role, onNext, onPrev, groupEvent, groupBroadcast }) {
         </div>
       )}
 
-      {!isAdmin && fetching && (
+      {!isFacilitator && fetching && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <ArrowPathIcon className="w-8 h-8 text-primary animate-spin" />
           <p className="text-sm text-muted">Loading groups...</p>
         </div>
       )}
 
-      {!isAdmin && !fetching && !hasGroups && (
+      {!isFacilitator && !fetching && !hasGroups && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <SparklesIcon className="w-12 h-12 text-muted/30" />
           <p className="text-sm text-muted">Waiting for the facilitator to group items...</p>
@@ -2603,7 +2796,7 @@ function AIGroupPhase({ role, onNext, onPrev, groupEvent, groupBroadcast }) {
 const MAX_VOTES = 5;
 const VOTE_PHASES = ["went_well", "didnt_go_well", "should_try", "puzzles_us"];
 
-function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote }) {
+function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, groupBroadcast, groupEvent }) {
   const token = useAccessToken();
   const sessionId = useSessionId();
   const { user } = useAuthContext();
@@ -2613,10 +2806,16 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
   const [voteSummary, setVoteSummary] = useState({});
   const [showTracker, setShowTracker] = useState(true);
   const [globalGroupNames, setGlobalGroupNames] = useState([]);
+  const [creatingGroupForPhase, setCreatingGroupForPhase] = useState(null);
+  const [newGroupTitle, setNewGroupTitle] = useState("");
+  const [editingGroupName, setEditingGroupName] = useState(null);
+  const [editingGroupValue, setEditingGroupValue] = useState("");
   const isAdmin = role === "scrum_master" || role === "super_admin";
   const busyRef = useRef(false);
   const myVotesRef = useRef(myVotes);
   myVotesRef.current = myVotes;
+  const newGroupInputRef = useRef(null);
+  const renameInputRef = useRef(null);
 
   const remaining = MAX_VOTES - myVotes.length;
 
@@ -2792,6 +2991,112 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
     }
   };
 
+  useEffect(() => {
+    if (creatingGroupForPhase && newGroupInputRef.current) newGroupInputRef.current.focus();
+  }, [creatingGroupForPhase]);
+
+  useEffect(() => {
+    if (editingGroupName && renameInputRef.current) renameInputRef.current.focus();
+  }, [editingGroupName]);
+
+  useEffect(() => {
+    if (!groupEvent) return;
+    if (groupEvent.type === "vote_group_refresh") {
+      (async () => {
+        try {
+          const hdrs = { Authorization: `Bearer ${token}` };
+          const res = await fetch(`/api/retro/group-items?session_id=${sessionId}&_t=${Date.now()}`, { headers: hdrs, cache: "no-store" });
+          const groupData = await res.json();
+          const gNames = Object.keys(groupData.groups || {});
+          const grouped = {};
+          for (const p of VOTE_PHASES) grouped[p] = [];
+          for (const [gName, gItems] of Object.entries(groupData.groups || {})) {
+            for (const item of gItems) {
+              if (grouped[item.phase]) grouped[item.phase].push({ ...item, group_name: gName });
+            }
+          }
+          for (const item of (groupData.ungrouped || [])) {
+            if (grouped[item.phase]) grouped[item.phase].push(item);
+          }
+          setAllItems(grouped);
+          setGlobalGroupNames(gNames);
+        } catch {}
+      })();
+    }
+  }, [groupEvent, token, sessionId]);
+
+  const createCustomGroup = async (phase) => {
+    const title = newGroupTitle.trim();
+    if (!title || !token || !sessionId) return;
+    setGlobalGroupNames((prev) => prev.includes(title) ? prev : [...prev, title]);
+    setCreatingGroupForPhase(null);
+    setNewGroupTitle("");
+  };
+
+  const moveItemToGroup = async (itemId, targetGroupName) => {
+    if (!token || !isAdmin) return;
+    setAllItems((prev) => {
+      const next = { ...prev };
+      for (const p of VOTE_PHASES) {
+        next[p] = (next[p] || []).map((i) =>
+          i.id === itemId ? { ...i, group_name: targetGroupName } : i
+        );
+      }
+      return next;
+    });
+    if (!globalGroupNames.includes(targetGroupName)) {
+      setGlobalGroupNames((prev) => [...prev, targetGroupName]);
+    }
+    try {
+      await fetch("/api/retro/group-items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items: [{ id: itemId, group_name: targetGroupName }] }),
+      });
+      if (groupBroadcast) groupBroadcast("vote_group_refresh", { sessionId });
+    } catch (err) {
+      console.error("Move item error:", err);
+    }
+  };
+
+  const renameGroupInVote = async (oldName, newName) => {
+    if (!token || !sessionId || !newName.trim() || newName.trim() === oldName) return;
+    const trimmed = newName.trim();
+    setGlobalGroupNames((prev) => prev.map((g) => g === oldName ? trimmed : g));
+    setAllItems((prev) => {
+      const next = { ...prev };
+      for (const p of VOTE_PHASES) {
+        next[p] = (next[p] || []).map((i) =>
+          i.group_name === oldName ? { ...i, group_name: trimmed } : i
+        );
+      }
+      return next;
+    });
+    setEditingGroupName(null);
+    setEditingGroupValue("");
+    try {
+      await fetch("/api/retro/group-items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rename: { old_name: oldName, new_name: trimmed, session_id: sessionId } }),
+      });
+      if (groupBroadcast) groupBroadcast("vote_group_refresh", { sessionId });
+    } catch (err) {
+      console.error("Rename group error:", err);
+    }
+  };
+
+  const handleVoteDrop = (e, targetGroupName) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const raw = e.dataTransfer.getData("text/plain");
+    if (!raw) return;
+    try {
+      const { itemId } = JSON.parse(raw);
+      moveItemToGroup(itemId, targetGroupName);
+    } catch {}
+  };
+
   if (loading) {
     return (
       <div className="w-full flex flex-col items-center justify-center py-20 gap-4">
@@ -2935,6 +3240,7 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
           for (const g of Object.keys(grouped)) {
             if (!orderedGNames.includes(g)) orderedGNames.push(g);
           }
+          const emptyCustomGroups = globalGroupNames.filter(g => !grouped[g] || grouped[g].length === 0);
           const totalCount = items.length;
 
           return (
@@ -2951,73 +3257,196 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
                 </span>
               </div>
               <div className="p-3 space-y-3 flex-1 min-h-[120px]">
-                {totalCount === 0 ? (
+                {totalCount === 0 && !isAdmin ? (
                   <p className="text-xs text-muted/40 text-center py-6 italic">No items in this column</p>
                 ) : (
-                  orderedGNames.map((gName) => {
-                    const gItems = grouped[gName];
-                    if (!gItems || gItems.length === 0) return null;
-                    const globalIdx = globalGroupNames.indexOf(gName);
-                    const badgeColor = GROUP_BADGE_COLORS[(globalIdx !== -1 ? globalIdx : orderedGNames.indexOf(gName)) % GROUP_BADGE_COLORS.length];
-                    const repId = gItems[0].id;
-                    const groupVotes = gItems.reduce((s, it) => s + (it.votes || 0), 0);
-                    const myGroupVotes = gItems.reduce((s, it) => s + myVoteCount(it.id), 0);
-                    const voted = myGroupVotes > 0;
+                  <>
+                    {orderedGNames.map((gName) => {
+                      const gItems = grouped[gName];
+                      if (!gItems || gItems.length === 0) return null;
+                      const globalIdx = globalGroupNames.indexOf(gName);
+                      const badgeColor = GROUP_BADGE_COLORS[(globalIdx !== -1 ? globalIdx : orderedGNames.indexOf(gName)) % GROUP_BADGE_COLORS.length];
+                      const repId = gItems[0].id;
+                      const groupVotes = gItems.reduce((s, it) => s + (it.votes || 0), 0);
+                      const myGroupVotes = gItems.reduce((s, it) => s + myVoteCount(it.id), 0);
+                      const voted = myGroupVotes > 0;
+                      const isRenaming = editingGroupName === `${col.phase}::${gName}`;
 
-                    return (
-                      <div
-                        key={gName}
-                        className={`rounded-xl p-2 transition-all duration-200 ${voted ? "ring-2 ring-accent shadow-lg bg-accent/5" : ""}`}
-                      >
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className={`${badgeColor} text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm`}>
-                            {gItems.length}
-                          </span>
-                          <span className="text-xs font-bold text-foreground/80 flex-1">{gName}</span>
-                          <div className="flex items-center gap-1.5">
-                            {groupVotes > 0 && (
-                              <span className={`text-[10px] font-bold ${col.noteText} bg-white/60 px-1.5 py-0.5 rounded-md`}>
-                                {groupVotes} {groupVotes === 1 ? "vote" : "votes"}
+                      return (
+                        <div
+                          key={gName}
+                          className={`rounded-xl p-2 transition-all duration-200 ${voted ? "ring-2 ring-accent shadow-lg bg-accent/5" : ""}`}
+                          onDragOver={isAdmin ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}
+                          onDrop={isAdmin ? (e) => handleVoteDrop(e, gName) : undefined}
+                        >
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <span className={`${badgeColor} text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm`}>
+                              {gItems.length}
+                            </span>
+                            {isRenaming && isAdmin ? (
+                              <input
+                                ref={renameInputRef}
+                                value={editingGroupValue}
+                                onChange={(e) => setEditingGroupValue(e.target.value)}
+                                onBlur={() => { renameGroupInVote(gName, editingGroupValue); }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") renameGroupInVote(gName, editingGroupValue);
+                                  if (e.key === "Escape") { setEditingGroupName(null); setEditingGroupValue(""); }
+                                }}
+                                className="flex-1 text-xs font-bold text-foreground bg-white/80 rounded-lg px-2 py-1 border border-card-border/40 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                            ) : (
+                              <span
+                                className={`text-xs font-bold text-foreground/80 flex-1 ${isAdmin ? "cursor-pointer hover:underline decoration-dotted underline-offset-2" : ""}`}
+                                onClick={() => {
+                                  if (isAdmin) {
+                                    setEditingGroupName(`${col.phase}::${gName}`);
+                                    setEditingGroupValue(gName);
+                                  }
+                                }}
+                                title={isAdmin ? "Click to rename group" : ""}
+                              >
+                                {gName}
                               </span>
                             )}
-                            {voted && (
-                              <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
-                                You: {myGroupVotes}
-                              </span>
-                            )}
-                            <button
-                              onClick={() => voted ? removeVote(repId) : castVote(repId)}
-                              disabled={!voted && remaining <= 0}
-                              className={`flex items-center justify-center rounded-lg transition-all duration-200 ${
-                                voted
-                                  ? "w-8 h-8 bg-accent text-white shadow-md shadow-accent/30 hover:bg-red-500 hover:shadow-red-500/30 hover:scale-110"
-                                  : remaining > 0
-                                    ? "w-8 h-8 bg-white/80 text-gray-400 border border-white/60 shadow-sm hover:bg-accent/15 hover:text-accent hover:border-accent/30 hover:scale-110"
-                                    : "w-8 h-8 bg-gray-100/50 text-gray-300 cursor-not-allowed"
-                              }`}
-                              title={voted ? "Remove vote from group" : remaining > 0 ? "Vote for this group" : "No votes left"}
-                            >
-                              <svg className={`w-4 h-4 transition-transform duration-200 ${voted ? "rotate-45" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                              </svg>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              {groupVotes > 0 && (
+                                <span className={`text-[10px] font-bold ${col.noteText} bg-white/60 px-1.5 py-0.5 rounded-md`}>
+                                  {groupVotes} {groupVotes === 1 ? "vote" : "votes"}
+                                </span>
+                              )}
+                              {voted && (
+                                <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
+                                  You: {myGroupVotes}
+                                </span>
+                              )}
+                              <button
+                                onClick={() => voted ? removeVote(repId) : castVote(repId)}
+                                disabled={!voted && remaining <= 0}
+                                className={`flex items-center justify-center rounded-lg transition-all duration-200 ${
+                                  voted
+                                    ? "w-8 h-8 bg-accent text-white shadow-md shadow-accent/30 hover:bg-red-500 hover:shadow-red-500/30 hover:scale-110"
+                                    : remaining > 0
+                                      ? "w-8 h-8 bg-white/80 text-gray-400 border border-white/60 shadow-sm hover:bg-accent/15 hover:text-accent hover:border-accent/30 hover:scale-110"
+                                      : "w-8 h-8 bg-gray-100/50 text-gray-300 cursor-not-allowed"
+                                }`}
+                                title={voted ? "Remove vote from group" : remaining > 0 ? "Vote for this group" : "No votes left"}
+                              >
+                                <svg className={`w-4 h-4 transition-transform duration-200 ${voted ? "rotate-45" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            {gItems.map((item, idx) => (
+                              <div
+                                key={item.id}
+                                draggable={isAdmin}
+                                onDragStart={isAdmin ? (e) => {
+                                  e.stopPropagation();
+                                  e.dataTransfer.setData("text/plain", JSON.stringify({ itemId: item.id, sourceGroup: gName }));
+                                  e.dataTransfer.effectAllowed = "move";
+                                } : undefined}
+                                className={`${col.noteBg} rounded-xl px-3 py-2 border border-white/50 ${isAdmin ? "cursor-grab active:cursor-grabbing hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" : ""}`}
+                                style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 30}ms` }}
+                              >
+                                <p className={`text-[13px] ${col.noteText} leading-relaxed font-medium`}>{item.content}</p>
+                                <span className="text-[10px] text-muted/60 mt-1 block">{item.user_name}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                        <div className="space-y-1.5">
-                          {gItems.map((item, idx) => (
-                            <div
-                              key={item.id}
-                              className={`${col.noteBg} rounded-xl px-3 py-2 border border-white/50`}
-                              style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 30}ms` }}
-                            >
-                              <p className={`text-[13px] ${col.noteText} leading-relaxed font-medium`}>{item.content}</p>
-                              <span className="text-[10px] text-muted/60 mt-1 block">{item.user_name}</span>
-                            </div>
-                          ))}
+                      );
+                    })}
+
+                    {isAdmin && emptyCustomGroups.map((gName) => {
+                      const globalIdx = globalGroupNames.indexOf(gName);
+                      const badgeColor = GROUP_BADGE_COLORS[(globalIdx !== -1 ? globalIdx : 0) % GROUP_BADGE_COLORS.length];
+                      const isRenaming = editingGroupName === `${col.phase}::${gName}`;
+                      return (
+                        <div
+                          key={`empty-${gName}`}
+                          className="rounded-xl p-2 border-2 border-dashed border-card-border/30 transition-all duration-200 hover:border-primary/30 hover:bg-primary/[0.02]"
+                          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onDrop={(e) => handleVoteDrop(e, gName)}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className={`${badgeColor} text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm opacity-60`}>0</span>
+                            {isRenaming ? (
+                              <input
+                                ref={renameInputRef}
+                                value={editingGroupValue}
+                                onChange={(e) => setEditingGroupValue(e.target.value)}
+                                onBlur={() => { renameGroupInVote(gName, editingGroupValue); }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") renameGroupInVote(gName, editingGroupValue);
+                                  if (e.key === "Escape") { setEditingGroupName(null); setEditingGroupValue(""); }
+                                }}
+                                className="flex-1 text-xs font-bold text-foreground bg-white/80 rounded-lg px-2 py-1 border border-card-border/40 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                            ) : (
+                              <span
+                                className="text-xs font-bold text-foreground/50 flex-1 cursor-pointer hover:underline decoration-dotted underline-offset-2"
+                                onClick={() => { setEditingGroupName(`${col.phase}::${gName}`); setEditingGroupValue(gName); }}
+                                title="Click to rename group"
+                              >
+                                {gName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted/40 text-center py-2 italic">Drop items here</p>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
+                {isAdmin && (
+                  <>
+                    {creatingGroupForPhase === col.phase ? (
+                      <div className="rounded-xl p-2.5 border-2 border-dashed border-primary/40 bg-primary/[0.04]">
+                        <div className="flex items-center gap-2">
+                          <input
+                            ref={newGroupInputRef}
+                            value={newGroupTitle}
+                            onChange={(e) => setNewGroupTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") createCustomGroup(col.phase);
+                              if (e.key === "Escape") { setCreatingGroupForPhase(null); setNewGroupTitle(""); }
+                            }}
+                            placeholder="Group name..."
+                            className="flex-1 text-xs font-medium text-foreground bg-white/90 rounded-lg px-3 py-2 border border-card-border/40 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted/40"
+                          />
+                          <button
+                            onClick={() => createCustomGroup(col.phase)}
+                            disabled={!newGroupTitle.trim()}
+                            className="px-3 py-2 text-[11px] font-bold text-white bg-gradient-to-r from-accent to-primary rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Create
+                          </button>
+                          <button
+                            onClick={() => { setCreatingGroupForPhase(null); setNewGroupTitle(""); }}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-all"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
-                    );
-                  })
+                    ) : (
+                      <button
+                        onClick={() => { setCreatingGroupForPhase(col.phase); setNewGroupTitle(""); }}
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-card-border/20 text-muted/50 hover:border-primary/30 hover:text-primary hover:bg-primary/[0.03] transition-all duration-200 group"
+                      >
+                        <svg className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-[11px] font-semibold">New Group</span>
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -3523,7 +3952,517 @@ function AppreciationPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Phase 9 – Close & Summary                                          */
+/*  Phase 9 – Time Check (Was It Worth It?)                             */
+/* ------------------------------------------------------------------ */
+const WORTH_OPTIONS = [
+  { emoji: (cls = "w-6 h-6") => <CheckCircleIcon className={cls} />, label: "Absolutely", bg: "from-green-400/20 to-green-500/10", border: "border-green-400/50", text: "text-green-600", bar: "bg-green-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceGoodIcon className={cls} />, label: "Mostly Yes", bg: "from-blue-400/20 to-blue-500/10", border: "border-blue-400/50", text: "text-blue-600", bar: "bg-blue-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceNeutralIcon className={cls} />, label: "It Was Okay", bg: "from-yellow-400/20 to-yellow-500/10", border: "border-yellow-400/50", text: "text-yellow-600", bar: "bg-yellow-500" },
+  { emoji: (cls = "w-6 h-6") => <FaceConcernedIcon className={cls} />, label: "Not Really", bg: "from-orange-400/20 to-orange-500/10", border: "border-orange-400/50", text: "text-orange-600", bar: "bg-orange-500" },
+  { emoji: (cls = "w-6 h-6") => <XCircleIcon className={cls} />, label: "Not At All", bg: "from-red-400/20 to-red-500/10", border: "border-red-400/50", text: "text-red-600", bar: "bg-red-500" },
+];
+
+const getWorthObj = (label) => WORTH_OPTIONS.find((w) => w.label === label);
+
+function EmployeeMeetingWorthPicker({ actionEvent }) {
+  const token = useAccessToken();
+  const sessionId = useSessionId();
+  const [selected, setSelected] = useState(null);
+  const [revealed, setRevealed] = useState(false);
+  const [votes, setVotes] = useState([]);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingMy, setLoadingMy] = useState(true);
+
+  useEffect(() => {
+    if (!token || !sessionId) { setLoadingMy(false); return; }
+    fetch(`/api/retro/meeting-worth?session_id=${sessionId}&_t=${Date.now()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.myVote) {
+          setSelected(d.myVote);
+          setSubmitted(true);
+        }
+      })
+      .finally(() => setLoadingMy(false));
+  }, [token, sessionId]);
+
+  useEffect(() => {
+    if (!actionEvent || actionEvent.type !== "worth_reveal") return;
+    setRevealed(true);
+    if (!token || !sessionId) return;
+    fetch(`/api/retro/meeting-worth?session_id=${sessionId}&_t=${Date.now()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d) => setVotes(d.votes || []))
+      .catch((err) => console.error("fetchWorthVotes error:", err));
+  }, [actionEvent, token, sessionId]);
+
+  const submit = async () => {
+    if (!selected || !token || !sessionId) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/retro/meeting-worth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ vote: selected, session_id: sessionId }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("Meeting worth submit error:", errData.error || res.statusText);
+        return;
+      }
+      setSubmitted(true);
+    } catch (err) {
+      console.error("Meeting worth submit error:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const changeVote = () => { setSubmitted(false); };
+
+  if (loadingMy) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (submitted) {
+    const w = getWorthObj(selected);
+    const worthCounts = WORTH_OPTIONS.map((wo) => ({
+      ...wo,
+      count: votes.filter((v) => v.vote === wo.label).length,
+    }));
+    const maxCount = Math.max(...worthCounts.map((wo) => wo.count), 1);
+    const totalSubmitted = votes.length;
+
+    return (
+      <div className={`${revealed ? "max-w-3xl" : "max-w-md"} mx-auto text-center space-y-5`}>
+        <PhaseHeader
+          icon={<ScaleIcon className="w-8 h-8" />}
+          title="Was It Worth It?"
+          description={revealed ? "Here's what the team thinks about this meeting." : "Your vote has been recorded. Waiting for the facilitator to reveal results."}
+        />
+        <div
+          className={`inline-flex flex-col items-center gap-3 px-10 py-6 rounded-2xl border-2 bg-gradient-to-b ${w?.bg || ""} ${w?.border || ""}`}
+          style={{ animation: "fadeInScale 0.3s ease-out" }}
+        >
+          <span>{w?.emoji("w-12 h-12")}</span>
+          <span className={`text-sm font-bold ${w?.text}`}>{w?.label}</span>
+        </div>
+        {!revealed && (
+          <button
+            onClick={changeVote}
+            className="text-xs text-muted hover:text-accent underline underline-offset-2 transition-colors"
+          >
+            Change my response
+          </button>
+        )}
+
+        {revealed && (
+          <div
+            className="retro-gradient-border rounded-2xl overflow-hidden text-left"
+            style={{ animation: "retroSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1)" }}
+          >
+            <div className="rounded-2xl p-5 space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center shadow-sm">
+                  <ScaleIcon className="w-4 h-4 text-accent" />
+                </div>
+                Meeting Value Results
+              </h3>
+
+              <div className="space-y-3">
+                {worthCounts.map((wc) => (
+                  <div key={wc.label} className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 w-28 flex-shrink-0">
+                      <span>{wc.emoji("w-5 h-5")}</span>
+                      <span className={`text-xs font-semibold ${wc.text}`}>{wc.label}</span>
+                    </div>
+                    <div className="flex-1 h-7 bg-card-border/30 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${wc.bar} rounded-full transition-all duration-700 ease-out flex items-center justify-end pr-2`}
+                        style={{ width: `${Math.max((wc.count / maxCount) * 100, wc.count > 0 ? 12 : 0)}%`, opacity: 0.8 }}
+                      >
+                        {wc.count > 0 && (
+                          <span className="text-[10px] font-bold text-white">{wc.count}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-muted w-8 text-right">
+                      {totalSubmitted > 0 ? Math.round((wc.count / totalSubmitted) * 100) : 0}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-card-border/60 pt-4 mt-4">
+                <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Individual Responses</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {votes.map((entry) => {
+                    const ew = getWorthObj(entry.vote);
+                    return (
+                      <div
+                        key={entry.user_id}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r ${ew?.bg || ""} border ${ew?.border || "border-card-border"}`}
+                        style={{ animation: "fadeInUp 0.3s ease-out both" }}
+                      >
+                        {entry.avatar_url ? (
+                          <img src={entry.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-white" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-[10px] font-bold text-muted">
+                            {entry.user_name?.charAt(0)?.toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-sm font-medium text-foreground flex-1 truncate">{entry.user_name}</span>
+                        <span>{ew?.emoji("w-5 h-5")}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-md mx-auto space-y-6">
+      <PhaseHeader
+        icon={<ScaleIcon className="w-8 h-8" />}
+        title="Was It Worth It?"
+        description="Was this meeting a good use of your time? Be honest — your feedback helps us improve."
+      />
+
+      <div className="flex justify-center gap-3 py-2">
+        {WORTH_OPTIONS.map((w) => (
+          <button
+            key={w.label}
+            onClick={() => setSelected(w.label)}
+            className={`flex flex-col items-center gap-3 px-5 py-6 rounded-2xl border-2 transition-all duration-300 btn-press ${
+              selected === w.label
+                ? `bg-gradient-to-b ${w.bg} ${w.border} scale-110 shadow-xl ring-4 ring-offset-2 ${w.border.replace("border-", "ring-")}/20`
+                : "hover:shadow-lg hover:scale-105 hover:-translate-y-1"
+            }`}
+            style={selected !== w.label ? { background: "linear-gradient(180deg, rgba(240, 247, 244, 0.9), rgba(230, 236, 247, 0.8))", borderColor: "rgba(6, 194, 134, 0.12)" } : undefined}
+          >
+            <span className={`transition-transform duration-300 ${selected === w.label ? "scale-125 retro-icon-pulse" : ""}`}>
+              {w.emoji("w-10 h-10")}
+            </span>
+            <span className={`text-[11px] font-bold ${selected === w.label ? w.text : "text-muted"}`}>
+              {w.label}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <button
+        onClick={submit}
+        disabled={!selected || submitting}
+        className="w-full py-3.5 bg-gradient-to-r from-primary to-accent text-white rounded-2xl text-sm font-semibold shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30 hover:scale-[1.01] transition-all disabled:opacity-40 disabled:shadow-none btn-press btn-shimmer"
+      >
+        {submitting ? "Submitting..." : "Submit My Vote"}
+      </button>
+    </div>
+  );
+}
+
+function MeetingWorthAdmin({ employees, onNext, onPrev, actionEvent, broadcastAction }) {
+  const token = useAccessToken();
+  const sessionId = useSessionId();
+  const [votes, setVotes] = useState([]);
+  const [revealed, setRevealed] = useState(false);
+  const [polling, setPolling] = useState(true);
+  const [myVote, setMyVote] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!actionEvent || actionEvent.type !== "worth_reveal") return;
+    setRevealed(true);
+    setPolling(false);
+  }, [actionEvent]);
+
+  const fetchVotes = useCallback(async () => {
+    if (!token || !sessionId) return;
+    try {
+      const res = await fetch(`/api/retro/meeting-worth?session_id=${sessionId}&_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res.json();
+      setVotes(data.votes || []);
+      if (data.myVote) setMyVote(data.myVote);
+    } catch (err) { console.error("fetchWorthVotes error:", err); }
+  }, [token, sessionId]);
+
+  useEffect(() => {
+    if (!token || !sessionId) return;
+    fetchVotes();
+    if (!polling) return;
+    const id = setInterval(fetchVotes, 2000);
+    return () => clearInterval(id);
+  }, [token, sessionId, fetchVotes, polling]);
+
+  const submitMyVote = async (vote) => {
+    if (!token || !sessionId) return;
+    setMyVote(vote);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/retro/meeting-worth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ vote, session_id: sessionId }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("submitMyVote API error:", errData.error || res.statusText);
+        setMyVote(null);
+        return;
+      }
+      const res2 = await fetch(`/api/retro/meeting-worth?session_id=${sessionId}&_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res2.json();
+      setVotes(data.votes || []);
+      if (data.myVote) setMyVote(data.myVote);
+    } catch (err) {
+      console.error("submitMyVote error:", err);
+      setMyVote(null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const totalEmployees = employees.length;
+  const totalSubmitted = votes.length;
+  const totalPending = Math.max(totalEmployees - totalSubmitted, 0);
+  const pct = totalEmployees > 0 ? Math.round((totalSubmitted / totalEmployees) * 100) : 0;
+
+  const worthCounts = WORTH_OPTIONS.map((w) => ({
+    ...w,
+    count: votes.filter((v) => v.vote === w.label).length,
+  }));
+  const maxCount = Math.max(...worthCounts.map((w) => w.count), 1);
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      <PhaseHeader
+        icon={<ScaleIcon className="w-8 h-8" />}
+        title="Was It Worth It?"
+        description="Submit your vote, wait for the team, then reveal results."
+      />
+
+      <div className="rounded-2xl p-5 retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.9))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-foreground">Your Vote</h3>
+          {myVote && (
+            <span className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+              Submitted
+            </span>
+          )}
+        </div>
+        <div className="flex justify-center gap-2.5">
+          {WORTH_OPTIONS.map((w) => (
+            <button
+              key={w.label}
+              onClick={() => submitMyVote(w.label)}
+              disabled={submitting}
+              className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl border-2 transition-all duration-300 btn-press backdrop-blur-sm ${
+                myVote === w.label
+                  ? `bg-gradient-to-b ${w.bg} ${w.border} scale-110 shadow-lg`
+                  : "border-white/50 bg-white/40 hover:bg-white/60 hover:shadow-md hover:scale-105"
+              }`}
+            >
+              <span className={`transition-transform duration-300 ${myVote === w.label ? "scale-110" : ""}`}>
+                {w.emoji("w-7 h-7")}
+              </span>
+              <span className={`text-[9px] font-semibold ${myVote === w.label ? w.text : "text-muted"}`}>
+                {w.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl p-5 space-y-4 retro-card-depth" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.95), rgba(230, 236, 247, 0.9))", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${polling ? "bg-green-500 animate-pulse shadow-sm shadow-green-500/50" : "bg-card-border"}`} />
+            Live Tracker
+          </h3>
+          <button onClick={fetchVotes} className="text-xs text-muted hover:text-accent transition-colors flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <div className="relative w-24 h-24 flex-shrink-0">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="8" className="text-card-border" />
+              <circle
+                cx="60" cy="60" r="50" fill="none" strokeWidth="8" strokeLinecap="round"
+                strokeDasharray={314}
+                strokeDashoffset={314 - (314 * pct) / 100}
+                className="text-primary transition-all duration-700 ease-out"
+                stroke="currentColor"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-xl font-bold text-foreground">{pct}%</span>
+            </div>
+          </div>
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Submitted</span>
+              <span className="text-lg font-bold text-primary">{totalSubmitted}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Pending</span>
+              <span className="text-lg font-bold text-danger">{totalPending}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-card-border/60 pt-2">
+              <span className="text-sm text-muted">Total Team</span>
+              <span className="text-lg font-bold text-foreground">{totalEmployees}</span>
+            </div>
+          </div>
+        </div>
+
+        {totalSubmitted > 0 && (
+          <div className="flex items-center gap-1 pt-1">
+            <span className="text-[10px] text-muted font-medium mr-1">Submitted:</span>
+            <div className="flex -space-x-2">
+              {votes.slice(0, 12).map((v) => (
+                <div
+                  key={v.user_id}
+                  className="w-7 h-7 rounded-full border-2 border-card bg-card-border flex items-center justify-center text-[9px] font-bold text-muted"
+                  title={v.user_name}
+                >
+                  {v.avatar_url ? (
+                    <img src={v.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    v.user_name?.charAt(0)?.toUpperCase() || "?"
+                  )}
+                </div>
+              ))}
+              {totalSubmitted > 12 && (
+                <div className="w-7 h-7 rounded-full border-2 border-card bg-card-border flex items-center justify-center text-[9px] font-bold text-muted">
+                  +{totalSubmitted - 12}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!revealed && (
+        <button
+          onClick={() => {
+            setRevealed(true);
+            setPolling(false);
+            if (broadcastAction) broadcastAction({ type: "worth_reveal" });
+          }}
+          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-orange-500/25 transition-all btn-press"
+        >
+          <span className="inline-flex items-center gap-1.5"><SparklesIcon className="w-4 h-4" /> Reveal Results ({totalSubmitted} response{totalSubmitted !== 1 ? "s" : ""})</span>
+        </button>
+      )}
+
+      {revealed && (
+        <div
+          className="retro-gradient-border rounded-2xl overflow-hidden"
+          style={{ animation: "retroSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1)" }}
+        >
+          <div className="rounded-2xl p-5 space-y-4" style={{ background: "linear-gradient(145deg, rgba(240, 247, 244, 0.95) 0%, rgba(230, 236, 247, 0.9) 100%)" }}>
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center shadow-sm">
+              <ScaleIcon className="w-4 h-4 text-accent" />
+            </div>
+            Meeting Value Results
+          </h3>
+
+          <div className="space-y-3">
+            {worthCounts.map((w) => (
+              <div key={w.label} className="flex items-center gap-3">
+                <div className="flex items-center gap-2 w-28 flex-shrink-0">
+                  <span>{w.emoji("w-5 h-5")}</span>
+                  <span className={`text-xs font-semibold ${w.text}`}>{w.label}</span>
+                </div>
+                <div className="flex-1 h-7 bg-card-border/30 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${w.bar} rounded-full transition-all duration-700 ease-out flex items-center justify-end pr-2`}
+                    style={{ width: `${Math.max((w.count / maxCount) * 100, w.count > 0 ? 12 : 0)}%`, opacity: 0.8 }}
+                  >
+                    {w.count > 0 && (
+                      <span className="text-[10px] font-bold text-white">{w.count}</span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-muted w-8 text-right">
+                  {totalSubmitted > 0 ? Math.round((w.count / totalSubmitted) * 100) : 0}%
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-card-border/60 pt-4 mt-4">
+            <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Individual Responses</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {votes.map((entry) => {
+                const ew = getWorthObj(entry.vote);
+                return (
+                  <div
+                    key={entry.user_id}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r ${ew?.bg || ""} border ${ew?.border || "border-card-border"}`}
+                    style={{ animation: "fadeInUp 0.3s ease-out both" }}
+                  >
+                    {entry.avatar_url ? (
+                      <img src={entry.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-white" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-[10px] font-bold text-muted">
+                        {entry.user_name?.charAt(0)?.toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-sm font-medium text-foreground flex-1 truncate">{entry.user_name}</span>
+                    <span>{ew?.emoji("w-5 h-5")}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        </div>
+      )}
+
+      <PhaseNav onPrev={onPrev} onNext={onNext} />
+    </div>
+  );
+}
+
+function MeetingWorthPhase({ employees, role, onNext, onPrev, actionEvent, broadcastAction }) {
+  const isAdmin = role === "scrum_master" || role === "super_admin";
+  if (isAdmin) return <MeetingWorthAdmin employees={employees} onNext={onNext} onPrev={onPrev} actionEvent={actionEvent} broadcastAction={broadcastAction} />;
+  return <EmployeeMeetingWorthPicker actionEvent={actionEvent} />;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Phase 10 – Close & Summary                                         */
 /* ------------------------------------------------------------------ */
 function CloseSummaryPhase({ onPrev, onFinish }) {
   return (
@@ -3647,7 +4586,7 @@ function FacilitatorWidget({ facilitatorInfo, currentPhase }) {
 /* ------------------------------------------------------------------ */
 /*  Employee Retro View – follows the facilitator's phase via polling   */
 /* ------------------------------------------------------------------ */
-function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, groupEvent, groupBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, phaseEvent: parentPhaseEvent, finishEvent: parentFinishEvent, onSessionPresenceChange }) {
+function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerState, spinTrigger, boardEvent, boardBroadcast, groupEvent, groupBroadcast, toggleEvent, broadcastToggle, voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote, phaseEvent: parentPhaseEvent, finishEvent: parentFinishEvent, actionEvent, timerEvent, requestTimer, onSessionPresenceChange }) {
   const [currentPhase, setCurrentPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [sessionTeamIds, setSessionTeamIds] = useState([]);
@@ -3783,22 +4722,24 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
             </div>
           )}
           <ProgressBar currentPhase={currentPhase} />
-          <div className="flex items-center justify-start retro-slide-in-delay-1">
+          <div className="flex items-center justify-between retro-slide-in-delay-1">
             <FacilitatorWidget facilitatorInfo={facilitatorInfo} currentPhase={currentPhase} />
+            <PhaseTimer phaseIndex={currentPhase} isFacilitator={false} timerEvent={timerEvent} requestTimer={requestTimer} />
           </div>
         </div>
 
         <div className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5, 6].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}>
           {currentPhase === 0 && <EmployeeIceBreakerView employees={employees} icebreakerState={icebreakerState} spinTrigger={spinTrigger} />}
-          {currentPhase === 1 && <EmployeeMoodPicker />}
+          {currentPhase === 1 && <EmployeeMoodPicker actionEvent={actionEvent} />}
           {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={null} onPrev={null} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
           {currentPhase === 3 && <RetroBoardPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-          {currentPhase === 4 && <AIGroupPhase role={role} onNext={null} onPrev={null} groupEvent={groupEvent} groupBroadcast={groupBroadcast} />}
-          {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
+          {currentPhase === 4 && <AIGroupPhase role={role} isFacilitator={false} onNext={null} onPrev={null} groupEvent={groupEvent} groupBroadcast={groupBroadcast} />}
+          {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} groupBroadcast={groupBroadcast} groupEvent={groupEvent} />}
           {currentPhase === 6 && <VoteResultsPhase onNext={null} onPrev={null} />}
           {currentPhase === 7 && <ActionItemsPhase employees={employees} onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
           {currentPhase === 8 && <AppreciationPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-          {currentPhase === 9 && <CloseSummaryPhase onPrev={null} onFinish={null} />}
+          {currentPhase === 9 && <EmployeeMeetingWorthPicker actionEvent={actionEvent} />}
+          {currentPhase === 10 && <CloseSummaryPhase onPrev={null} onFinish={null} />}
         </div>
       </div>
     </SessionContext.Provider>
@@ -3834,6 +4775,11 @@ export default function RetrospectivePage() {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [ending, setEnding] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const phaseContentRef = useRef(null);
+  const phaseScreenshotsRef = useRef([]);
 
   const isAdmin = ALLOWED_ROLES.includes(role);
   const isFacilitator = isAdmin && !!user?.id && !!facilitatorInfo?.id && user.id === facilitatorInfo.id;
@@ -3849,7 +4795,7 @@ export default function RetrospectivePage() {
   const { event: groupEvent, broadcast: groupBroadcast } = useRetroGroupChannel(retroChannelsActive);
   const { toggleEvent, broadcastToggle } = useOpenActionsChannel(retroChannelsActive);
   const { voteEvent, itemVoteEvent, broadcastVoteChange, broadcastItemVote } = useVoteTrackerChannel(retroChannelsActive);
-  const { phaseEvent, finishEvent, actionEvent, broadcastPhase, broadcastFinish, broadcastStart, broadcastAction } = useRetroPhaseSyncChannel();
+  const { phaseEvent, finishEvent, actionEvent, timerEvent, timerRequestEvent, broadcastPhase, broadcastFinish, broadcastStart, broadcastAction, broadcastTimer, requestTimer } = useRetroPhaseSyncChannel();
 
   useEffect(() => {
     fetch("/api/retro/employees")
@@ -4008,7 +4954,108 @@ export default function RetrospectivePage() {
     } catch {}
   };
 
-  const next = () => {
+  const captureCurrentPhase = useCallback(async (phaseIdx) => {
+    const el = phaseContentRef.current;
+    if (!el) return;
+    try {
+      const html2canvas = (await import("html2canvas-pro")).default;
+      const canvas = await html2canvas(el, {
+        useCORS: true,
+        scale: 2,
+        scrollY: -window.scrollY,
+        height: el.scrollHeight,
+        width: el.scrollWidth,
+        windowHeight: el.scrollHeight,
+        backgroundColor: "#f5f7fa",
+      });
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      const existing = phaseScreenshotsRef.current.findIndex((s) => s.phaseId === phaseIdx);
+      const entry = {
+        phaseId: phaseIdx,
+        phaseLabel: PHASES[phaseIdx]?.label || `Phase ${phaseIdx}`,
+        dataUrl,
+        imgWidth: canvas.width,
+        imgHeight: canvas.height,
+      };
+      if (existing >= 0) phaseScreenshotsRef.current[existing] = entry;
+      else phaseScreenshotsRef.current.push(entry);
+    } catch (err) {
+      console.error("Phase capture failed:", err);
+    }
+  }, []);
+
+  const generateRetroPDF = useCallback(async (screenshots) => {
+    const { default: jsPDF } = await import("jspdf");
+    const sorted = [...screenshots].sort((a, b) => a.phaseId - b.phaseId);
+
+    const PAGE_W_PT = 842;
+    const MARGIN = 30;
+    const HEADER_H = 40;
+    const contentW = PAGE_W_PT - MARGIN * 2;
+
+    let pdf = null;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const { phaseLabel, dataUrl, imgWidth, imgHeight } = sorted[i];
+
+      const scale = contentW / imgWidth;
+      const scaledImgH = imgHeight * scale;
+      const pageH = HEADER_H + scaledImgH + MARGIN;
+
+      if (i === 0) {
+        pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [PAGE_W_PT, pageH], compress: true });
+      } else {
+        pdf.addPage([PAGE_W_PT, pageH], "landscape");
+      }
+
+      pdf.setFillColor(245, 247, 250);
+      pdf.rect(0, 0, PAGE_W_PT, pageH, "F");
+
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(40, 40, 40);
+      pdf.text(`Phase ${sorted[i].phaseId + 1}: ${phaseLabel}`, MARGIN, MARGIN + 4);
+
+      pdf.setDrawColor(6, 194, 134);
+      pdf.setLineWidth(2);
+      pdf.line(MARGIN, HEADER_H - 4, MARGIN + 60, HEADER_H - 4);
+
+      pdf.addImage(dataUrl, "JPEG", MARGIN, HEADER_H, contentW, scaledImgH, undefined, "FAST");
+    }
+    return pdf;
+  }, []);
+
+  const uploadPDF = useCallback(async (pdf, sid) => {
+    const blob = pdf.output("blob");
+    const formData = new FormData();
+    formData.append("file", blob, `retro-${sid}.pdf`);
+    formData.append("session_id", sid);
+    try {
+      const res = await fetch("/api/retro/upload-pdf", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Upload returned ${res.status}`);
+      const data = await res.json();
+      if (data.pdf_url) return data.pdf_url;
+      throw new Error("No pdf_url in response");
+    } catch (err) {
+      console.error("PDF upload failed, offering local download:", err);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `retrospective-${sid}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return null;
+    }
+  }, [token]);
+
+  const next = async () => {
+    if (isFacilitator) await captureCurrentPhase(currentPhase);
     setCurrentPhase((p) => {
       const newPhase = Math.min(p + 1, PHASES.length - 1);
       syncPhase(newPhase);
@@ -4025,14 +5072,28 @@ export default function RetrospectivePage() {
   const finish = async () => {
     if (token && sessionId) {
       try {
+        if (isFacilitator) {
+          setPdfGenerating(true);
+          await captureCurrentPhase(currentPhase);
+          const screenshots = phaseScreenshotsRef.current;
+          if (screenshots.length > 0) {
+            const pdf = await generateRetroPDF(screenshots);
+            await uploadPDF(pdf, sessionId);
+          }
+          setPdfGenerating(false);
+        }
         await fetch("/api/retro/session", {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ session_id: sessionId }),
         });
         broadcastFinish({ sessionId });
-      } catch {}
+      } catch (err) {
+        console.error("Finish error:", err);
+        setPdfGenerating(false);
+      }
     }
+    phaseScreenshotsRef.current = [];
     _phaseTimerState = {};
     _saveTimerCache({});
     setStarted(false);
@@ -4082,6 +5143,27 @@ export default function RetrospectivePage() {
     setArchiving(false);
   };
 
+  const handleDeleteSession = async (sid) => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/retro/history?session_id=${sid}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setCompletedSessions((prev) => prev.filter((s) => s.id !== sid));
+        if (expandedSession === sid) {
+          setExpandedSession(null);
+          setExpandedData(null);
+        }
+      }
+    } catch (err) {
+      console.error("Delete session failed:", err);
+    }
+    setDeleteConfirmId(null);
+    setDeleting(false);
+  };
+
   /* Phase sync: other admins follow the facilitator in real-time */
   useEffect(() => {
     if (!phaseEvent || !isAdmin || isFacilitator) return;
@@ -4128,7 +5210,7 @@ export default function RetrospectivePage() {
   if (!isAdmin) {
     return (
       <AppLayout>
-        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} groupEvent={groupEvent} groupBroadcast={groupBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} phaseEvent={phaseEvent} finishEvent={finishEvent} onSessionPresenceChange={onEmployeeSessionPresenceChange} />
+        <EmployeeRetroView token={token} employees={employees} role={role} icebreakerState={icebreakerState} spinTrigger={spinTrigger} boardEvent={boardEvent} boardBroadcast={boardBroadcast} groupEvent={groupEvent} groupBroadcast={groupBroadcast} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} phaseEvent={phaseEvent} finishEvent={finishEvent} actionEvent={actionEvent} timerEvent={timerEvent} requestTimer={requestTimer} onSessionPresenceChange={onEmployeeSessionPresenceChange} />
       </AppLayout>
     );
   }
@@ -4261,8 +5343,11 @@ export default function RetrospectivePage() {
                         }}
                       >
                         {/* Session header - clickable */}
-                        <button
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => toggleSession(session.id)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSession(session.id); } }}
                           className="w-full p-5 text-left flex items-center gap-4 cursor-pointer hover:bg-white/30 transition-colors"
                         >
                           <div className={`w-10 h-10 rounded-xl border border-white/60 flex items-center justify-center flex-shrink-0 ${
@@ -4306,6 +5391,30 @@ export default function RetrospectivePage() {
                                 <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{session.stats.moods} moods</span>
                               )}
                             </div>
+                            {session.pdf_url && (
+                              <a
+                                href={session.pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                title="Download PDF Report"
+                              >
+                                <DownloadIcon className="w-3.5 h-3.5" />
+                                PDF
+                              </a>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(session.id); }}
+                                className="p-1.5 rounded-lg text-muted/50 hover:text-danger hover:bg-red-50 border border-transparent hover:border-red-200 transition-all cursor-pointer"
+                                title="Delete retrospective"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
                             <svg
                               className={`w-4 h-4 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
                               fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -4313,7 +5422,7 @@ export default function RetrospectivePage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                        </button>
+                        </div>
 
                         {/* Expanded detail */}
                         {isExpanded && (
@@ -4464,6 +5573,39 @@ export default function RetrospectivePage() {
               </div>
             )}
           </div>
+
+          {/* Delete Retrospective Confirmation */}
+          {deleteConfirmId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !deleting && setDeleteConfirmId(null)} />
+              <div className="relative bg-card rounded-2xl border border-card-border shadow-2xl max-w-sm w-full p-6 space-y-5">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground">Delete Retrospective?</h3>
+                  <p className="text-sm text-muted leading-relaxed">
+                    This will permanently delete this retrospective session, including all items, moods, votes, and the PDF report. This action cannot be undone.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteConfirmId(null)} disabled={deleting} className="flex-1 rounded-lg border border-card-border py-2.5 text-sm font-semibold text-muted hover:bg-background transition-colors cursor-pointer disabled:opacity-50">
+                    Cancel
+                  </button>
+                  <button onClick={() => handleDeleteSession(deleteConfirmId)} disabled={deleting} className="flex-1 rounded-lg bg-danger text-white py-2.5 text-sm font-semibold hover:bg-red-600 transition-colors cursor-pointer disabled:opacity-50">
+                    {deleting ? (
+                      <span className="inline-flex items-center gap-2 justify-center">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Deleting...
+                      </span>
+                    ) : "Yes, Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal is rendered via portal-like pattern below */}
@@ -4720,7 +5862,7 @@ export default function RetrospectivePage() {
                   </>
                 )}
               </div>
-              <PhaseTimer phaseIndex={currentPhase} />
+              <PhaseTimer phaseIndex={currentPhase} isFacilitator={isFacilitator} broadcastTimer={broadcastTimer} timerEvent={timerEvent} timerRequestEvent={timerRequestEvent} requestTimer={requestTimer} />
             </div>
 
             {/* End Meeting Confirmation */}
@@ -4750,11 +5892,30 @@ export default function RetrospectivePage() {
                       {ending ? (
                         <span className="inline-flex items-center gap-2 justify-center">
                           <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Ending...
+                          {pdfGenerating ? "Generating PDF..." : "Ending..."}
                         </span>
                       ) : "Yes, End Meeting"}
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* PDF Generating Overlay */}
+            {pdfGenerating && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                <div className="relative bg-card rounded-2xl border border-card-border shadow-2xl max-w-xs w-full p-8 space-y-4 text-center">
+                  <div className="flex justify-center">
+                    <div className="relative w-14 h-14">
+                      <div className="absolute inset-0 rounded-full border-4 border-card-border" />
+                      <div className="absolute inset-0 rounded-full border-4 border-accent border-t-transparent animate-spin" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground">Generating PDF Report</h3>
+                  <p className="text-sm text-muted leading-relaxed">
+                    Capturing phase screenshots and compiling your retrospective report. This may take a moment...
+                  </p>
                 </div>
               </div>
             )}
@@ -4796,6 +5957,7 @@ export default function RetrospectivePage() {
           </div>
 
           <div
+            ref={phaseContentRef}
             key={currentPhase}
             className={`min-h-[420px] mx-auto retro-phase-in ${[3, 4, 5, 6].includes(currentPhase) ? "max-w-full px-8" : "max-w-4xl"}`}
           >
@@ -4807,12 +5969,13 @@ export default function RetrospectivePage() {
             {currentPhase === 1 && <SetTheStagePhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} actionEvent={actionEvent} broadcastAction={canNavigate ? broadcastAction : null} />}
             {currentPhase === 2 && <PreviousOpenActionsPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} toggleEvent={toggleEvent} broadcastToggle={broadcastToggle} />}
             {currentPhase === 3 && <RetroBoardPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 4 && <AIGroupPhase role={role} onNext={navNext} onPrev={navPrev} groupEvent={groupEvent} groupBroadcast={groupBroadcast} />}
-            {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} />}
+            {currentPhase === 4 && <AIGroupPhase role={role} isFacilitator={isFacilitator} onNext={navNext} onPrev={navPrev} groupEvent={groupEvent} groupBroadcast={groupBroadcast} />}
+            {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} groupBroadcast={groupBroadcast} groupEvent={groupEvent} />}
             {currentPhase === 6 && <VoteResultsPhase onNext={navNext} onPrev={navPrev} />}
             {currentPhase === 7 && <ActionItemsPhase employees={employees} onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
             {currentPhase === 8 && <AppreciationPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 9 && <CloseSummaryPhase onPrev={navPrev} onFinish={navFinish} />}
+            {currentPhase === 9 && <MeetingWorthPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} actionEvent={actionEvent} broadcastAction={canNavigate ? broadcastAction : null} />}
+            {currentPhase === 10 && <CloseSummaryPhase onPrev={navPrev} onFinish={navFinish} />}
           </div>
         </div>
       </AppLayout>

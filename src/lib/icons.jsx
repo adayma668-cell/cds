@@ -284,3 +284,24 @@ export function FaceFrustratedIcon({ className = "w-4 h-4" }) {
     </svg>
   );
 }
+
+export function ScaleIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v18" />
+      <path d="M5 7l7-4 7 4" />
+      <path d="M2 14l3-7 3 7a4.24 4.24 0 01-6 0z" />
+      <path d="M16 14l3-7 3 7a4.24 4.24 0 01-6 0z" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}

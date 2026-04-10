@@ -148,7 +148,7 @@ export async function PATCH(req) {
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { session_id, archive } = await req.json();
+  const { session_id, archive, pdf_url } = await req.json();
   if (!session_id) return NextResponse.json({ error: "session_id required" }, { status: 400 });
 
   const { data: oldSession } = await supabaseAdmin
@@ -159,9 +159,11 @@ export async function PATCH(req) {
 
   const newStatus = archive ? "archived" : "finished";
   const finishedAt = new Date().toISOString();
+  const updatePayload = { status: newStatus, finished_at: finishedAt };
+  if (pdf_url) updatePayload.pdf_url = pdf_url;
   const { error } = await supabaseAdmin
     .from("retro_sessions")
-    .update({ status: newStatus, finished_at: finishedAt })
+    .update(updatePayload)
     .eq("id", session_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -12,6 +12,8 @@
     "@sendgrid/mail": "^8.1.6",
     "@supabase/supabase-js": "^2.98.0",
     "groq-sdk": "^1.1.1",
+    "html2canvas-pro": "^2.0.2",
+    "jspdf": "^4.2.1",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"

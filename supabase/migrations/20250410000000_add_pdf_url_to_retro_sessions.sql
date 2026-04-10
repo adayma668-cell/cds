@@ -1,0 +1,1 @@
+ALTER TABLE retro_sessions ADD COLUMN IF NOT EXISTS pdf_url TEXT;
