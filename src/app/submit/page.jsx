@@ -19,80 +19,127 @@ function formatTime(seconds) {
 const ALLOWED_ROLES = ["employee", "scrum_master"];
 
 function WaitingRoom({ submittedData }) {
+  const [showUpdates, setShowUpdates] = useState(false);
+
   return (
-    <div className="space-y-6 animate-in fade-in">
-      <div className="text-center space-y-1">
-        <div className="w-14 h-14 rounded-2xl bg-primary-light flex items-center justify-center mx-auto mb-3">
-          <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+    <div className="space-y-5">
+      {/* ── Hero Card ── */}
+      <div className="lobby-stagger-1 bg-card rounded-2xl border border-card-border shadow-sm p-8 sm:p-10 text-center space-y-5">
+        {/* Orbital waiting animation */}
+        <div className="relative w-32 h-32 mx-auto">
+          <div className="absolute inset-0 rounded-full border-2 border-primary/15 lobby-ripple" />
+          <div className="absolute inset-0 rounded-full border-2 border-primary/10 lobby-ripple-delayed" />
+          <div className="absolute inset-0 rounded-full border border-primary/8 lobby-ripple-delayed-2" />
+
+          {/* Outer orbit */}
+          <div className="absolute inset-[-4px] lobby-orbit">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary shadow-md shadow-primary/40" />
+          </div>
+
+          {/* Reverse orbit */}
+          <div className="absolute inset-1 lobby-orbit-reverse">
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent/50" />
+          </div>
+
+          {/* Center icon */}
+          <div className="absolute inset-5 rounded-full bg-primary-light flex items-center justify-center lobby-breath">
+            <div className="w-16 h-16 rounded-2xl bg-primary-light flex items-center justify-center">
+              <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-accent">Standup Submitted</h1>
-        <p className="text-sm text-muted">Your update has been recorded</p>
+
+        <h1 className="text-2xl font-bold text-accent">You&apos;re All Set</h1>
+        <p className="text-sm text-muted max-w-sm mx-auto leading-relaxed">
+          Standup submitted successfully. This page will update automatically when the meeting begins.
+        </p>
+
+        {/* Status pill */}
+        <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-primary-light/60 border border-primary/15">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inset-0 rounded-full bg-primary lobby-connected-pulse" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+          </span>
+          <span className="text-xs font-semibold text-primary-dark tracking-wide">
+            Waiting for Scrum Master
+          </span>
+          <span className="flex items-center gap-0.5 ml-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1.2s" }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "200ms", animationDuration: "1.2s" }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "400ms", animationDuration: "1.2s" }} />
+          </span>
+        </div>
       </div>
 
-      <div className="bg-card rounded-2xl border border-card-border shadow-sm p-6 sm:p-8 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-primary-light flex items-center justify-center">
-            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      {/* ── Submitted Updates (collapsible, original theme) ── */}
+      <div className="lobby-stagger-2 rounded-2xl border border-card-border bg-card shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowUpdates(!showUpdates)}
+          className="w-full px-5 sm:px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-background/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary-light flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-foreground">Your Submitted Updates</p>
+              <p className="text-xs text-muted mt-0.5">
+                {showUpdates ? "Tap to collapse" : "Tap to review what you submitted"}
+              </p>
+            </div>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center shrink-0">
+            <svg
+              className={`w-4 h-4 text-muted transition-transform duration-300 ${showUpdates ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
-          <h2 className="text-sm font-semibold text-primary-dark uppercase tracking-wide">
-            Your Updates
-          </h2>
-        </div>
+        </button>
 
-        <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
-          <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
-            Yesterday
-          </p>
-          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-            {submittedData.yesterday}
-          </p>
-        </div>
+        <div
+          className={`transition-all duration-400 ease-in-out overflow-hidden ${
+            showUpdates ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="px-5 sm:px-6 pb-5 space-y-3 border-t border-card-border/50 pt-4">
+            <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
+              <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
+                Yesterday
+              </p>
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {submittedData.yesterday}
+              </p>
+            </div>
 
-        <div className="rounded-xl bg-accent-light/50 border border-accent/10 p-4">
-          <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1.5">
-            Today
-          </p>
-          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-            {submittedData.today}
-          </p>
-        </div>
+            <div className="rounded-xl bg-accent-light/50 border border-accent/10 p-4">
+              <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1.5">
+                Today
+              </p>
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {submittedData.today}
+              </p>
+            </div>
 
-        {submittedData.blockers && (
-          <div className="rounded-xl bg-red-50/50 border border-red-100 p-4">
-            <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-1.5">
-              Blockers
-            </p>
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-              {submittedData.blockers}
-            </p>
+            {submittedData.blockers && (
+              <div className="rounded-xl bg-red-50/50 border border-red-100 p-4">
+                <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-1.5">
+                  Blockers
+                </p>
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                  {submittedData.blockers}
+                </p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center space-y-3">
-        <div className="flex justify-center">
-          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-            <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-amber-800">
-            Waiting for Scrum Master to start the meeting
-          </p>
-          <p className="text-xs text-amber-600 mt-1">
-            This page will update automatically when the meeting begins
-          </p>
-        </div>
-        <div className="flex justify-center gap-1.5 pt-1">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "300ms" }} />
         </div>
       </div>
     </div>
@@ -391,7 +438,7 @@ function ActiveMeetingView({ meetingState, userId }) {
   );
 }
 
-function CompletedMeetingView({ meetingState }) {
+function CompletedMeetingView({ meetingState, onNewStandup }) {
   const { totalMembers, allMembers } = meetingState;
 
   return (
@@ -407,6 +454,16 @@ function CompletedMeetingView({ meetingState }) {
           All {totalMembers} team member{totalMembers !== 1 ? "s" : ""} have
           presented their standup updates. Great work today!
         </p>
+        <button
+          type="button"
+          onClick={onNewStandup}
+          className="btn-press inline-flex items-center gap-2 rounded-lg bg-primary text-white px-6 py-2.5 text-sm font-semibold hover:bg-primary-dark transition-all shadow-md shadow-primary/20 cursor-pointer mt-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Submit New Standup
+        </button>
       </div>
 
       {allMembers && allMembers.length > 0 && (
@@ -476,6 +533,8 @@ export default function Submit() {
   const { meetingState } = useMeetingChannel("employee");
   const [submittedData, setSubmittedData] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
+  const [resubmitting, setResubmitting] = useState(false);
+  const prevPhaseRef = useRef(null);
 
   useEffect(() => {
     async function checkTodaySubmission() {
@@ -483,7 +542,7 @@ export default function Submit() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { setCheckingExisting(false); return; }
 
-        const res = await fetch("/api/standup?scope=mine&date=today", {
+        const res = await fetch("/api/standup?scope=mine&date=today&presented=false", {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (!res.ok) { setCheckingExisting(false); return; }
@@ -502,8 +561,26 @@ export default function Submit() {
     if (!loading) checkTodaySubmission();
   }, [loading]);
 
+  const meetingPhase = meetingState?.phase;
+
+  useEffect(() => {
+    if (prevPhaseRef.current === "completed" && (meetingPhase === "lobby" || !meetingPhase)) {
+      setSubmittedData(null);
+      setResubmitting(false);
+    }
+    if (meetingPhase === "active") {
+      setResubmitting(false);
+    }
+    prevPhaseRef.current = meetingPhase;
+  }, [meetingPhase]);
+
   const handleSubmitted = (data) => {
     setSubmittedData(data);
+  };
+
+  const handleNewStandup = () => {
+    setSubmittedData(null);
+    setResubmitting(true);
   };
 
   if (loading || checkingExisting) {
@@ -514,9 +591,8 @@ export default function Submit() {
     );
   }
 
-  const meetingPhase = meetingState?.phase;
-
-  const isInMeeting = submittedData && meetingPhase && meetingPhase !== "lobby";
+  const effectivePhase = resubmitting && meetingPhase === "completed" ? null : meetingPhase;
+  const isInMeeting = submittedData && effectivePhase && effectivePhase !== "lobby";
 
   return (
     <AppLayout>
@@ -535,18 +611,21 @@ export default function Submit() {
         )}
 
         {/* Submitted + meeting not started or in lobby */}
-        {submittedData && (!meetingPhase || meetingPhase === "lobby") && (
+        {submittedData && (!effectivePhase || effectivePhase === "lobby") && (
           <WaitingRoom submittedData={submittedData} />
         )}
 
         {/* Meeting active — show current speaker in sync */}
-        {submittedData && meetingPhase === "active" && (
+        {submittedData && effectivePhase === "active" && (
           <ActiveMeetingView meetingState={meetingState} userId={user?.id} />
         )}
 
         {/* Meeting completed */}
-        {submittedData && meetingPhase === "completed" && (
-          <CompletedMeetingView meetingState={meetingState} />
+        {submittedData && effectivePhase === "completed" && (
+          <CompletedMeetingView
+            meetingState={meetingState}
+            onNewStandup={handleNewStandup}
+          />
         )}
       </div>
     </AppLayout>

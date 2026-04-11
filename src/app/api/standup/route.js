@@ -47,6 +47,11 @@ export async function GET(request) {
       .lte("created_at", end.toISOString());
   }
 
+  const presented = searchParams.get("presented");
+  if (presented === "false") {
+    query = query.or("presented.eq.false,presented.is.null");
+  }
+
   query = query.order("created_at", { ascending: false });
 
   const { data, error } = await query;
@@ -107,20 +112,46 @@ export async function POST(request) {
 
   const { data: existing } = await supabaseAdmin
     .from("standups")
-    .select("id")
+    .select("*")
     .eq("user_id", user.id)
     .gte("created_at", todayStart.toISOString())
     .lte("created_at", todayEnd.toISOString())
+    .or("presented.eq.false,presented.is.null")
     .limit(1);
 
-  if (existing && existing.length > 0) {
-    return NextResponse.json(
-      { error: "You have already submitted your standup for today" },
-      { status: 409 }
-    );
-  }
-
   const employeeName = user.user_metadata?.name || user.email;
+
+  if (existing && existing.length > 0) {
+    const prev = existing[0];
+    const { data: updated, error } = await supabaseAdmin
+      .from("standups")
+      .update({
+        yesterday,
+        today,
+        blockers: blockers || "",
+        ticket_number: ticket_number || prev.ticket_number || null,
+        due_date: due_date || prev.due_date || null,
+        mood: mood || prev.mood || "good",
+      })
+      .eq("id", prev.id)
+      .select()
+      .single();
+
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await logAudit({
+      entityType: "standup",
+      entityId: prev.id,
+      action: "resubmitted",
+      actorId: user.id,
+      actorName: employeeName,
+      oldData: prev,
+      newData: updated,
+    });
+
+    return NextResponse.json({ message: "Standup updated successfully" });
+  }
 
   const row = {
     user_id: user.id,

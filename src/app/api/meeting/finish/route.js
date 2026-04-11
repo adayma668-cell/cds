@@ -34,8 +34,15 @@ export async function POST(req) {
   let body = {};
   try { body = await req.json(); } catch {}
 
-  const { memberCount, team } = body;
+  const { memberCount, team, standupIds } = body;
   const actorName = user.user_metadata?.name || user.email;
+
+  if (standupIds && standupIds.length > 0) {
+    await supabaseAdmin
+      .from("standups")
+      .update({ presented: true })
+      .in("id", standupIds);
+  }
 
   await logAudit({
     entityType: "meeting",
@@ -43,7 +50,7 @@ export async function POST(req) {
     action: "completed",
     actorId: user.id,
     actorName,
-    newData: { memberCount, team, finishedAt: new Date().toISOString() },
+    newData: { memberCount, team, standupIds, finishedAt: new Date().toISOString() },
     metadata: { memberCount, team },
   });
 

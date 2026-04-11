@@ -813,3 +813,125 @@ nav {
     animation: none;
   }
 }
+
+/* ---- Waiting Lobby: Premium Animations ---- */
+
+@keyframes lobbyOrbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes lobbyBreath {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes lobbyRadarSweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes lobbyDotTrail {
+  0%, 100% { opacity: 0.3; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes lobbyRipple {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes lobbyFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes lobbyStaggerIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes lobbyConnectedPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(6, 194, 134, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(6, 194, 134, 0); }
+}
+
+@keyframes lobbyShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes lobbyGradientFlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.lobby-stagger-1 { animation: lobbyStaggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both; }
+.lobby-stagger-2 { animation: lobbyStaggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both; }
+.lobby-stagger-3 { animation: lobbyStaggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both; }
+.lobby-stagger-4 { animation: lobbyStaggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both; }
+.lobby-stagger-5 { animation: lobbyStaggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both; }
+
+.lobby-orbit { animation: lobbyOrbit 8s linear infinite; }
+.lobby-orbit-reverse { animation: lobbyOrbit 12s linear infinite reverse; }
+.lobby-breath { animation: lobbyBreath 3s ease-in-out infinite; }
+.lobby-float { animation: lobbyFloat 4s ease-in-out infinite; }
+
+.lobby-ripple {
+  animation: lobbyRipple 2.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.lobby-ripple-delayed {
+  animation: lobbyRipple 2.5s cubic-bezier(0, 0, 0.2, 1) 0.8s infinite;
+}
+
+.lobby-ripple-delayed-2 {
+  animation: lobbyRipple 2.5s cubic-bezier(0, 0, 0.2, 1) 1.6s infinite;
+}
+
+.lobby-connected-pulse {
+  animation: lobbyConnectedPulse 2s ease-in-out infinite;
+}
+
+.lobby-shimmer-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(6, 194, 134, 0.08) 0%,
+    rgba(6, 194, 134, 0.25) 50%,
+    rgba(6, 194, 134, 0.08) 100%
+  );
+  background-size: 200% 100%;
+  animation: lobbyShimmer 2.5s ease-in-out infinite;
+}
+
+.lobby-gradient-border {
+  background: linear-gradient(135deg, var(--primary), var(--accent), var(--primary));
+  background-size: 300% 300%;
+  animation: lobbyGradientFlow 4s ease infinite;
+}
+
+.lobby-hero-card {
+  box-shadow:
+    0 4px 6px -1px rgba(16, 185, 129, 0.15),
+    0 10px 20px -5px rgba(6, 182, 212, 0.2),
+    0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+.lobby-gradient-bar {
+  background-size: 200% 100%;
+  animation: lobbyShimmer 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-orbit,
+  .lobby-orbit-reverse,
+  .lobby-breath,
+  .lobby-float,
+  .lobby-ripple,
+  .lobby-ripple-delayed,
+  .lobby-ripple-delayed-2,
+  .lobby-connected-pulse,
+  .lobby-shimmer-bar {
+    animation: none;
+  }
+}

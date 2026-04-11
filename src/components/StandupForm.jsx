@@ -38,11 +38,6 @@ export default function StandupForm({ onSubmitted }) {
 
       if (!res.ok) {
         const data = await res.json();
-        if (res.status === 409) {
-          setMessage({ text: data.error || "You have already submitted your standup for today", type: "error" });
-          setLoading(false);
-          return;
-        }
         throw new Error(data.error || "Failed to submit standup");
       }
 

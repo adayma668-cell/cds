@@ -342,6 +342,7 @@ export default function StartMeeting() {
             body: JSON.stringify({
               memberCount: totalMembers,
               team: selectedTeam === "all" ? null : selectedTeam,
+              standupIds: filteredStandups.map((m) => m.id),
             }),
           }).catch(() => {});
         }
@@ -372,7 +373,7 @@ export default function StartMeeting() {
     });
   };
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
     setPhase("lobby");
     setCurrentIndex(0);
     setSeconds(TIMER_SECONDS);
@@ -380,6 +381,7 @@ export default function StartMeeting() {
     clearTimer();
     endTimeRef.current = null;
     broadcastState({ phase: "lobby" });
+    await handleRefresh();
   };
 
   const handleAbandon = async () => {
@@ -406,6 +408,7 @@ export default function StartMeeting() {
             abandoned: true,
             abandonedAt: currentIndex + 1,
             totalMembers,
+            standupIds: filteredStandups.map((m) => m.id),
           }),
         });
       }

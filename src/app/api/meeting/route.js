@@ -42,6 +42,7 @@ export async function GET(request) {
       .from("standups")
       .select("*")
       .gte("created_at", todayStart.toISOString())
+      .or("presented.eq.false,presented.is.null")
       .order("created_at", { ascending: true }),
     supabaseAdmin.from("employees").select("id, name, email, role, teams"),
   ]);
