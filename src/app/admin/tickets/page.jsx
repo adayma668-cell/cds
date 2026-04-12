@@ -233,18 +233,18 @@ export default function AdminTicketsPage() {
                     {users.map((u) => (
                       <div
                         key={u.user_id}
-                        className="p-6 hover:bg-primary-light/5 transition-colors"
+                        className="p-4 sm:p-6 hover:bg-primary-light/5 transition-colors"
                       >
                         <div className="flex items-center gap-4 mb-4">
                           <UserAvatar
                             url={u.user_avatar_url}
                             name={u.user_name}
                           />
-                          <div>
-                            <p className="font-semibold text-foreground">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">
                               {u.user_name || "Unknown"}
                             </p>
-                            <p className="text-sm text-muted">{u.user_email}</p>
+                            <p className="text-sm text-muted truncate">{u.user_email}</p>
                             {(u.user_teams || []).length > 1 && (
                               <div className="flex gap-1.5 mt-1 flex-wrap">
                                 {(u.user_teams || [])
@@ -264,7 +264,7 @@ export default function AdminTicketsPage() {
                           </div>
                         </div>
 
-                        <div className="pl-16 space-y-2">
+                        <div className="pl-0 sm:pl-16 space-y-2 mt-3 sm:mt-0">
                           {u.tickets.map((ticket) => {
                             const statusOpt =
                               STATUS_OPTIONS.find(
@@ -319,21 +319,21 @@ export default function AdminTicketsPage() {
                   {noTeamUsers.map((u) => (
                     <div
                       key={u.user_id}
-                      className="p-6 hover:bg-primary-light/5 transition-colors"
+                      className="p-4 sm:p-6 hover:bg-primary-light/5 transition-colors"
                     >
                       <div className="flex items-center gap-4 mb-4">
                         <UserAvatar
                           url={u.user_avatar_url}
                           name={u.user_name}
                         />
-                        <div>
-                          <p className="font-semibold text-foreground">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate">
                             {u.user_name || "Unknown"}
                           </p>
-                          <p className="text-sm text-muted">{u.user_email}</p>
+                          <p className="text-sm text-muted truncate">{u.user_email}</p>
                         </div>
                       </div>
-                      <div className="pl-16 space-y-2">
+                      <div className="pl-0 sm:pl-16 space-y-2">
                         {u.tickets.map((ticket) => {
                           const statusOpt =
                             STATUS_OPTIONS.find(

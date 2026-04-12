@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSidebar } from "@/context/SidebarContext";
 import LogoutButton from "./LogoutButton";
@@ -76,10 +77,11 @@ const ACCOUNT_ITEMS = [
   )),
 ];
 
-function NavLink({ href, label, icon, isActive, collapsed }) {
+function NavLink({ href, label, icon, isActive, collapsed, onNavigate }) {
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
         isActive
           ? "bg-accent-light text-accent shadow-sm"
@@ -95,7 +97,6 @@ function NavLink({ href, label, icon, isActive, collapsed }) {
       >
         {label}
       </span>
-      {/* Tooltip on hover when collapsed */}
       {collapsed && (
         <span className="absolute left-full ml-3 px-2.5 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 whitespace-nowrap z-50">
           {label}
@@ -119,7 +120,20 @@ function SectionLabel({ label, collapsed }) {
 export default function Sidebar() {
   const { role } = useAuth();
   const pathname = usePathname();
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed, toggle, mobileOpen, setMobileOpen, isMobile } = useSidebar();
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
+
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
 
   const checkActive = (href) => {
     if (pathname === href) return true;
@@ -128,80 +142,124 @@ export default function Sidebar() {
     return false;
   };
 
-  return (
-    <aside
-      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-card/95 backdrop-blur-sm border-r border-card-border transition-all duration-300 ease-in-out ${
-        collapsed ? "w-[72px]" : "w-64"
-      }`}
-    >
+  const handleNavClick = () => {
+    if (isMobile) setMobileOpen(false);
+  };
+
+  const sidebarContent = (
+    <>
       {/* Logo & Notifications */}
-      <div className={`border-b border-card-border transition-all duration-300 ${collapsed ? "p-3" : "p-5"}`}>
-        <div className={`flex items-center ${collapsed ? "flex-col gap-3" : "justify-between"}`}>
-          <Link href="/dashboard" className="flex items-center gap-2.5">
+      <div className={`border-b border-card-border transition-all duration-300 ${isMobile || !collapsed ? "p-5" : "p-3"}`}>
+        <div className={`flex items-center ${!isMobile && collapsed ? "flex-col gap-3" : "justify-between"}`}>
+          <Link href="/dashboard" onClick={handleNavClick} className="flex items-center gap-2.5">
             <img src="/logo.svg" alt="xLM" className="h-8 flex-shrink-0" />
             <span
               className={`text-lg font-bold tracking-tight transition-all duration-300 ${
-                collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"
+                !isMobile && collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"
               }`}
             >
               <span className="text-primary">c</span>
               <span className="text-accent">SU</span>
             </span>
           </Link>
-          {role === "super_admin" && (
-            <NotificationBell collapsed={collapsed} />
-          )}
+          <div className="flex items-center gap-2">
+            {role === "super_admin" && (
+              <NotificationBell collapsed={!isMobile && collapsed} />
+            )}
+            {isMobile && (
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-foreground hover:bg-background/80 transition-colors"
+                aria-label="Close menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className={`flex-1 overflow-y-auto space-y-4 transition-all duration-300 ${collapsed ? "p-2" : "p-4"}`}>
+      <nav className={`flex-1 overflow-y-auto space-y-4 transition-all duration-300 ${isMobile || !collapsed ? "p-4" : "p-2"}`}>
         <div>
-          <SectionLabel label="Work" collapsed={collapsed} />
+          <SectionLabel label="Work" collapsed={!isMobile && collapsed} />
           <div className="space-y-1">
             {WORK_ITEMS.map(({ href, label, icon }) => (
-              <NavLink key={href} href={href} label={label} icon={icon} isActive={checkActive(href)} collapsed={collapsed} />
+              <NavLink key={href} href={href} label={label} icon={icon} isActive={checkActive(href)} collapsed={!isMobile && collapsed} onNavigate={handleNavClick} />
             ))}
           </div>
         </div>
 
         <div>
-          <SectionLabel label="Meeting" collapsed={collapsed} />
+          <SectionLabel label="Meeting" collapsed={!isMobile && collapsed} />
           <div className="space-y-1">
             {(role === "scrum_master" || role === "super_admin") && (
-              <NavLink href={MEETING_ITEM.href} label={MEETING_ITEM.label} icon={MEETING_ITEM.icon} isActive={checkActive(MEETING_ITEM.href)} collapsed={collapsed} />
+              <NavLink href={MEETING_ITEM.href} label={MEETING_ITEM.label} icon={MEETING_ITEM.icon} isActive={checkActive(MEETING_ITEM.href)} collapsed={!isMobile && collapsed} onNavigate={handleNavClick} />
             )}
-            <NavLink href={RETRO_ITEM.href} label={RETRO_ITEM.label} icon={RETRO_ITEM.icon} isActive={checkActive(RETRO_ITEM.href)} collapsed={collapsed} />
+            <NavLink href={RETRO_ITEM.href} label={RETRO_ITEM.label} icon={RETRO_ITEM.icon} isActive={checkActive(RETRO_ITEM.href)} collapsed={!isMobile && collapsed} onNavigate={handleNavClick} />
           </div>
         </div>
 
         {role === "super_admin" && (
           <div>
-            <SectionLabel label="Admin" collapsed={collapsed} />
+            <SectionLabel label="Admin" collapsed={!isMobile && collapsed} />
             <div className="space-y-1">
               {ADMIN_ITEMS.map(({ href, label, icon }) => (
-                <NavLink key={href} href={href} label={label} icon={icon} isActive={checkActive(href)} collapsed={collapsed} />
+                <NavLink key={href} href={href} label={label} icon={icon} isActive={checkActive(href)} collapsed={!isMobile && collapsed} onNavigate={handleNavClick} />
               ))}
             </div>
           </div>
         )}
 
         <div>
-          <SectionLabel label="Account" collapsed={collapsed} />
+          <SectionLabel label="Account" collapsed={!isMobile && collapsed} />
           <div className="space-y-1">
             {ACCOUNT_ITEMS.map(({ href, label, icon }) => (
-              <NavLink key={href} href={href} label={label} icon={icon} isActive={checkActive(href)} collapsed={collapsed} />
+              <NavLink key={href} href={href} label={label} icon={icon} isActive={checkActive(href)} collapsed={!isMobile && collapsed} onNavigate={handleNavClick} />
             ))}
           </div>
         </div>
       </nav>
 
       {/* Sign out */}
-      <div className={`border-t border-card-border transition-all duration-300 ${collapsed ? "p-2" : "p-4"}`}>
-        <LogoutButton collapsed={collapsed} />
+      <div className={`border-t border-card-border transition-all duration-300 ${isMobile || !collapsed ? "p-4" : "p-2"}`}>
+        <LogoutButton collapsed={!isMobile && collapsed} />
       </div>
+    </>
+  );
 
-      {/* Collapse toggle button — centered on sidebar right edge */}
+  if (isMobile) {
+    return (
+      <>
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 flex flex-col w-72 bg-card/95 backdrop-blur-sm border-r border-card-border transition-transform duration-300 ease-in-out ${
+            mobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {sidebarContent}
+        </aside>
+      </>
+    );
+  }
+
+  return (
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-card/95 backdrop-blur-sm border-r border-card-border transition-all duration-300 ease-in-out ${
+        collapsed ? "w-[72px]" : "w-64"
+      }`}
+    >
+      {sidebarContent}
+
+      {/* Collapse toggle button — desktop only */}
       <button
         onClick={toggle}
         className="absolute top-1/2 -translate-y-1/2 -right-3.5 w-7 h-7 bg-card border border-card-border rounded-full flex items-center justify-center shadow-md hover:shadow-lg hover:bg-accent hover:text-white hover:border-accent text-muted transition-all duration-200 z-50"

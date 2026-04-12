@@ -528,7 +528,7 @@ function ProgressBar({ currentPhase }) {
     <div className="relative rounded-[20px] px-6 py-5 retro-slide-in overflow-hidden backdrop-blur-sm" style={{ background: "linear-gradient(145deg, rgba(255, 255, 255, 0.85) 0%, rgba(240, 247, 244, 0.82) 40%, rgba(230, 236, 247, 0.85) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)", boxShadow: "0 8px 40px rgba(0, 50, 100, 0.06), 0 1px 3px rgba(6, 194, 134, 0.04)" }}>
       <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.02] via-transparent to-accent/[0.02] pointer-events-none" />
 
-      <div className="relative flex items-center justify-between mb-5">
+      <div className="relative flex flex-wrap items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-3">
           <div className="relative flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/70 border border-card-border/20 shadow-sm backdrop-blur-sm">
             <div className="relative w-8 h-8 flex items-center justify-center">
@@ -566,7 +566,7 @@ function ProgressBar({ currentPhase }) {
         </div>
       </div>
 
-      <div className="relative flex items-center justify-between">
+      <div className="relative flex items-center justify-between overflow-x-auto pb-2 -mb-2">
         <div className="absolute top-[18px] left-5 right-5 h-[3px] rounded-full bg-card-border/20" />
         <div
           className="absolute top-[18px] left-5 h-[3px] rounded-full transition-all duration-700 ease-out overflow-hidden"
@@ -1913,7 +1913,8 @@ function PreviousOpenActionsPhase({ employees, role, onNext, onPrev, toggleEvent
 
       {!loading && actions.length > 0 && (
         <div className="rounded-2xl overflow-hidden retro-slide-in-delay-1" style={{ background: "linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.85) 100%)", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.05), 0 1px 3px rgba(0, 50, 100, 0.03)" }}>
-          <div className="grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3.5 border-b border-card-border/20 text-[10px] font-bold text-muted/60 uppercase tracking-[0.1em]" style={{ background: "rgba(248, 250, 252, 0.7)" }}>
+          <div className="overflow-x-auto">
+          <div className="grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3.5 border-b border-card-border/20 text-[10px] font-bold text-muted/60 uppercase tracking-[0.1em] min-w-[500px]" style={{ background: "rgba(248, 250, 252, 0.7)" }}>
             <span></span>
             <span>Action</span>
             <span>Assignee</span>
@@ -1929,7 +1930,7 @@ function PreviousOpenActionsPhase({ employees, role, onNext, onPrev, toggleEvent
               return (
                 <div
                   key={a.id}
-                  className={`grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3.5 items-center transition-all duration-300 ${
+                  className={`grid grid-cols-[40px_1fr_140px_110px] gap-3 px-5 py-3.5 items-center transition-all duration-300 min-w-[500px] ${
                     isDone
                       ? "bg-emerald-50 border-l-4 border-l-emerald-500"
                       : "hover:bg-card-border/10"
@@ -2030,6 +2031,7 @@ function PreviousOpenActionsPhase({ employees, role, onNext, onPrev, toggleEvent
             })}
           </div>
 
+          </div>
           <div className="px-5 py-3 bg-card-border/10 border-t border-card-border flex items-center justify-between">
             <span className="text-xs text-muted">{actions.length} action item{actions.length !== 1 ? "s" : ""} from past retros</span>
             {doneCount > 0 && (
@@ -3780,7 +3782,8 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
         </div>
       ) : actions.length > 0 ? (
         <div className="rounded-2xl overflow-hidden retro-card-depth" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
-          <div className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 border-b border-primary/10 text-[11px] font-semibold text-muted uppercase tracking-wider" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.6), rgba(230, 236, 247, 0.5))" }}>
+          <div className="overflow-x-auto">
+          <div className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 border-b border-primary/10 text-[11px] font-semibold text-muted uppercase tracking-wider min-w-[500px]" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.6), rgba(230, 236, 247, 0.5))" }}>
             <span>Action</span>
             <span>Assignee</span>
             <span className="text-right">Due Date</span>
@@ -3792,7 +3795,7 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
               const assigneeNames = a.assignee ? a.assignee.split(", ") : [];
               const empMatches = assigneeNames.map((n) => employees.find((e) => e.name === n)).filter(Boolean);
               return (
-                <div key={a.id} className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 items-center hover:bg-card-border/10 transition-colors">
+                <div key={a.id} className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 items-center hover:bg-card-border/10 transition-colors min-w-[500px]">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{a.content}</p>
                     <p className="text-[10px] text-muted">added by {a.user_name}</p>
@@ -3845,6 +3848,7 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
                 </div>
               );
             })}
+          </div>
           </div>
           <div className="px-5 py-3 bg-card-border/10 border-t border-card-border">
             <span className="text-xs text-muted">{actions.length} action item{actions.length !== 1 ? "s" : ""}</span>

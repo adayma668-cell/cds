@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuthContext } from "@/context/AuthContext";
 
@@ -188,12 +189,20 @@ export default function Home() {
                 </div>
 
                 <div className="group">
-                  <label
-                    htmlFor="password"
-                    className="block text-sm font-medium text-foreground/90 mb-2"
-                  >
-                    Password
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-foreground/90"
+                    >
+                      Password
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-medium text-accent hover:text-accent-dark transition-colors"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                   <input
                     id="password"
                     type="password"

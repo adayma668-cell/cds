@@ -180,15 +180,15 @@ export default function TasksPage() {
         variant="danger"
       />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold text-accent">My Tasks</h1>
             <p className="text-sm text-muted mt-1">
               Add tickets and track status. Update at end of day.
             </p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-primary-light flex items-center justify-center">
-            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary-light flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
           </div>
@@ -403,8 +403,8 @@ export default function TasksPage() {
                         </div>
                       </div>
                     ) : (
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
+                        <div className="space-y-3">
+                        <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold text-foreground">{ticket.ticket_number}</p>
                             {ticket.due_date && (
@@ -419,11 +419,11 @@ export default function TasksPage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                           <select
                             value={ticket.status}
                             onChange={(e) => handleStatusChange(ticket, e.target.value)}
-                            className={`rounded-lg border px-3 py-2 text-xs font-semibold appearance-none cursor-pointer pr-8 min-w-[140px] outline-none focus:ring-2 focus:ring-primary/20 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat ${statusOpt.color}`}
+                            className={`rounded-lg border px-3 py-2 text-xs font-semibold appearance-none cursor-pointer pr-8 min-w-[130px] outline-none focus:ring-2 focus:ring-primary/20 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat ${statusOpt.color}`}
                           >
                             {STATUS_OPTIONS.map((s) => (
                               <option key={s.value} value={s.value}>
@@ -434,7 +434,7 @@ export default function TasksPage() {
                           <span className="text-xs text-muted">
                             {new Date(ticket.created_at).toLocaleDateString()}
                           </span>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 ml-auto sm:ml-0">
                             <button
                               onClick={() => startEdit(ticket)}
                               className="px-2 py-1 text-xs font-semibold text-accent hover:bg-accent-light rounded cursor-pointer"

@@ -142,8 +142,8 @@ export default function NotesPage() {
         )}
 
         {/* Add New Note */}
-        <div className="bg-card rounded-xl border border-card-border shadow-sm p-5 space-y-3">
-          <div className="flex gap-2">
+        <div className="bg-card rounded-xl border border-card-border shadow-sm p-4 sm:p-5 space-y-3">
+          <div className="flex gap-2 flex-wrap">
             {CATEGORIES.map((c) => (
               <button
                 key={c.value}

@@ -186,10 +186,8 @@ export default function NotificationBell({ collapsed }) {
 
       {open && (
         <div
-          className={`absolute z-[100] mt-2 bg-card border border-card-border rounded-2xl shadow-2xl overflow-hidden transition-all duration-200 ${
-            collapsed ? "left-0" : "left-0"
-          }`}
-          style={{ width: 360, maxHeight: 480 }}
+          className="absolute z-[100] mt-2 bg-card border border-card-border rounded-2xl shadow-2xl overflow-hidden transition-all duration-200 left-0 w-[calc(100vw-2rem)] sm:w-[360px]"
+          style={{ maxHeight: 480 }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-card-border/60 bg-background/30">

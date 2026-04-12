@@ -124,11 +124,11 @@ export default function Dashboard() {
       <AppLayout>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-8">
         {/* Welcome Card */}
-        <div className="bg-card rounded-2xl border border-card-border shadow-sm p-8">
-          <div className="flex items-start justify-between gap-4">
+        <div className="bg-card rounded-2xl border border-card-border shadow-sm p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
               {avatarUrl ? (
-                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-card-border shrink-0 aspect-square">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 border-card-border shrink-0 aspect-square">
                   <img
                     src={avatarUrl}
                     alt=""
@@ -136,21 +136,21 @@ export default function Dashboard() {
                   />
                 </div>
               ) : (
-                <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center border-2 border-card-border shrink-0">
-                  <span className="text-xl font-bold text-accent">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent-light flex items-center justify-center border-2 border-card-border shrink-0">
+                  <span className="text-lg sm:text-xl font-bold text-accent">
                     {name.charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
               <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-accent">
+                <h1 className="text-xl sm:text-2xl font-bold text-accent truncate">
                   Welcome, {name}
                 </h1>
-                <p className="text-sm text-muted mt-1">{user.email}</p>
+                <p className="text-sm text-muted mt-1 truncate">{user.email}</p>
               </div>
             </div>
             <span
-              className={`text-xs font-semibold px-3 py-1 rounded-full ${
+              className={`self-start text-xs font-semibold px-3 py-1 rounded-full shrink-0 ${
                 roleBadge[role] || roleBadge.employee
               }`}
             >

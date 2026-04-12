@@ -353,22 +353,22 @@ function ActiveMeetingView({ meetingState, userId }) {
 
       {/* Now Speaking Card */}
       <div className="bg-card rounded-2xl border border-card-border shadow-sm overflow-hidden">
-        <div className="px-6 sm:px-8 py-5 border-b border-card-border bg-accent-light/20 flex items-center justify-between">
-          <div className="flex items-center gap-4 min-w-0 flex-1">
+        <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-5 border-b border-card-border bg-accent-light/20 flex flex-col sm:flex-row items-center gap-4 sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0 w-full sm:w-auto sm:flex-1">
             {currentMember.avatar_url ? (
-              <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-accent/20">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden shrink-0 border-2 border-accent/20">
                 <img src={currentMember.avatar_url} alt="" className="w-full h-full object-cover" />
               </div>
             ) : (
-              <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center shrink-0">
-                <span className="text-lg font-bold text-accent">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent-light flex items-center justify-center shrink-0">
+                <span className="text-base sm:text-lg font-bold text-accent">
                   {(currentMember.name || "?").charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-foreground truncate">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-foreground truncate">
                   {currentMember.name}
                 </h2>
                 <span className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-primary text-white animate-pulse">
@@ -376,7 +376,7 @@ function ActiveMeetingView({ meetingState, userId }) {
                 </span>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <p className="text-sm text-muted truncate">{currentMember.email}</p>
+                <p className="text-xs sm:text-sm text-muted truncate">{currentMember.email}</p>
                 {(currentMember.teams || []).map((t) => (
                   <span
                     key={t}
@@ -391,7 +391,7 @@ function ActiveMeetingView({ meetingState, userId }) {
           <EmployeeTimer key={currentIndex} timerSeconds={timerSeconds} isTimerRunning={isTimerRunning} timerEndTime={meetingState.timerEndTime} />
         </div>
 
-        <div className="p-6 sm:p-8 space-y-4">
+        <div className="p-4 sm:p-6 md:p-8 space-y-4">
           {(currentMember.ticket_number || currentMember.due_date) && (
             <div className="rounded-xl bg-background border border-card-border p-4 flex flex-wrap gap-6">
               {currentMember.ticket_number && (
