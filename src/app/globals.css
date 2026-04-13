@@ -770,6 +770,49 @@ nav {
   100% { transform: translateX(100%); }
 }
 
+@keyframes editRowExpand {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: scaleY(0.92);
+    transform-origin: top center;
+  }
+  to {
+    opacity: 1;
+    max-height: 300px;
+    transform: scaleY(1);
+    transform-origin: top center;
+  }
+}
+
+@keyframes editFieldSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes editGlowPulse {
+  0%, 100% { box-shadow: inset 0 0 0 1px rgba(6, 194, 134, 0.12), 0 0 0 0 rgba(6, 194, 134, 0); }
+  50% { box-shadow: inset 0 0 0 1px rgba(6, 194, 134, 0.25), 0 0 12px 0 rgba(6, 194, 134, 0.06); }
+}
+
+.edit-row-enter {
+  animation: editRowExpand 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.edit-field-1 { animation: editFieldSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
+.edit-field-2 { animation: editFieldSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both; }
+.edit-field-3 { animation: editFieldSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both; }
+
+.edit-glow {
+  animation: editGlowPulse 2s ease-in-out infinite;
+}
+
 .retro-v2-card {
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.88) 100%);
   border: 1px solid rgba(0, 0, 0, 0.05);

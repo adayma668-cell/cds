@@ -2115,14 +2115,16 @@ function useRetroItems(phase, { all = false } = {}) {
     } catch {}
   };
 
-  const updateItem = async (id, newContent) => {
-    if (!token || !newContent?.trim()) return;
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, content: newContent.trim() } : i)));
+  const updateItem = async (id, updates) => {
+    if (!token) return;
+    const patch = typeof updates === "string" ? { content: updates } : updates;
+    if (!patch || Object.keys(patch).length === 0) return;
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
     try {
       await fetch("/api/retro/items", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ id, content: newContent.trim() }),
+        body: JSON.stringify({ id, ...patch }),
       });
     } catch {}
   };
@@ -2441,9 +2443,8 @@ const GROUP_BADGE_COLORS = [
   "bg-orange-500", "bg-cyan-500", "bg-lime-600", "bg-fuchsia-500",
 ];
 
-function GroupedBoardColumn({ col, groupedItems, groupNames, allGroupNames, isAdmin, onRename, onDrop }) {
+function GroupedBoardColumn({ col, groupedItems, groupNames, allGroupNames, isAdmin, onRename, onDrop, creatingGroupForPhase, newGroupTitle, setNewGroupTitle, setCreatingGroupForPhase, createCustomGroup, newGroupInputRef, customEmptyGroups }) {
   const totalCount = Object.values(groupedItems).reduce((s, arr) => s + arr.length, 0);
-  const emptyGroups = allGroupNames.filter((g) => !groupedItems[g] || groupedItems[g].length === 0);
 
   return (
     <div
@@ -2478,43 +2479,85 @@ function GroupedBoardColumn({ col, groupedItems, groupNames, allGroupNames, isAd
             />
           );
         })}
-        {isAdmin && emptyGroups.length > 0 && totalCount > 0 && null}
-        {isAdmin && (
-          <ColumnDropZone col={col} onDrop={onDrop} isEmpty={totalCount === 0} />
+        {(customEmptyGroups || []).map((cg) => {
+          const gIdx = allGroupNames.indexOf(cg.name);
+          const badgeColor = GROUP_BADGE_COLORS[(gIdx !== -1 ? gIdx : 0) % GROUP_BADGE_COLORS.length];
+          return (
+            <div
+              key={`custom-empty-${cg.name}`}
+              className="rounded-xl p-2 border-2 border-dashed border-card-border/30 transition-all duration-200 hover:border-primary/30 hover:bg-primary/[0.02]"
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const raw = e.dataTransfer.getData("text/plain");
+                if (!raw) return;
+                try {
+                  const { itemId, sourceGroup, sourcePhase } = JSON.parse(raw);
+                  if (sourcePhase && sourcePhase !== col.phase) return;
+                  onDrop(itemId, sourceGroup, cg.name, col.phase);
+                } catch {}
+              }}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className={`${badgeColor} text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm opacity-60`}>0</span>
+                <span className="text-xs font-bold text-foreground/50 flex-1">{cg.name}</span>
+              </div>
+              <p className="text-[10px] text-muted/40 text-center py-2 italic">Drag items here</p>
+            </div>
+          );
+        })}
+        {creatingGroupForPhase === col.phase && (
+          <div className="rounded-xl p-2.5 border-2 border-dashed border-primary/40 bg-primary/[0.04]">
+            <div className="flex items-center gap-2">
+              <input
+                ref={newGroupInputRef}
+                value={newGroupTitle}
+                onChange={(e) => setNewGroupTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createCustomGroup();
+                  if (e.key === "Escape") { setCreatingGroupForPhase(null); setNewGroupTitle(""); }
+                }}
+                placeholder="Group name..."
+                className="flex-1 text-xs font-medium text-foreground bg-white/90 rounded-lg px-3 py-2 border border-card-border/40 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted/40"
+              />
+              <button
+                onClick={createCustomGroup}
+                disabled={!newGroupTitle.trim()}
+                className="px-3 py-2 text-[11px] font-bold text-white bg-gradient-to-r from-accent to-primary rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => { setCreatingGroupForPhase(null); setNewGroupTitle(""); }}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
         )}
-        {!isAdmin && totalCount === 0 && (
-          <p className="text-xs text-muted/40 text-center py-6 italic">No items in this column</p>
+        {creatingGroupForPhase !== col.phase && (
+          <button
+            onClick={() => { setCreatingGroupForPhase(col.phase); setNewGroupTitle(""); }}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-card-border/20 text-muted/50 hover:border-primary/30 hover:text-primary hover:bg-primary/[0.03] transition-all duration-200 group"
+          >
+            <svg className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-[11px] font-semibold">New Group</span>
+          </button>
+        )}
+        {totalCount === 0 && (customEmptyGroups || []).length === 0 && creatingGroupForPhase !== col.phase && (
+          <p className="text-xs text-muted/40 text-center py-3 italic">No items in this column</p>
         )}
       </div>
     </div>
   );
 }
 
-function ColumnDropZone({ col, onDrop, isEmpty }) {
-  const [over, setOver] = useState(false);
-  return (
-    <div
-      className={`rounded-xl border-2 border-dashed transition-all duration-200 ${over ? `${col.noteBg} border-current opacity-100` : "border-transparent opacity-0 hover:opacity-60 hover:border-card-border/30"} ${isEmpty ? "py-8 opacity-60 border-card-border/30" : "py-3"}`}
-      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setOver(true); }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setOver(false);
-        const raw = e.dataTransfer.getData("text/plain");
-        if (!raw) return;
-        try {
-          const { itemId, sourceGroup } = JSON.parse(raw);
-          onDrop(itemId, sourceGroup, sourceGroup, col.phase);
-        } catch { /* ignore */ }
-      }}
-    >
-      <p className={`text-[10px] text-muted/50 text-center italic ${isEmpty ? "" : ""}`}>
-        {isEmpty ? "Drop items here" : "Drop to keep group"}
-      </p>
-    </div>
-  );
-}
 
 function GroupSection({ groupName, items, col, badgeColor, isAdmin, onRename, onDrop, phase }) {
   const [editing, setEditing] = useState(false);
@@ -2539,7 +2582,8 @@ function GroupSection({ groupName, items, col, badgeColor, isAdmin, onRename, on
     const raw = e.dataTransfer.getData("text/plain");
     if (!raw) return;
     try {
-      const { itemId, sourceGroup } = JSON.parse(raw);
+      const { itemId, sourceGroup, sourcePhase } = JSON.parse(raw);
+      if (sourcePhase && sourcePhase !== phase) return;
       onDrop(itemId, sourceGroup, groupName, phase);
     } catch { /* ignore */ }
   };
@@ -2578,13 +2622,13 @@ function GroupSection({ groupName, items, col, badgeColor, isAdmin, onRename, on
         {items.map((item, idx) => (
           <div
             key={item.id}
-            draggable={isAdmin}
+            draggable
             onDragStart={(e) => {
               e.stopPropagation();
-              e.dataTransfer.setData("text/plain", JSON.stringify({ itemId: item.id, sourceGroup: groupName }));
+              e.dataTransfer.setData("text/plain", JSON.stringify({ itemId: item.id, sourceGroup: groupName, sourcePhase: phase }));
               e.dataTransfer.effectAllowed = "move";
             }}
-            className={`${col.noteBg} rounded-xl px-3 py-2 transition-all duration-200 ${isAdmin ? "cursor-grab active:cursor-grabbing hover:shadow-md hover:-translate-y-0.5" : ""} border border-white/50`}
+            className={`${col.noteBg} rounded-xl px-3 py-2 transition-all duration-200 cursor-grab active:cursor-grabbing hover:shadow-md hover:-translate-y-0.5 border border-white/50`}
             style={{ animation: "retroSlideIn 0.3s ease-out both", animationDelay: `${idx * 30}ms` }}
           >
             <p className={`text-[13px] ${col.noteText} leading-relaxed font-medium`}>{item.content}</p>
@@ -2603,6 +2647,10 @@ function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBr
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [source, setSource] = useState(null);
+  const [creatingGroupForPhase, setCreatingGroupForPhase] = useState(null);
+  const [newGroupTitle, setNewGroupTitle] = useState("");
+  const [customEmptyGroups, setCustomEmptyGroups] = useState([]);
+  const newGroupInputRef = useRef(null);
   const isAdmin = role === "scrum_master" || role === "super_admin";
 
   const fetchGroups = useCallback(async () => {
@@ -2631,6 +2679,19 @@ function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBr
     }
   }, [groupEvent, fetchGroups]);
 
+  useEffect(() => {
+    if (creatingGroupForPhase && newGroupInputRef.current) newGroupInputRef.current.focus();
+  }, [creatingGroupForPhase]);
+
+  const createCustomGroup = () => {
+    const title = newGroupTitle.trim();
+    if (!title || !creatingGroupForPhase) return;
+    setGroups((prev) => prev[title] ? prev : { ...prev, [title]: [] });
+    setCustomEmptyGroups((prev) => [...prev, { name: title, phase: creatingGroupForPhase }]);
+    setCreatingGroupForPhase(null);
+    setNewGroupTitle("");
+  };
+
   const analyzeItems = async () => {
     if (!token || !sessionId) return;
     setLoading(true);
@@ -2643,6 +2704,7 @@ function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBr
       const data = await res.json();
       setGroups(data.groups || {});
       setSource(data.source);
+      setCustomEmptyGroups([]);
       groupBroadcast("refresh", { sessionId });
     } catch (err) {
       console.error("AI grouping error:", err);
@@ -2670,7 +2732,7 @@ function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBr
   };
 
   const handleDrop = async (itemId, sourceGroupName, targetGroupName, targetPhase) => {
-    if (!token || !isAdmin) return;
+    if (!token) return;
     let draggedItem = null;
     for (const [gName, gItems] of Object.entries(groups)) {
       const found = gItems.find((it) => it.id === itemId);
@@ -2688,9 +2750,6 @@ function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBr
       updated[targetGroupName] = [...updated[targetGroupName], movedItem];
     } else {
       updated[targetGroupName] = [movedItem];
-    }
-    for (const k of Object.keys(updated)) {
-      if (updated[k].length === 0) delete updated[k];
     }
     setGroups(updated);
 
@@ -2798,6 +2857,13 @@ function AIGroupPhase({ role, isFacilitator, onNext, onPrev, groupEvent, groupBr
                 isAdmin={isAdmin}
                 onRename={handleRename}
                 onDrop={handleDrop}
+                creatingGroupForPhase={creatingGroupForPhase}
+                newGroupTitle={newGroupTitle}
+                setNewGroupTitle={setNewGroupTitle}
+                setCreatingGroupForPhase={setCreatingGroupForPhase}
+                createCustomGroup={createCustomGroup}
+                newGroupInputRef={newGroupInputRef}
+                customEmptyGroups={customEmptyGroups.filter((cg) => cg.phase === col.phase && !(getColumnGroupedItems(col.phase)[cg.name]))}
               />
             ))}
           </div>
@@ -2825,15 +2891,12 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
   const [voteSummary, setVoteSummary] = useState({});
   const [showTracker, setShowTracker] = useState(true);
   const [globalGroupNames, setGlobalGroupNames] = useState([]);
-  const [creatingGroupForPhase, setCreatingGroupForPhase] = useState(null);
-  const [newGroupTitle, setNewGroupTitle] = useState("");
   const [editingGroupName, setEditingGroupName] = useState(null);
   const [editingGroupValue, setEditingGroupValue] = useState("");
   const isAdmin = role === "scrum_master" || role === "super_admin";
   const busyRef = useRef(false);
   const myVotesRef = useRef(myVotes);
   myVotesRef.current = myVotes;
-  const newGroupInputRef = useRef(null);
   const renameInputRef = useRef(null);
 
   const remaining = MAX_VOTES - myVotes.length;
@@ -3011,10 +3074,6 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
   };
 
   useEffect(() => {
-    if (creatingGroupForPhase && newGroupInputRef.current) newGroupInputRef.current.focus();
-  }, [creatingGroupForPhase]);
-
-  useEffect(() => {
     if (editingGroupName && renameInputRef.current) renameInputRef.current.focus();
   }, [editingGroupName]);
 
@@ -3043,14 +3102,6 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
       })();
     }
   }, [groupEvent, token, sessionId]);
-
-  const createCustomGroup = async (phase) => {
-    const title = newGroupTitle.trim();
-    if (!title || !token || !sessionId) return;
-    setGlobalGroupNames((prev) => prev.includes(title) ? prev : [...prev, title]);
-    setCreatingGroupForPhase(null);
-    setNewGroupTitle("");
-  };
 
   const moveItemToGroup = async (itemId, targetGroupName) => {
     if (!token || !isAdmin) return;
@@ -3421,52 +3472,6 @@ function VotingPhase({ employees, role, onNext, onPrev, voteEvent, itemVoteEvent
                   </>
                 )}
 
-                {isAdmin && (
-                  <>
-                    {creatingGroupForPhase === col.phase ? (
-                      <div className="rounded-xl p-2.5 border-2 border-dashed border-primary/40 bg-primary/[0.04]">
-                        <div className="flex items-center gap-2">
-                          <input
-                            ref={newGroupInputRef}
-                            value={newGroupTitle}
-                            onChange={(e) => setNewGroupTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") createCustomGroup(col.phase);
-                              if (e.key === "Escape") { setCreatingGroupForPhase(null); setNewGroupTitle(""); }
-                            }}
-                            placeholder="Group name..."
-                            className="flex-1 text-xs font-medium text-foreground bg-white/90 rounded-lg px-3 py-2 border border-card-border/40 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted/40"
-                          />
-                          <button
-                            onClick={() => createCustomGroup(col.phase)}
-                            disabled={!newGroupTitle.trim()}
-                            className="px-3 py-2 text-[11px] font-bold text-white bg-gradient-to-r from-accent to-primary rounded-lg shadow-sm hover:shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            Create
-                          </button>
-                          <button
-                            onClick={() => { setCreatingGroupForPhase(null); setNewGroupTitle(""); }}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-danger/10 transition-all"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => { setCreatingGroupForPhase(col.phase); setNewGroupTitle(""); }}
-                        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-card-border/20 text-muted/50 hover:border-primary/30 hover:text-primary hover:bg-primary/[0.03] transition-all duration-200 group"
-                      >
-                        <svg className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span className="text-[11px] font-semibold">New Group</span>
-                      </button>
-                    )}
-                  </>
-                )}
               </div>
             </div>
           );
@@ -3503,15 +3508,25 @@ function VoteResultsPhase({ onNext, onPrev }) {
           cache: "no-store",
         });
         const data = await res.json();
-        const grouped = {};
-        for (const c of RESULT_COL_CONFIG) grouped[c.phase] = [];
+        const byPhase = {};
+        for (const c of RESULT_COL_CONFIG) byPhase[c.phase] = [];
         for (const item of (data.items || [])) {
-          if (grouped[item.phase]) grouped[item.phase].push(item);
+          if (byPhase[item.phase]) byPhase[item.phase].push(item);
         }
+
+        const groupedByPhase = {};
         for (const c of RESULT_COL_CONFIG) {
-          grouped[c.phase].sort((a, b) => (b.votes || 0) - (a.votes || 0));
+          const items = byPhase[c.phase];
+          const groups = {};
+          for (const item of items) {
+            const gName = item.group_name || "Ungrouped";
+            if (!groups[gName]) groups[gName] = { name: gName, items: [], totalVotes: 0 };
+            groups[gName].items.push(item);
+            groups[gName].totalVotes += (item.votes || 0);
+          }
+          groupedByPhase[c.phase] = Object.values(groups).sort((a, b) => b.totalVotes - a.totalVotes);
         }
-        setAllItems(grouped);
+        setAllItems(groupedByPhase);
       } catch (err) { console.error("VoteResults fetch error:", err); }
       setLoading(false);
     })();
@@ -3526,16 +3541,16 @@ function VoteResultsPhase({ onNext, onPrev }) {
     );
   }
 
-  const allFlat = Object.values(allItems).flat();
-  const maxVotes = Math.max(...allFlat.map((i) => i.votes || 0), 1);
+  const allGroups = Object.values(allItems).flat();
+  const maxVotes = Math.max(...allGroups.map((g) => g.totalVotes || 0), 1);
 
   return (
     <div className="w-full space-y-6">
-      <PhaseHeader icon={<ChartBarIcon className="w-8 h-8" />} title="Vote Results" description="Items ranked by votes — the team has spoken! Focus discussions on top-voted items." />
+      <PhaseHeader icon={<ChartBarIcon className="w-8 h-8" />} title="Vote Results" description="Groups ranked by votes — the team has spoken! Focus discussions on top-voted groups." />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {RESULT_COL_CONFIG.map((cfg) => {
-          const items = allItems[cfg.phase] || [];
+          const groups = allItems[cfg.phase] || [];
           return (
             <div key={cfg.phase} className="rounded-2xl overflow-hidden flex flex-col" style={{ background: "linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.85) 100%)", border: "1px solid rgba(0, 0, 0, 0.05)", boxShadow: "0 4px 24px rgba(0, 50, 100, 0.05), 0 1px 3px rgba(0, 50, 100, 0.03)" }}>
               <div className={`flex items-center gap-2.5 px-5 py-4 border-b-[3px] ${cfg.border}`} style={{ background: "rgba(255, 255, 255, 0.8)" }}>
@@ -3544,56 +3559,71 @@ function VoteResultsPhase({ onNext, onPrev }) {
                 </div>
                 <h3 className="text-sm font-bold text-gray-800 flex-1 tracking-tight">{cfg.title}</h3>
               </div>
-              <div className="flex-1 overflow-y-auto" style={{ maxHeight: 520 }}>
-                {items.length === 0 ? (
+              <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ maxHeight: 520 }}>
+                {groups.length === 0 ? (
                   <p className="text-xs text-gray-400 text-center py-10">No items</p>
                 ) : (
-                  items.map((item, idx) => {
-                    const pct = maxVotes > 0 ? ((item.votes || 0) / maxVotes) * 100 : 0;
-                    const isTop = idx === 0 && (item.votes || 0) > 0;
-                    const medalRank = idx < 3 ? idx + 1 : null;
+                  groups.map((group, gIdx) => {
+                    const pct = maxVotes > 0 ? (group.totalVotes / maxVotes) * 100 : 0;
+                    const isTop = gIdx === 0 && group.totalVotes > 0;
+                    const medalRank = gIdx < 3 ? gIdx + 1 : null;
+                    const badgeColor = GROUP_BADGE_COLORS[gIdx % GROUP_BADGE_COLORS.length];
                     return (
                       <div
-                        key={item.id}
-                        className={`relative px-4 py-3.5 border-b border-gray-100/50 last:border-b-0 transition-all ${isTop ? `${cfg.bg} backdrop-blur-sm` : "hover:bg-white/30"}`}
-                        style={{ animation: "retroSlideIn 0.35s ease-out both", animationDelay: `${idx * 60}ms` }}
+                        key={group.name}
+                        className={`rounded-xl overflow-hidden transition-all ${isTop ? `ring-2 ${cfg.border.replace("border-", "ring-")} ${cfg.bg}` : "bg-white/40"}`}
+                        style={{ animation: "retroSlideIn 0.35s ease-out both", animationDelay: `${gIdx * 80}ms`, border: "1px solid rgba(0,0,0,0.04)" }}
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="px-3.5 py-3 flex items-center gap-2.5">
                           <div className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black transition-all ${
                             isTop
-                              ? `${cfg.badge} text-white shadow-lg shadow-${cfg.badge.split("-")[1]}-500/30`
-                              : idx < 3 && (item.votes || 0) > 0
+                              ? `${cfg.badge} text-white shadow-lg`
+                              : gIdx < 3 && group.totalVotes > 0
                               ? `bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600 shadow-sm`
                               : "bg-gray-100/50 text-gray-400"
                           }`}>
-                            {medalRank && (item.votes || 0) > 0 ? <MedalIcon className="w-5 h-5" rank={medalRank} /> : idx + 1}
+                            {medalRank && group.totalVotes > 0 ? <MedalIcon className="w-5 h-5" rank={medalRank} /> : gIdx + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-[13px] font-medium leading-snug ${isTop ? cfg.text : "text-gray-800"}`}>
-                              {item.content}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1.5">
-                              {item.avatar_url ? (
-                                <img src={item.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover ring-1 ring-white" />
-                              ) : (
-                                <div className={`w-5 h-5 rounded-full ${cfg.badge} flex items-center justify-center text-[8px] font-bold text-white shadow-sm`}>
-                                  {item.user_name?.charAt(0)?.toUpperCase()}
-                                </div>
-                              )}
-                              <span className="text-[10px] text-gray-500 font-medium">{item.user_name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`${badgeColor} text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm`}>
+                                {group.items.length}
+                              </span>
+                              <span className={`text-[13px] font-bold truncate ${isTop ? cfg.text : "text-gray-800"}`}>
+                                {group.name}
+                              </span>
                             </div>
-                            {(item.votes || 0) > 0 && (
-                              <div className="mt-2.5 flex items-center gap-2">
+                            {group.totalVotes > 0 && (
+                              <div className="mt-2 flex items-center gap-2">
                                 <div className="flex-1 h-2 bg-gray-100/80 rounded-full overflow-hidden">
                                   <div
                                     className={`h-full ${cfg.barBg} rounded-full transition-all duration-700 ease-out`}
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
-                                <span className={`text-[11px] font-black ${cfg.text}`}>{item.votes}</span>
+                                <span className={`text-[11px] font-black ${cfg.text}`}>{group.totalVotes}</span>
                               </div>
                             )}
                           </div>
+                        </div>
+                        <div className="px-3 pb-3 space-y-1.5">
+                          {group.items.map((item) => (
+                            <div key={item.id} className={`${cfg.bg || "bg-gray-50/60"} rounded-lg px-3 py-2 border border-white/50`}>
+                              <p className={`text-[12px] font-medium leading-snug ${isTop ? cfg.text : "text-gray-700"}`}>
+                                {item.content}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                {item.avatar_url ? (
+                                  <img src={item.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover ring-1 ring-white" />
+                                ) : (
+                                  <div className={`w-4 h-4 rounded-full ${cfg.badge} flex items-center justify-center text-[7px] font-bold text-white`}>
+                                    {item.user_name?.charAt(0)?.toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="text-[10px] text-gray-500 font-medium">{item.user_name}</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     );
@@ -3614,12 +3644,18 @@ function VoteResultsPhase({ onNext, onPrev }) {
 /*  Phase 7 – Action Items (persisted)                                 */
 /* ------------------------------------------------------------------ */
 function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcast }) {
-  const { items: actions, loading, addItem, removeItem, externalAdd, externalRemove } = useRetroItems("action_items", { all: true });
+  const { items: actions, loading, addItem, removeItem, updateItem, externalAdd, externalRemove } = useRetroItems("action_items", { all: true });
   const [input, setInput] = useState("");
   const [assignees, setAssignees] = useState([]);
   const [dueDate, setDueDate] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editContent, setEditContent] = useState("");
+  const [editAssignees, setEditAssignees] = useState([]);
+  const [editDueDate, setEditDueDate] = useState("");
+  const [showEditDropdown, setShowEditDropdown] = useState(false);
+  const editDropdownRef = useRef(null);
 
   useEffect(() => {
     if (!boardEvent || boardEvent.phase !== "action_items") return;
@@ -3638,8 +3674,8 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
   }, [showDropdown]);
 
   const handleAdd = async () => {
-    if (input.trim() && assignees.length > 0) {
-      const newItem = await addItem(input.trim(), assignees.join(", "), dueDate || null);
+    if (input.trim() && assignees.length > 0 && dueDate) {
+      const newItem = await addItem(input.trim(), assignees.join(", "), dueDate);
       if (newItem && boardBroadcast) boardBroadcast("add", { phase: "action_items", item: newItem });
       setInput("");
       setAssignees([]);
@@ -3654,6 +3690,48 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
   };
 
   const selectedEmps = employees.filter((e) => assignees.includes(e.name));
+
+  const startEdit = (action) => {
+    setEditingId(action.id);
+    setEditContent(action.content);
+    setEditAssignees(action.assignee ? action.assignee.split(", ") : []);
+    setEditDueDate(action.due_date || "");
+    setShowEditDropdown(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditContent("");
+    setEditAssignees([]);
+    setEditDueDate("");
+    setShowEditDropdown(false);
+  };
+
+  const saveEdit = async () => {
+    if (!editContent.trim() || editAssignees.length === 0 || !editDueDate) return;
+    await updateItem(editingId, {
+      content: editContent.trim(),
+      assignee: editAssignees.join(", "),
+      due_date: editDueDate,
+    });
+    cancelEdit();
+  };
+
+  const toggleEditAssignee = (name) => {
+    setEditAssignees((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
+  };
+
+  useEffect(() => {
+    const handleClickOutsideEdit = (e) => {
+      if (editDropdownRef.current && !editDropdownRef.current.contains(e.target)) {
+        setShowEditDropdown(false);
+      }
+    };
+    if (showEditDropdown) document.addEventListener("mousedown", handleClickOutsideEdit);
+    return () => document.removeEventListener("mousedown", handleClickOutsideEdit);
+  }, [showEditDropdown]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -3760,14 +3838,17 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-40 px-4 py-3 bg-background border border-card-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all"
+              required
+              className={`w-40 px-4 py-3 bg-background border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all ${
+                dueDate ? "border-card-border" : "border-orange-300/60"
+              }`}
             />
           </div>
         </div>
 
         <button
           onClick={handleAdd}
-          disabled={!input.trim() || assignees.length === 0}
+          disabled={!input.trim() || assignees.length === 0 || !dueDate}
           className="w-full py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold hover:shadow-md transition-all disabled:opacity-30 btn-press"
         >
           Add Action Item
@@ -3781,21 +3862,130 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
           <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
         </div>
       ) : actions.length > 0 ? (
-        <div className="rounded-2xl overflow-hidden retro-card-depth" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
-          <div className="overflow-x-auto">
-          <div className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 border-b border-primary/10 text-[11px] font-semibold text-muted uppercase tracking-wider min-w-[500px]" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.6), rgba(230, 236, 247, 0.5))" }}>
+        <div className="rounded-2xl retro-card-depth" style={{ background: "linear-gradient(180deg, rgba(240, 247, 244, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)", border: "1px solid rgba(6, 194, 134, 0.12)" }}>
+          <div className={editingId ? "" : "overflow-x-auto"}>
+          <div className="grid grid-cols-[1fr_140px_110px_72px] gap-3 px-5 py-3.5 border-b border-primary/10 text-[11px] font-semibold text-muted uppercase tracking-wider min-w-[540px]" style={{ background: "linear-gradient(135deg, rgba(232, 250, 243, 0.6), rgba(230, 236, 247, 0.5))" }}>
             <span>Action</span>
             <span>Assignee</span>
             <span className="text-right">Due Date</span>
-            <span></span>
+            <span className="text-center">Actions</span>
           </div>
           <div className="divide-y divide-card-border/60">
             {actions.map((a) => {
               const due = a.due_date ? formatDueDate(a.due_date) : null;
               const assigneeNames = a.assignee ? a.assignee.split(", ") : [];
               const empMatches = assigneeNames.map((n) => employees.find((e) => e.name === n)).filter(Boolean);
+              const isEditing = editingId === a.id;
+
+              if (isEditing) {
+                const editSelectedEmps = employees.filter((e) => editAssignees.includes(e.name));
+                return (
+                  <div key={a.id} className="edit-row-enter edit-glow overflow-visible min-w-[540px] rounded-lg" style={{ background: "linear-gradient(145deg, rgba(232, 250, 243, 0.35), rgba(240, 247, 255, 0.25))" }}>
+                    <div className="px-5 py-4 space-y-3">
+                      {/* Editing label */}
+                      <div className="edit-field-1 flex items-center gap-2 mb-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                        <span className="text-[10px] font-semibold text-accent uppercase tracking-wider">Editing Action Item</span>
+                      </div>
+
+                      {/* Content input */}
+                      <div className="edit-field-1">
+                        <input
+                          autoFocus
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                          className="w-full px-4 py-2.5 bg-white/90 border border-accent/20 rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all duration-200 shadow-sm"
+                        />
+                      </div>
+
+                      {/* Assignee + Due date row */}
+                      <div className="edit-field-2 flex gap-2 items-start">
+                        <div className="relative flex-1" ref={editDropdownRef}>
+                          <button
+                            type="button"
+                            onClick={() => setShowEditDropdown(!showEditDropdown)}
+                            className={`w-full flex items-center gap-2 px-4 py-2.5 bg-white/90 border border-accent/20 rounded-xl text-sm text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 shadow-sm ${
+                              editAssignees.length > 0 ? "text-foreground" : "text-muted/60"
+                            }`}
+                          >
+                            {editSelectedEmps.length > 0 ? (
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                <div className="flex -space-x-1.5 flex-shrink-0">
+                                  {editSelectedEmps.slice(0, 3).map((emp) =>
+                                    emp.avatar_url ? (
+                                      <img key={emp.id} src={emp.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover border border-white" />
+                                    ) : (
+                                      <div key={emp.id} className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-[8px] font-bold text-muted border border-white">
+                                        {emp.name?.charAt(0)?.toUpperCase()}
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                                <span className="truncate text-xs">
+                                  {editSelectedEmps.length === 1 ? editSelectedEmps[0].name : `${editSelectedEmps.length} assignees`}
+                                </span>
+                              </div>
+                            ) : (
+                              <span>Select assignees...</span>
+                            )}
+                            <svg className={`w-4 h-4 ml-auto text-muted flex-shrink-0 transition-transform duration-200 ${showEditDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {showEditDropdown && (
+                            <div className="absolute z-50 left-0 right-0 mt-1 bg-card border border-card-border rounded-xl shadow-xl max-h-48 overflow-y-auto" style={{ animation: "retroFadeInUp 0.2s cubic-bezier(0.22, 1, 0.36, 1) both" }}>
+                              {employees.map((emp) => {
+                                const isSel = editAssignees.includes(emp.name);
+                                return (
+                                  <button
+                                    key={emp.id}
+                                    onClick={() => toggleEditAssignee(emp.name)}
+                                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-accent/5 transition-all duration-150 ${isSel ? "bg-accent/10 text-accent font-medium" : "text-foreground"}`}
+                                  >
+                                    {emp.avatar_url ? (
+                                      <img src={emp.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[9px] font-bold text-muted">{emp.name?.charAt(0)?.toUpperCase()}</div>
+                                    )}
+                                    {emp.name}
+                                    <div className={`w-4 h-4 ml-auto rounded border-2 flex items-center justify-center transition-all duration-200 ${isSel ? "bg-accent border-accent scale-110" : "border-gray-300 scale-100"}`}>
+                                      {isSel && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="date"
+                          value={editDueDate}
+                          onChange={(e) => setEditDueDate(e.target.value)}
+                          className={`w-40 px-4 py-2.5 bg-white/90 border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all duration-200 shadow-sm ${editDueDate ? "border-accent/20" : "border-orange-300/60"}`}
+                        />
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="edit-field-3 flex justify-end gap-2 pt-1">
+                        <button onClick={cancelEdit} className="px-4 py-2 text-xs font-medium text-muted hover:text-foreground bg-white/60 border border-card-border/50 rounded-xl hover:bg-white/90 hover:shadow-sm transition-all duration-200">
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveEdit}
+                          disabled={!editContent.trim() || editAssignees.length === 0 || !editDueDate}
+                          className="px-5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-primary to-accent rounded-xl hover:shadow-lg hover:shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-30 disabled:hover:scale-100 disabled:hover:shadow-none"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
-                <div key={a.id} className="grid grid-cols-[1fr_140px_110px_40px] gap-3 px-5 py-3.5 items-center hover:bg-card-border/10 transition-colors min-w-[500px]">
+                <div key={a.id} className="grid grid-cols-[1fr_140px_110px_72px] gap-3 px-5 py-3.5 items-center hover:bg-card-border/10 transition-colors min-w-[540px]">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{a.content}</p>
                     <p className="text-[10px] text-muted">added by {a.user_name}</p>
@@ -3837,14 +4027,26 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
                       <span className="text-xs text-muted/50">No date</span>
                     )}
                   </div>
-                  <button
-                    onClick={() => { removeItem(a.id); if (boardBroadcast) boardBroadcast("remove", { phase: "action_items", id: a.id }); }}
-                    className="text-muted hover:text-danger transition-colors p-1 rounded-lg hover:bg-danger/10"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <button
+                      onClick={() => startEdit(a)}
+                      className="text-muted/60 hover:text-accent p-1.5 rounded-lg hover:bg-accent/10 hover:scale-110 active:scale-95 transition-all duration-200"
+                      title="Edit"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => { removeItem(a.id); if (boardBroadcast) boardBroadcast("remove", { phase: "action_items", id: a.id }); }}
+                      className="text-muted/60 hover:text-danger p-1.5 rounded-lg hover:bg-danger/10 hover:scale-110 active:scale-95 transition-all duration-200"
+                      title="Delete"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -3871,21 +4073,39 @@ function ActionItemsPhase({ employees, onNext, onPrev, boardEvent, boardBroadcas
 /* ------------------------------------------------------------------ */
 /*  Phase 8 – Appreciation (persisted)                                 */
 /* ------------------------------------------------------------------ */
-function AppreciationPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
+function AppreciationPhase({ employees = [], onNext, onPrev, boardEvent, boardBroadcast }) {
   const { items: kudos, loading, addItem, externalAdd } = useRetroItems("appreciation");
-  const [who, setWho] = useState("");
+  const [who, setWho] = useState(null);
   const [reason, setReason] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (!boardEvent || boardEvent.phase !== "appreciation") return;
     if (boardEvent.type === "add") externalAdd(boardEvent.item);
   }, [boardEvent, externalAdd]);
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+        setSearch("");
+      }
+    };
+    if (showDropdown) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showDropdown]);
+
+  const filteredEmployees = employees.filter((emp) =>
+    emp.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
   const handleAdd = async () => {
-    if (who.trim() && reason.trim()) {
-      const newItem = await addItem(`@${who.trim()}: ${reason.trim()}`);
+    if (who && reason.trim()) {
+      const newItem = await addItem(`@${who.name}: ${reason.trim()}`);
       if (newItem && boardBroadcast) boardBroadcast("add", { phase: "appreciation", item: newItem });
-      setWho("");
+      setWho(null);
       setReason("");
     }
   };
@@ -3895,33 +4115,102 @@ function AppreciationPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
       <PhaseHeader
         icon={<HandHeartIcon className="w-8 h-8" />}
         title="Appreciation"
-        description="Give shoutouts to teammates who made a difference this sprint."
+        description="Recognize outstanding contributions — give a shoutout to someone who made an impact."
       />
 
-      <div className="retro-gradient-border rounded-2xl overflow-hidden">
-        <div className="rounded-2xl p-5 flex gap-2" style={{ background: "linear-gradient(145deg, rgba(252, 231, 243, 0.3), rgba(240, 247, 244, 0.95), rgba(230, 236, 247, 0.9))" }}>
-          <input
-            value={who}
-            onChange={(e) => setWho(e.target.value)}
-            placeholder="Who?"
-            className="w-36 px-4 py-3 bg-background/80 border border-pink-200/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-pink-400/30 transition-all"
-          />
-          <input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            placeholder="What did they do that was awesome?"
-            className="flex-1 px-4 py-3 bg-background/80 border border-pink-200/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-pink-400/30 transition-all"
-          />
-          <button
-            onClick={handleAdd}
-            disabled={!who.trim() || !reason.trim()}
-            className="px-5 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-pink-500/20 hover:shadow-xl hover:shadow-pink-500/30 hover:scale-105 transition-all disabled:opacity-30 disabled:shadow-none btn-press"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </button>
+      <div className="retro-gradient-border rounded-2xl">
+        <div className="rounded-2xl p-5 space-y-3" style={{ background: "linear-gradient(145deg, rgba(252, 231, 243, 0.3), rgba(240, 247, 244, 0.95), rgba(230, 236, 247, 0.9))" }}>
+          <div className="flex gap-2 relative">
+            {/* Member dropdown */}
+            <div className="relative w-48 flex-shrink-0" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => { setShowDropdown(!showDropdown); setSearch(""); }}
+                className={`w-full flex items-center gap-2 px-4 py-3 bg-background/80 border border-pink-200/50 rounded-xl text-sm text-left transition-all focus:outline-none focus:ring-2 focus:ring-pink-400/30 ${
+                  who ? "text-foreground" : "text-muted/60"
+                }`}
+              >
+                {who ? (
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {who.avatar_url ? (
+                      <img src={who.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover border border-pink-200/50 flex-shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-[8px] font-bold text-white border border-pink-200/50 flex-shrink-0">
+                        {who.name?.charAt(0)?.toUpperCase()}
+                      </div>
+                    )}
+                    <span className="truncate">{who.name}</span>
+                  </div>
+                ) : (
+                  <span>Select a teammate</span>
+                )}
+                <svg className="w-4 h-4 ml-auto text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showDropdown && (
+                <div
+                  className="absolute z-50 left-0 mt-1 min-w-[220px] bg-card border border-card-border rounded-xl shadow-xl overflow-hidden"
+                  style={{ animation: "fadeInScale 0.15s ease-out" }}
+                >
+                  <div className="p-2 border-b border-card-border">
+                    <input
+                      autoFocus
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search members..."
+                      className="w-full px-3 py-1.5 bg-background/60 border border-card-border rounded-lg text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-pink-400/30"
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto">
+                    {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => (
+                      <button
+                        key={emp.id}
+                        onClick={() => { setWho(emp); setShowDropdown(false); setSearch(""); }}
+                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-pink-50/60 transition-colors ${
+                          who?.id === emp.id ? "bg-pink-50 text-pink-600 font-medium" : "text-foreground"
+                        }`}
+                      >
+                        {emp.avatar_url ? (
+                          <img src={emp.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-[9px] font-bold text-white">
+                            {emp.name?.charAt(0)?.toUpperCase()}
+                          </div>
+                        )}
+                        <span className="truncate">{emp.name}</span>
+                        {who?.id === emp.id && (
+                          <svg className="w-4 h-4 ml-auto text-pink-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    )) : (
+                      <p className="px-4 py-3 text-xs text-muted/60 italic">No members found</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+              placeholder="Describe their contribution or impact..."
+              className="flex-1 px-4 py-3 bg-background/80 border border-pink-200/50 rounded-xl text-sm text-foreground placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-pink-400/30 transition-all"
+            />
+            <button
+              onClick={handleAdd}
+              disabled={!who || !reason.trim()}
+              className="px-5 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-pink-500/20 hover:shadow-xl hover:shadow-pink-500/30 hover:scale-105 transition-all disabled:opacity-30 disabled:shadow-none btn-press"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -3964,8 +4253,8 @@ function AppreciationPhase({ onNext, onPrev, boardEvent, boardBroadcast }) {
       ) : (
         <div className="text-center py-12 text-muted/60">
           <span className="block mb-3 opacity-30 retro-float-slow"><HeartIcon className="w-12 h-12 mx-auto text-pink-400" /></span>
-          <p className="text-sm font-medium">No shoutouts yet</p>
-          <p className="text-xs text-muted/40 mt-0.5">Appreciate your teammates above!</p>
+          <p className="text-sm font-medium">No recognitions yet</p>
+          <p className="text-xs text-muted/40 mt-0.5">Select a teammate and acknowledge their contribution above</p>
         </div>
       )}
 
@@ -4620,19 +4909,21 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
   const [employees, setEmployees] = useState(allEmployees);
   const [facilitatorInfo, setFacilitatorInfo] = useState(null);
   const teamFetchedRef = useRef(null);
+  const finishedByBroadcastRef = useRef(false);
 
   useEffect(() => {
     if (!token) return;
     let active = true;
 
     const poll = async () => {
+      if (finishedByBroadcastRef.current) return;
       try {
         const res = await fetch(`/api/retro/session?_t=${Date.now()}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
         const data = await res.json();
-        if (!active) return;
+        if (!active || finishedByBroadcastRef.current) return;
         if (data.session) {
           setHasSession(true);
           setSessionId(data.session.id);
@@ -4676,6 +4967,7 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
   /* Real-time phase sync from facilitator (instant, supplements polling) */
   useEffect(() => {
     if (!parentPhaseEvent) return;
+    finishedByBroadcastRef.current = false;
     setCurrentPhase(parentPhaseEvent.phase);
     if (parentPhaseEvent.facilitator) {
       setFacilitatorInfo(parentPhaseEvent.facilitator);
@@ -4687,9 +4979,10 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
     onSessionPresenceChange?.(true);
   }, [parentPhaseEvent, sessionId, onSessionPresenceChange]);
 
-  /* Real-time finish sync from facilitator */
+  /* Real-time finish sync from facilitator — immediate redirect to lobby */
   useEffect(() => {
     if (!parentFinishEvent) return;
+    finishedByBroadcastRef.current = true;
     setHasSession(false);
     setSessionId(null);
     setSessionTeamIds([]);
@@ -4763,7 +5056,7 @@ function EmployeeRetroView({ token, employees: allEmployees, role, icebreakerSta
           {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={null} onPrev={null} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} groupBroadcast={groupBroadcast} groupEvent={groupEvent} />}
           {currentPhase === 6 && <VoteResultsPhase onNext={null} onPrev={null} />}
           {currentPhase === 7 && <ActionItemsPhase employees={employees} onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-          {currentPhase === 8 && <AppreciationPhase onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+          {currentPhase === 8 && <AppreciationPhase employees={employees} onNext={null} onPrev={null} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
           {currentPhase === 9 && <EmployeeMeetingWorthPicker actionEvent={actionEvent} />}
           {currentPhase === 10 && <CloseSummaryPhase onPrev={null} onFinish={null} />}
         </div>
@@ -6007,7 +6300,7 @@ export default function RetrospectivePage() {
             {currentPhase === 5 && <VotingPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} voteEvent={voteEvent} itemVoteEvent={itemVoteEvent} broadcastVoteChange={broadcastVoteChange} broadcastItemVote={broadcastItemVote} groupBroadcast={groupBroadcast} groupEvent={groupEvent} />}
             {currentPhase === 6 && <VoteResultsPhase onNext={navNext} onPrev={navPrev} />}
             {currentPhase === 7 && <ActionItemsPhase employees={employees} onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
-            {currentPhase === 8 && <AppreciationPhase onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
+            {currentPhase === 8 && <AppreciationPhase employees={employees} onNext={navNext} onPrev={navPrev} boardEvent={boardEvent} boardBroadcast={boardBroadcast} />}
             {currentPhase === 9 && <MeetingWorthPhase employees={employees} role={role} onNext={navNext} onPrev={navPrev} actionEvent={actionEvent} broadcastAction={canNavigate ? broadcastAction : null} />}
             {currentPhase === 10 && <CloseSummaryPhase onPrev={navPrev} onFinish={navFinish} />}
           </div>

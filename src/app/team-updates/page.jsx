@@ -10,9 +10,11 @@ const toLocalYMD = (d = new Date()) => {
 };
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
+import { getTeamLabel, getTeamColor } from "@/lib/teams";
 import AppLayout from "@/components/AppLayout";
 import DatePicker from "@/components/DatePicker";
+import TeamPicker from "@/components/TeamPicker";
+import MemberPicker from "@/components/MemberPicker";
 import { TeamUpdatesSkeleton } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 
@@ -160,6 +162,7 @@ export default function TeamUpdatesPage() {
   const [standups, setStandups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
+  const [selectedMember, setSelectedMember] = useState("all");
   const [selectedDate, setSelectedDate] = useState(() => toLocalYMD());
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -242,10 +245,29 @@ export default function TeamUpdatesPage() {
 
   if (!user) return null;
 
-  const displayed =
+  const teamFiltered =
     isLeader && selectedTeam !== "all"
       ? standups.filter((s) => (s.teams || []).includes(selectedTeam))
       : standups;
+
+  const uniqueMembers = Object.values(
+    teamFiltered.reduce((acc, s) => {
+      if (!acc[s.user_id]) {
+        acc[s.user_id] = {
+          user_id: s.user_id,
+          user_name: s.employee_name || "Unknown",
+          user_email: s.email || "",
+          user_avatar_url: s.avatar_url || null,
+        };
+      }
+      return acc;
+    }, {})
+  ).sort((a, b) => (a.user_name || "").localeCompare(b.user_name || ""));
+
+  const displayed =
+    selectedMember !== "all"
+      ? teamFiltered.filter((s) => s.user_id === selectedMember)
+      : teamFiltered;
 
   const displayedBlockerCount = displayed.filter((s) => s.blockers?.trim()).length;
   const dateLabel =
@@ -260,7 +282,7 @@ export default function TeamUpdatesPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-accent">Team Updates</h1>
@@ -275,33 +297,21 @@ export default function TeamUpdatesPage() {
           </div>
         </div>
 
-        {/* Date picker + Team filter - leaders only, stacked above cards */}
         {isLeader && (
-          <div className="relative z-10 space-y-3">
+          <div className="relative z-10 flex flex-wrap gap-3">
             <DatePicker value={selectedDate} onChange={setSelectedDate} />
-            <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSelectedTeam("all")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                selectedTeam === "all"
-                  ? "bg-accent text-white"
-                  : "bg-card border border-card-border text-muted hover:text-foreground"
-              }`}
-            >
-              All Teams
-            </button>
-            {TEAMS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setSelectedTeam(t.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                  selectedTeam === t.id ? t.color : "bg-card border border-card-border text-muted hover:text-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-            </div>
+            <TeamPicker
+              value={selectedTeam}
+              onChange={(team) => {
+                setSelectedTeam(team);
+                setSelectedMember("all");
+              }}
+            />
+            <MemberPicker
+              value={selectedMember}
+              onChange={setSelectedMember}
+              members={uniqueMembers}
+            />
           </div>
         )}
 
@@ -339,9 +349,17 @@ export default function TeamUpdatesPage() {
         ) : displayed.length === 0 ? (
           <EmptyState
             type="team"
-            title={`No updates yet${isLeader && selectedTeam !== "all" ? " for this team" : ""}`}
+            title={`No updates yet${
+              isLeader && selectedMember !== "all"
+                ? " for this member"
+                : isLeader && selectedTeam !== "all"
+                ? " for this team"
+                : ""
+            }`}
             description={
-              isLeader && selectedTeam !== "all"
+              isLeader && selectedMember !== "all"
+                ? "No standup updates found for this member on this date."
+                : isLeader && selectedTeam !== "all"
                 ? "No standup meeting has been completed for this team on this date."
                 : "The standup meeting hasn't been completed yet. Updates will appear here once the meeting is finished."
             }

@@ -94,7 +94,7 @@ export async function PATCH(req) {
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, done, content } = await req.json();
+  const { id, done, content, assignee, due_date } = await req.json();
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
   const { data: oldItem } = await supabaseAdmin
@@ -103,15 +103,22 @@ export async function PATCH(req) {
     .eq("id", id)
     .single();
 
-  if (content !== undefined) {
-    if (oldItem?.user_id !== user.id)
-      return NextResponse.json({ error: "You can only edit your own items" }, { status: 403 });
-    if (!content?.trim())
-      return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
+  if (content !== undefined || assignee !== undefined || due_date !== undefined) {
+    const updates = {};
+    if (content !== undefined) {
+      if (!content?.trim())
+        return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
+      updates.content = content.trim();
+    }
+    if (assignee !== undefined) updates.assignee = assignee?.trim() || null;
+    if (due_date !== undefined) updates.due_date = due_date || null;
+
+    if (Object.keys(updates).length === 0)
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
 
     const { error } = await supabaseAdmin
       .from("retro_items")
-      .update({ content: content.trim() })
+      .update(updates)
       .eq("id", id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -124,11 +131,11 @@ export async function PATCH(req) {
       actorId: user.id,
       actorName,
       oldData: oldItem,
-      newData: { ...oldItem, content: content.trim() },
+      newData: { ...oldItem, ...updates },
       metadata: { phase: oldItem?.phase, session_id: oldItem?.session_id },
     });
 
-    return NextResponse.json({ success: true, item: { ...oldItem, content: content.trim() } });
+    return NextResponse.json({ success: true, item: { ...oldItem, ...updates } });
   }
 
   const { error } = await supabaseAdmin
