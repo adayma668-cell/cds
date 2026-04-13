@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import AppLayout from "@/components/AppLayout";
 import DatePicker from "@/components/DatePicker";
+import TeamPicker from "@/components/TeamPicker";
+import MemberPicker from "@/components/MemberPicker";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
 
 const toLocalYMD = (d = new Date()) => {
@@ -274,6 +276,7 @@ export default function AdminTicketsPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
+  const [selectedMember, setSelectedMember] = useState("all");
   const [selectedDate, setSelectedDate] = useState(() => toLocalYMD());
   const prevTicketsRef = useRef(null);
 
@@ -361,10 +364,19 @@ export default function AdminTicketsPage() {
 
   const userList = Object.values(groupedByUser);
 
-  const filteredUsers =
+  const teamFilteredUsers =
     selectedTeam === "all"
       ? userList
       : userList.filter((u) => (u.user_teams || []).includes(selectedTeam));
+
+  const membersForPicker = teamFilteredUsers
+    .slice()
+    .sort((a, b) => (a.user_name || "").localeCompare(b.user_name || ""));
+
+  const filteredUsers =
+    selectedMember === "all"
+      ? teamFilteredUsers
+      : teamFilteredUsers.filter((u) => u.user_id === selectedMember);
 
   const byTeam = {};
   const noTeamUsers = [];
@@ -409,31 +421,20 @@ export default function AdminTicketsPage() {
           </div>
         </div>
 
-        <div className="relative z-10 space-y-3">
+        <div className="relative z-10 flex flex-wrap gap-3">
           <DatePicker value={selectedDate} onChange={setSelectedDate} />
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSelectedTeam("all")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors cursor-pointer ${
-                selectedTeam === "all"
-                  ? "bg-accent text-white border-accent"
-                  : "bg-card border-card-border text-muted hover:bg-background"
-              }`}
-            >
-              All
-            </button>
-            {TEAMS.map((team) => (
-              <button
-                key={team.id}
-                onClick={() => setSelectedTeam(team.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors cursor-pointer ${
-                  selectedTeam === team.id ? team.color : "bg-card border-card-border text-muted hover:bg-background"
-                }`}
-              >
-                {team.label}
-              </button>
-            ))}
-          </div>
+          <TeamPicker
+            value={selectedTeam}
+            onChange={(team) => {
+              setSelectedTeam(team);
+              setSelectedMember("all");
+            }}
+          />
+          <MemberPicker
+            value={selectedMember}
+            onChange={setSelectedMember}
+            members={membersForPicker}
+          />
         </div>
 
         {loading ? (
@@ -444,7 +445,9 @@ export default function AdminTicketsPage() {
         ) : filteredUsers.length === 0 ? (
           <div className="bg-card rounded-2xl border border-card-border p-12 text-center">
             <p className="text-muted">
-              {selectedTeam === "all"
+              {selectedMember !== "all"
+                ? "No tickets found for this member."
+                : selectedTeam === "all"
                 ? "No tickets found."
                 : "No users with tickets in this team."}
             </p>

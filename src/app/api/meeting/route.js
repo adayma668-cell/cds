@@ -66,29 +66,35 @@ export async function GET(request) {
     (authUsers || []).map((u) => [u.id, u.user_metadata?.avatar_url || null])
   );
 
+  const superAdminIds = new Set(
+    employees.filter((e) => e.role === "super_admin").map((e) => e.id)
+  );
+
   const submittedUserIds = new Set(standups.map((s) => s.user_id));
 
-  const submitted = standups.map((s) => {
-    const emp = employees.find((e) => e.id === s.user_id);
-    return {
-      id: s.id,
-      user_id: s.user_id,
-      name: s.employee_name || emp?.name || "Unknown",
-      email: emp?.email || "",
-      avatar_url: avatarMap[s.user_id] || null,
-      teams: emp?.teams || [],
-      ticket_number: s.ticket_number,
-      due_date: s.due_date,
-      mood: s.mood,
-      yesterday: s.yesterday,
-      today: s.today,
-      blockers: s.blockers,
-      created_at: s.created_at,
-    };
-  });
+  const submitted = standups
+    .filter((s) => !superAdminIds.has(s.user_id))
+    .map((s) => {
+      const emp = employees.find((e) => e.id === s.user_id);
+      return {
+        id: s.id,
+        user_id: s.user_id,
+        name: s.employee_name || emp?.name || "Unknown",
+        email: emp?.email || "",
+        avatar_url: avatarMap[s.user_id] || null,
+        teams: emp?.teams || [],
+        ticket_number: s.ticket_number,
+        due_date: s.due_date,
+        mood: s.mood,
+        yesterday: s.yesterday,
+        today: s.today,
+        blockers: s.blockers,
+        created_at: s.created_at,
+      };
+    });
 
   const pending = employees
-    .filter((e) => !submittedUserIds.has(e.id))
+    .filter((e) => !submittedUserIds.has(e.id) && e.role !== "super_admin")
     .map((e) => ({
       id: e.id,
       name: e.name || e.email,
