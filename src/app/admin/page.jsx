@@ -574,101 +574,165 @@ export default function AdminPage() {
               {filteredUsers.map((u) => (
                 <div
                   key={u.id}
-                  className="px-6 sm:px-8 py-4 hover:bg-primary-light/20 transition-colors"
+                  className="px-4 sm:px-8 py-4 hover:bg-primary-light/20 transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3 min-w-0">
+                  {/* Desktop layout */}
+                  <div className="hidden sm:block">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {u.avatar_url ? (
+                          <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-card-border">
+                            <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center shrink-0">
+                            <span className="text-sm font-bold text-accent">
+                              {(u.name || u.email).charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{u.name || "—"}</p>
+                          <p className="text-xs text-muted truncate">{u.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-4 flex-wrap justify-end">
+                        {!u.password_set && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                            Invite Pending
+                          </span>
+                        )}
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_BADGE[u.role] || ROLE_BADGE.employee}`}>
+                          {u.role.replace("_", " ")}
+                        </span>
+                        <span className="text-[10px] text-muted">
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </span>
+                        {u.id !== user.id && (
+                          <>
+                            <button
+                              onClick={() => handleResendInvite(u)}
+                              disabled={resendingInvite === u.id}
+                              className="text-xs font-medium text-primary hover:text-primary-dark hover:bg-primary-light px-2 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
+                            >
+                              {resendingInvite === u.id ? (
+                                <div className="w-3 h-3 border-[1.5px] border-primary border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                              Resend
+                            </button>
+                            <button
+                              onClick={() => openEdit(u)}
+                              className="text-xs font-medium text-accent hover:text-accent-dark hover:bg-accent-light px-2 py-1 rounded-md transition-colors cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm({ userId: u.id, email: u.email })}
+                              className="text-xs font-medium text-danger hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                        {u.id === user.id && (
+                          <span className="text-xs font-medium text-primary">You</span>
+                        )}
+                      </div>
+                    </div>
+                    {(u.teams || []).length > 0 && (
+                      <div className="flex items-center gap-1.5 pl-12">
+                        {u.teams.map((teamId) => (
+                          <span
+                            key={teamId}
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getTeamColor(teamId)}`}
+                          >
+                            {getTeamLabel(teamId)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mobile layout */}
+                  <div className="sm:hidden space-y-3">
+                    <div className="flex items-start gap-3">
                       {u.avatar_url ? (
-                        <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-card-border">
-                          <img
-                            src={u.avatar_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
+                        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-card-border">
+                          <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
                         </div>
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-accent-light flex items-center justify-center shrink-0">
                           <span className="text-sm font-bold text-accent">
                             {(u.name || u.email).charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {u.name || "—"}
-                        </p>
-                        <p className="text-xs text-muted truncate">
-                          {u.email}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground truncate">{u.name || "—"}</p>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${ROLE_BADGE[u.role] || ROLE_BADGE.employee}`}>
+                            {u.role.replace("_", " ")}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted truncate mt-0.5">{u.email}</p>
+                        {!u.password_set && (
+                          <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                            Invite Pending
+                          </span>
+                        )}
+                        {(u.teams || []).length > 0 && (
+                          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            {u.teams.map((teamId) => (
+                              <span
+                                key={teamId}
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getTeamColor(teamId)}`}
+                              >
+                                {getTeamLabel(teamId)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-4 flex-wrap justify-end">
-                      {!u.password_set && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                          Invite Pending
-                        </span>
-                      )}
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                          ROLE_BADGE[u.role] || ROLE_BADGE.employee
-                        }`}
-                      >
-                        {u.role.replace("_", " ")}
-                      </span>
-                      <span className="text-[10px] text-muted hidden sm:inline">
-                        {new Date(u.created_at).toLocaleDateString()}
-                      </span>
-                      {u.id !== user.id && (
-                        <>
-                          <button
-                            onClick={() => handleResendInvite(u)}
-                            disabled={resendingInvite === u.id}
-                            className="text-xs font-medium text-primary hover:text-primary-dark hover:bg-primary-light px-2 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
-                          >
-                            {resendingInvite === u.id ? (
-                              <div className="w-3 h-3 border-[1.5px] border-primary border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                              </svg>
-                            )}
-                            Resend
-                          </button>
-                          <button
-                            onClick={() => openEdit(u)}
-                            className="text-xs font-medium text-accent hover:text-accent-dark hover:bg-accent-light px-2 py-1 rounded-md transition-colors cursor-pointer"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm({ userId: u.id, email: u.email })}
-                            className="text-xs font-medium text-danger hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md transition-colors cursor-pointer"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                      {u.id === user.id && (
-                        <span className="text-xs font-medium text-primary">
-                          You
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {(u.teams || []).length > 0 && (
-                    <div className="flex items-center gap-1.5 pl-12">
-                      {u.teams.map((teamId) => (
-                        <span
-                          key={teamId}
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getTeamColor(
-                            teamId
-                          )}`}
+                    {u.id !== user.id ? (
+                      <div className="flex items-center gap-1 pl-[52px] border-t border-card-border/30 pt-2">
+                        <button
+                          onClick={() => handleResendInvite(u)}
+                          disabled={resendingInvite === u.id}
+                          className="text-xs font-medium text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1"
                         >
-                          {getTeamLabel(teamId)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                          {resendingInvite === u.id ? (
+                            <div className="w-3 h-3 border-[1.5px] border-primary border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          Resend
+                        </button>
+                        <button
+                          onClick={() => openEdit(u)}
+                          className="text-xs font-medium text-accent hover:bg-accent-light px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm({ userId: u.id, email: u.email })}
+                          className="text-xs font-medium text-danger hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="pl-[52px]">
+                        <span className="text-xs font-medium text-primary">You</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

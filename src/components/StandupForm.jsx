@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuthContext } from "@/context/AuthContext";
 
 const STATUS_COLORS = {
   in_progress: "bg-blue-50 text-blue-600 border-blue-200",
@@ -247,11 +248,17 @@ function PreviewEntry({ ticket, description, badgeBg, badgeText, borderColor }) 
   );
 }
 
-const DRAFT_KEY = "standup-form-draft";
+const DRAFT_KEY_PREFIX = "standup-form-draft";
 
-function loadDraft() {
+function getDraftKey(userId) {
+  return userId ? `${DRAFT_KEY_PREFIX}-${userId}` : null;
+}
+
+function loadDraft(userId) {
+  const key = getDraftKey(userId);
+  if (!key) return null;
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY);
+    const raw = sessionStorage.getItem(key);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -259,22 +266,42 @@ function loadDraft() {
   }
 }
 
-function saveDraft(yesterday, today, blockers) {
+function saveDraft(userId, yesterday, today, blockers) {
+  const key = getDraftKey(userId);
+  if (!key) return;
   try {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ yesterday, today, blockers }));
+    sessionStorage.setItem(key, JSON.stringify({ yesterday, today, blockers }));
   } catch { /* quota exceeded – ignore */ }
 }
 
-function clearDraft() {
-  try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+function clearDraft(userId) {
+  const key = getDraftKey(userId);
+  if (!key) return;
+  try { sessionStorage.removeItem(key); } catch { /* ignore */ }
 }
+
+function clearAllDrafts() {
+  try {
+    const keys = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith(DRAFT_KEY_PREFIX)) keys.push(k);
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
+
+export { clearAllDrafts };
 
 const defaultEntry = () => [{ ticketId: "", description: "" }];
 
 export default function StandupForm({ onSubmitted }) {
-  const [yesterdayEntries, setYesterdayEntries] = useState(() => loadDraft()?.yesterday || defaultEntry());
-  const [todayEntries, setTodayEntries] = useState(() => loadDraft()?.today || defaultEntry());
-  const [blockerEntries, setBlockerEntries] = useState(() => loadDraft()?.blockers || defaultEntry());
+  const { user } = useAuthContext();
+  const userId = user?.id;
+  const [yesterdayEntries, setYesterdayEntries] = useState(defaultEntry);
+  const [todayEntries, setTodayEntries] = useState(defaultEntry);
+  const [blockerEntries, setBlockerEntries] = useState(defaultEntry);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -282,8 +309,22 @@ export default function StandupForm({ onSubmitted }) {
   const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
-    saveDraft(yesterdayEntries, todayEntries, blockerEntries);
-  }, [yesterdayEntries, todayEntries, blockerEntries]);
+    if (!userId) return;
+    // Clean up old un-scoped draft key from before per-user scoping
+    try { sessionStorage.removeItem("standup-form-draft"); } catch { /* ignore */ }
+    const draft = loadDraft(userId);
+    if (draft) {
+      setYesterdayEntries(draft.yesterday || defaultEntry());
+      setTodayEntries(draft.today || defaultEntry());
+      setBlockerEntries(draft.blockers || defaultEntry());
+    }
+    setDraftLoaded(true);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!draftLoaded || !userId) return;
+    saveDraft(userId, yesterdayEntries, todayEntries, blockerEntries);
+  }, [yesterdayEntries, todayEntries, blockerEntries, draftLoaded, userId]);
 
   useEffect(() => {
     async function fetchTickets() {
@@ -341,7 +382,7 @@ export default function StandupForm({ onSubmitted }) {
         }),
       });
       if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Failed to submit standup"); }
-      clearDraft();
+      clearDraft(userId);
       if (onSubmitted) {
         onSubmitted({
           yesterday: buildText(yesterdayEntries), today: buildText(todayEntries), blockers: buildText(blockerEntries),

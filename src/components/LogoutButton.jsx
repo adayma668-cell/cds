@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { clearAllDrafts } from "@/components/StandupForm";
 
 export default function LogoutButton({ collapsed }) {
   const [signingOut, setSigningOut] = useState(false);
@@ -10,7 +11,10 @@ export default function LogoutButton({ collapsed }) {
     setSigningOut(true);
     try {
       await supabase.auth.signOut();
-      if (typeof window !== "undefined") sessionStorage.removeItem("csu-greeting-shown");
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("csu-greeting-shown");
+        clearAllDrafts();
+      }
       window.location.href = "/";
     } catch {
       setSigningOut(false);
