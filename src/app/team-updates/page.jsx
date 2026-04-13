@@ -173,8 +173,8 @@ export default function TeamUpdatesPage() {
     } = await supabase.auth.getSession();
     const dateParam = selectedDate === toLocalYMD() ? "today" : selectedDate;
     const url = isLeader
-      ? `/api/standup?date=${dateParam}&include=teams`
-      : `/api/standup?date=${dateParam}`;
+      ? `/api/standup?date=${dateParam}&include=teams&presented=true`
+      : `/api/standup?date=${dateParam}&presented=true`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });
@@ -342,13 +342,8 @@ export default function TeamUpdatesPage() {
             title={`No updates yet${isLeader && selectedTeam !== "all" ? " for this team" : ""}`}
             description={
               isLeader && selectedTeam !== "all"
-                ? "No members from this team have submitted their standup for this date."
-                : "No standups submitted for this date yet."
-            }
-            action={
-              <p className="text-sm text-muted">
-                Be the first to submit your standup for today.
-              </p>
+                ? "No standup meeting has been completed for this team on this date."
+                : "The standup meeting hasn't been completed yet. Updates will appear here once the meeting is finished."
             }
           />
         ) : (

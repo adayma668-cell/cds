@@ -4,7 +4,15 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import AppLayout from "@/components/AppLayout";
+import DatePicker from "@/components/DatePicker";
 import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
+
+const toLocalYMD = (d = new Date()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 const STATUS_OPTIONS = [
   { value: "to_be_done", label: "To Be Done", color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -22,6 +30,208 @@ function formatDate(dateStr) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatDateTime(isoStr) {
+  if (!isoStr) return "—";
+  return new Date(isoStr).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatCreatedDate(isoStr) {
+  if (!isoStr) return "—";
+  return new Date(isoStr).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+const ACTION_LABELS = {
+  created: { label: "Created", color: "text-green-700 bg-green-50 border-green-200" },
+  updated: { label: "Updated", color: "text-blue-700 bg-blue-50 border-blue-200" },
+  status_changed: { label: "Status Changed", color: "text-purple-700 bg-purple-50 border-purple-200" },
+  deleted: { label: "Deleted", color: "text-red-700 bg-red-50 border-red-200" },
+};
+
+function ChangeItem({ field, oldVal, newVal }) {
+  const fieldLabels = {
+    due_date: "Due Date",
+    status: "Status",
+    ticket_number: "Ticket #",
+    description: "Description",
+  };
+  const label = fieldLabels[field] || field;
+
+  const format = (val) => {
+    if (val === null || val === undefined) return "—";
+    if (field === "due_date") return formatDate(val);
+    if (field === "status") {
+      const opt = STATUS_OPTIONS.find((s) => s.value === val);
+      return opt ? opt.label : val;
+    }
+    return String(val);
+  };
+
+  return (
+    <div className="flex items-start gap-2 text-xs">
+      <span className="font-semibold text-muted w-20 shrink-0">{label}</span>
+      <span className="text-red-500 line-through">{format(oldVal)}</span>
+      <svg className="w-3 h-3 text-muted shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+      <span className="text-green-600 font-medium">{format(newVal)}</span>
+    </div>
+  );
+}
+
+function TicketCard({ ticket }) {
+  const [expanded, setExpanded] = useState(false);
+  const [auditLogs, setAuditLogs] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const statusOpt = STATUS_OPTIONS.find((s) => s.value === ticket.status) || STATUS_OPTIONS[0];
+
+  const fetchAuditLogs = async () => {
+    if (auditLogs) return;
+    setAuditLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `/api/admin/audit?entity_type=ticket&entity_id=${ticket.id}&limit=50`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs || []);
+      }
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const handleToggle = () => {
+    if (!expanded) fetchAuditLogs();
+    setExpanded((prev) => !prev);
+  };
+
+  return (
+    <div className="rounded-xl bg-background border border-card-border overflow-hidden">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="w-full text-left flex flex-wrap items-start justify-between gap-3 py-3 px-4 cursor-pointer hover:bg-primary-light/5 transition-colors"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground">
+            {ticket.ticket_number}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+            {ticket.created_at && (
+              <span className="text-xs text-muted">
+                Created: {formatCreatedDate(ticket.created_at)}
+              </span>
+            )}
+            {ticket.due_date && (
+              <span className="text-xs text-muted">
+                Due: {formatDate(ticket.due_date)}
+              </span>
+            )}
+          </div>
+          {ticket.description && (
+            <p className="text-sm text-muted mt-1 whitespace-pre-wrap line-clamp-2">
+              {ticket.description}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${statusOpt.color}`}>
+            {statusOpt.label}
+          </span>
+          <svg
+            className={`w-4 h-4 text-muted transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      <div
+        className={`transition-all duration-300 ease-in-out overflow-hidden ${
+          expanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <div className="px-4 pb-4 pt-1 border-t border-card-border/50">
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-xs font-semibold text-accent uppercase tracking-wider">Activity Log</p>
+          </div>
+
+          {auditLoading ? (
+            <div className="flex items-center gap-2 py-3">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-muted">Loading history...</span>
+            </div>
+          ) : auditLogs && auditLogs.length > 0 ? (
+            <div className="relative pl-4 space-y-0">
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-card-border" />
+              {auditLogs.map((log, i) => {
+                const actionInfo = ACTION_LABELS[log.action] || { label: log.action, color: "text-gray-700 bg-gray-50 border-gray-200" };
+                const changes = log.changes || {};
+                const changeKeys = Object.keys(changes);
+
+                return (
+                  <div key={log.id || i} className="relative pb-3 last:pb-0">
+                    <div className="absolute -left-[9px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-card bg-accent-light ring-2 ring-card" />
+                    <div className="ml-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${actionInfo.color}`}>
+                          {actionInfo.label}
+                        </span>
+                        <span className="text-[11px] text-muted">
+                          by {log.actor_name || "Unknown"}
+                        </span>
+                        <span className="text-[10px] text-muted/70">
+                          {formatDateTime(log.created_at)}
+                        </span>
+                      </div>
+                      {changeKeys.length > 0 && (
+                        <div className="mt-1.5 space-y-1 bg-card/50 rounded-lg p-2 border border-card-border/50">
+                          {changeKeys.map((key) => (
+                            <ChangeItem
+                              key={key}
+                              field={key}
+                              oldVal={changes[key].old}
+                              newVal={changes[key].new}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted py-2">No activity recorded yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function UserAvatar({ url, name }) {
@@ -52,6 +262,7 @@ export default function AdminTicketsPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
+  const [selectedDate, setSelectedDate] = useState(() => toLocalYMD());
   const prevTicketsRef = useRef(null);
 
   const fetchTickets = useCallback(async () => {
@@ -60,7 +271,8 @@ export default function AdminTicketsPage() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session?.access_token) return;
-      const res = await fetch("/api/admin/tickets", {
+      const dateParam = selectedDate === toLocalYMD() ? "today" : selectedDate;
+      const res = await fetch(`/api/admin/tickets?date=${dateParam}`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) return;
@@ -77,10 +289,13 @@ export default function AdminTicketsPage() {
     } catch {
       setLoading(false);
     }
-  }, []);
+  }, [selectedDate]);
 
   useEffect(() => {
-    if (user) fetchTickets();
+    if (user) {
+      setLoading(true);
+      fetchTickets();
+    }
   }, [user, fetchTickets]);
 
   // Supabase Realtime subscription for instant updates
@@ -160,13 +375,30 @@ export default function AdminTicketsPage() {
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-accent">All Tickets</h1>
             <p className="text-sm text-muted mt-1">
-              View all tickets across all users, organized by team
+              {selectedDate === toLocalYMD()
+                ? "Today"
+                : new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+              {" "}&middot; {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""} with tickets
             </p>
           </div>
+          <div className="w-12 h-12 rounded-xl bg-primary-light flex items-center justify-center">
+            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 0V3m0 4h-4a2 2 0 00-2 2v1m6-3h4a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2h4m0 0V5" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="relative z-10 space-y-3">
+          <DatePicker value={selectedDate} onChange={setSelectedDate} />
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setSelectedTeam("all")}
@@ -265,39 +497,9 @@ export default function AdminTicketsPage() {
                         </div>
 
                         <div className="pl-0 sm:pl-16 space-y-2 mt-3 sm:mt-0">
-                          {u.tickets.map((ticket) => {
-                            const statusOpt =
-                              STATUS_OPTIONS.find(
-                                (s) => s.value === ticket.status
-                              ) || STATUS_OPTIONS[0];
-                            return (
-                              <div
-                                key={ticket.id}
-                                className="flex flex-wrap items-start justify-between gap-3 py-3 px-4 rounded-xl bg-background border border-card-border"
-                              >
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-foreground">
-                                    {ticket.ticket_number}
-                                  </p>
-                                  {ticket.due_date && (
-                                    <span className="text-xs text-muted">
-                                      Due: {formatDate(ticket.due_date)}
-                                    </span>
-                                  )}
-                                  {ticket.description && (
-                                    <p className="text-sm text-muted mt-1 whitespace-pre-wrap line-clamp-2">
-                                      {ticket.description}
-                                    </p>
-                                  )}
-                                </div>
-                                <span
-                                  className={`text-xs font-semibold px-2.5 py-1 rounded-lg border shrink-0 ${statusOpt.color}`}
-                                >
-                                  {statusOpt.label}
-                                </span>
-                              </div>
-                            );
-                          })}
+                          {u.tickets.map((ticket) => (
+                            <TicketCard key={ticket.id} ticket={ticket} />
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -334,39 +536,9 @@ export default function AdminTicketsPage() {
                         </div>
                       </div>
                       <div className="pl-0 sm:pl-16 space-y-2">
-                        {u.tickets.map((ticket) => {
-                          const statusOpt =
-                            STATUS_OPTIONS.find(
-                              (s) => s.value === ticket.status
-                            ) || STATUS_OPTIONS[0];
-                          return (
-                            <div
-                              key={ticket.id}
-                              className="flex flex-wrap items-start justify-between gap-3 py-3 px-4 rounded-xl bg-background border border-card-border"
-                            >
-                              <div className="min-w-0">
-                                <p className="font-semibold text-foreground">
-                                  {ticket.ticket_number}
-                                </p>
-                                {ticket.due_date && (
-                                  <span className="text-xs text-muted">
-                                    Due: {formatDate(ticket.due_date)}
-                                  </span>
-                                )}
-                                {ticket.description && (
-                                  <p className="text-sm text-muted mt-1 whitespace-pre-wrap line-clamp-2">
-                                    {ticket.description}
-                                  </p>
-                                )}
-                              </div>
-                              <span
-                                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border shrink-0 ${statusOpt.color}`}
-                              >
-                                {statusOpt.label}
-                              </span>
-                            </div>
-                          );
-                        })}
+                        {u.tickets.map((ticket) => (
+                          <TicketCard key={ticket.id} ticket={ticket} />
+                        ))}
                       </div>
                     </div>
                   ))}

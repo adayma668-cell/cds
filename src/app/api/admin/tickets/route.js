@@ -27,15 +27,31 @@ export async function GET(req) {
   if (!admin)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const { searchParams } = new URL(req.url);
+  const date = searchParams.get("date");
+
+  let ticketsQuery = supabaseAdmin
+    .from("tickets")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (date) {
+    const dateStr = date === "today"
+      ? new Date().toLocaleDateString("en-CA")
+      : date;
+    const start = dateStr + "T00:00:00.000Z";
+    const end = dateStr + "T23:59:59.999Z";
+    ticketsQuery = ticketsQuery.or(
+      `due_date.eq.${dateStr},and(created_at.gte.${start},created_at.lte.${end})`
+    );
+  }
+
   const [
     { data: tickets, error: ticketsError },
     { data: employees, error: employeesError },
     { data: { users: authUsers }, error: authError },
   ] = await Promise.all([
-    supabaseAdmin
-      .from("tickets")
-      .select("*")
-      .order("created_at", { ascending: false }),
+    ticketsQuery,
     supabaseAdmin.from("employees").select("id, name, email, teams"),
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
   ]);

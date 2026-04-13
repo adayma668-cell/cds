@@ -35,21 +35,17 @@ export async function GET(request) {
   }
 
   if (date) {
-    const d = date === "today"
-      ? new Date()
-      : new Date(date + "T12:00:00");
-    const start = new Date(d);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(d);
-    end.setHours(23, 59, 59, 999);
-    query = query
-      .gte("created_at", start.toISOString())
-      .lte("created_at", end.toISOString());
+    const dateStr = date === "today"
+      ? new Date().toLocaleDateString("en-CA")
+      : date;
+    query = query.eq("standup_date", dateStr);
   }
 
   const presented = searchParams.get("presented");
   if (presented === "false") {
     query = query.or("presented.eq.false,presented.is.null");
+  } else if (presented === "true") {
+    query = query.eq("presented", true);
   }
 
   query = query.order("created_at", { ascending: false });
@@ -105,17 +101,13 @@ export async function POST(request) {
     );
   }
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const todayStr = new Date().toLocaleDateString("en-CA");
 
   const { data: existing } = await supabaseAdmin
     .from("standups")
     .select("*")
     .eq("user_id", user.id)
-    .gte("created_at", todayStart.toISOString())
-    .lte("created_at", todayEnd.toISOString())
+    .eq("standup_date", todayStr)
     .or("presented.eq.false,presented.is.null")
     .limit(1);
 
@@ -162,6 +154,7 @@ export async function POST(request) {
     today,
     blockers: blockers || "",
     mood: mood || "good",
+    standup_date: todayStr,
     created_at: new Date().toISOString(),
   };
 
