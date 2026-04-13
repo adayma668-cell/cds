@@ -676,7 +676,7 @@ export default function Submit() {
 
   return (
     <AppLayout>
-      <div className={`mx-auto px-4 sm:px-6 py-10 space-y-6 ${isInMeeting ? "max-w-3xl" : "max-w-lg"}`}>
+      <div className={`mx-auto px-4 sm:px-6 py-10 space-y-6 ${isInMeeting ? "max-w-3xl" : "max-w-2xl"}`}>
         {/* Form phase — not yet submitted */}
         {!submittedData && (
           <>
@@ -684,7 +684,7 @@ export default function Submit() {
               <h1 className="text-2xl font-bold text-accent">Submit Standup</h1>
               <p className="text-sm text-muted">Share your daily update</p>
             </div>
-            <div className="bg-card rounded-2xl border border-card-border shadow-sm p-6 sm:p-8">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-card-border/60 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_4px_rgba(0,0,0,0.02)] p-5 sm:p-7">
               <StandupForm onSubmitted={handleSubmitted} />
             </div>
           </>

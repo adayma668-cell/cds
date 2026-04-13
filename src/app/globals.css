@@ -935,3 +935,48 @@ nav {
     animation: none;
   }
 }
+
+/* ---- Standup Form: Premium Animations ---- */
+
+@keyframes standupSectionIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes standupEntryIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes standupDropdownIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.standup-section-in {
+  animation: standupSectionIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.standup-section-in:nth-child(1) { animation-delay: 0.02s; }
+.standup-section-in:nth-child(3) { animation-delay: 0.06s; }
+.standup-section-in:nth-child(5) { animation-delay: 0.1s; }
+
+.standup-entry-in {
+  animation: standupEntryIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.standup-dropdown-in {
+  animation: standupDropdownIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.standup-bullet-text {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .standup-section-in,
+  .standup-entry-in,
+  .standup-dropdown-in {
+    animation: none;
+  }
+}

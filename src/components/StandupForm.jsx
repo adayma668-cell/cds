@@ -6,11 +6,56 @@ import { supabase } from "@/lib/supabase";
 import { useAuthContext } from "@/context/AuthContext";
 
 const STATUS_COLORS = {
-  in_progress: "bg-blue-50 text-blue-600 border-blue-200",
-  to_be_done: "bg-amber-50 text-amber-600 border-amber-200",
+  in_progress: "bg-blue-100/80 text-blue-700 border-blue-200/60",
+  to_be_done: "bg-amber-100/80 text-amber-700 border-amber-200/60",
   closed: "bg-gray-100 text-gray-500 border-gray-200",
 };
 const STATUS_LABELS = { in_progress: "In Progress", to_be_done: "To Do", closed: "Closed" };
+
+const SECTION_META = {
+  Yesterday: {
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    accentBg: "bg-violet-500",
+    accentText: "text-violet-600",
+    accentLight: "bg-violet-50",
+    accentBorder: "border-violet-100",
+    ringColor: "ring-violet-500/20",
+    step: "1",
+    subtitle: "What did you accomplish?",
+  },
+  Today: {
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    accentBg: "bg-primary",
+    accentText: "text-primary-dark",
+    accentLight: "bg-primary-light",
+    accentBorder: "border-primary/15",
+    ringColor: "ring-primary/20",
+    step: "2",
+    subtitle: "What will you work on?",
+  },
+  Blockers: {
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    ),
+    accentBg: "bg-orange-500",
+    accentText: "text-orange-600",
+    accentLight: "bg-orange-50",
+    accentBorder: "border-orange-100",
+    ringColor: "ring-orange-500/20",
+    step: "3",
+    subtitle: "Anything blocking progress?",
+  },
+};
 
 const TicketsCtx = createContext({ tickets: [], activeTickets: [] });
 
@@ -46,13 +91,13 @@ function TicketSelect({ value, usedIds, onChange, containerRef }) {
     const r = anchor.getBoundingClientRect();
     const tr = triggerRef.current?.getBoundingClientRect();
     const spaceBelow = window.innerHeight - (tr?.bottom || r.bottom);
-    const dropH = 240;
+    const dropH = 280;
     const goUp = spaceBelow < dropH && (tr?.top || r.top) > spaceBelow;
     setPos({
-      top: goUp ? undefined : (tr?.bottom || r.bottom) + 4,
-      bottom: goUp ? window.innerHeight - (tr?.top || r.top) + 4 : undefined,
+      top: goUp ? undefined : (tr?.bottom || r.bottom) + 6,
+      bottom: goUp ? window.innerHeight - (tr?.top || r.top) + 6 : undefined,
       left: r.left,
-      width: r.width,
+      width: Math.max(r.width, 320),
     });
     setOpen(true);
   };
@@ -66,37 +111,49 @@ function TicketSelect({ value, usedIds, onChange, containerRef }) {
   const dropdown = open && pos && createPortal(
     <div
       ref={dropRef}
-      className="fixed z-[9999] rounded-lg border border-card-border bg-card shadow-2xl overflow-hidden"
+      className="fixed z-[9999] rounded-xl border border-card-border/80 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden standup-dropdown-in"
       style={{ top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width }}
     >
-      <div className="px-2 py-1.5 border-b border-card-border/50">
-        <input
-          ref={inputRef}
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search tickets..."
-          className="w-full rounded-md border border-card-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary/40"
-        />
+      <div className="px-3 py-2.5 border-b border-card-border/40 bg-gray-50/50">
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by ticket # or title..."
+            className="w-full rounded-lg border border-card-border/60 bg-white pl-8 pr-3 py-2 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted/35"
+          />
+        </div>
       </div>
-      <div className="max-h-[200px] overflow-y-auto">
+      <div className="max-h-[220px] overflow-y-auto">
         {available.length === 0 ? (
-          <p className="text-xs text-muted text-center py-4">
-            {search ? "No matches" : "No tickets available"}
-          </p>
+          <div className="text-center py-6 px-4">
+            <svg className="w-8 h-8 text-muted/20 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-muted/50 font-medium">
+              {search ? "No matching tickets" : "No tickets available"}
+            </p>
+          </div>
         ) : (
           available.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
-              className="w-full px-2.5 py-2 text-left flex items-center gap-2 hover:bg-primary-light/30 transition-colors cursor-pointer border-b border-card-border/20 last:border-0"
+              className="w-full px-3 py-2.5 text-left flex items-start gap-3 hover:bg-primary-light/40 transition-colors cursor-pointer border-b border-card-border/15 last:border-0 group"
             >
-              <span className="text-[11px] font-bold text-accent shrink-0">{t.ticket_number}</span>
-              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
-                {STATUS_LABELS[t.status] || t.status}
-              </span>
-              {t.title && <span className="text-xs text-foreground/60 truncate">{t.title}</span>}
+              <span className="text-xs font-bold text-accent bg-accent-light px-2 py-0.5 rounded-md shrink-0 mt-0.5 group-hover:bg-accent/10 transition-colors">{t.ticket_number}</span>
+              <div className="flex-1 min-w-0">
+                {t.title && <p className="text-sm text-foreground/80 leading-snug truncate">{t.title}</p>}
+                <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border mt-1 ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
+                  {STATUS_LABELS[t.status] || t.status}
+                </span>
+              </div>
             </button>
           ))
         )}
@@ -108,27 +165,29 @@ function TicketSelect({ value, usedIds, onChange, containerRef }) {
   if (ticket) {
     return (
       <>
-        <div ref={triggerRef} className="flex items-center gap-1.5 min-w-0">
-          <button
-            type="button"
-            onClick={openDrop}
-            className="flex items-center gap-1.5 min-w-0 px-2 py-1 rounded-md bg-primary-light/40 border border-primary/15 hover:border-primary/30 transition-colors cursor-pointer"
-          >
-            <span className="text-[11px] font-bold text-primary-dark shrink-0">{ticket.ticket_number}</span>
-            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[ticket.status] || STATUS_COLORS.to_be_done}`}>
-              {STATUS_LABELS[ticket.status] || ticket.status}
-            </span>
-            {ticket.title && <span className="text-[11px] text-foreground/60 truncate">{ticket.title}</span>}
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            className="w-5 h-5 rounded flex items-center justify-center text-muted/40 hover:text-danger hover:bg-red-50/80 transition-colors cursor-pointer shrink-0"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <div ref={triggerRef} className="w-full">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-accent-light/60 via-accent-light/40 to-primary-light/30 border border-accent/10">
+            <button
+              type="button"
+              onClick={openDrop}
+              className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <span className="text-sm font-bold text-accent bg-white/80 px-2 py-0.5 rounded-md shadow-sm shrink-0">{ticket.ticket_number}</span>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[ticket.status] || STATUS_COLORS.to_be_done}`}>
+                {STATUS_LABELS[ticket.status] || ticket.status}
+              </span>
+              {ticket.title && <span className="text-sm text-foreground/70 truncate">{ticket.title}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="w-6 h-6 rounded-md flex items-center justify-center text-muted/40 hover:text-danger hover:bg-red-50 transition-all cursor-pointer shrink-0"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
         {dropdown}
       </>
@@ -141,79 +200,201 @@ function TicketSelect({ value, usedIds, onChange, containerRef }) {
         ref={triggerRef}
         type="button"
         onClick={openDrop}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-card-border text-[11px] text-muted/50 hover:border-primary/30 hover:text-primary/60 hover:bg-primary-light/10 transition-all cursor-pointer"
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-card-border/80 text-xs font-medium text-muted/60 hover:border-primary/40 hover:text-primary hover:bg-primary-light/20 hover:shadow-sm transition-all cursor-pointer"
       >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
         </svg>
-        Link task
+        Link ticket
       </button>
       {dropdown}
     </>
   );
 }
 
-function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descPlaceholder, showTickets }) {
-  const cardRef = useRef(null);
+const BULLET = "• ";
+
+function ensureFirstBullet(text) {
+  if (!text) return BULLET;
+  if (!text.startsWith(BULLET)) return BULLET + text;
+  return text;
+}
+
+function BulletTextarea({ value, onChange, placeholder, autoResizeDep }) {
+  const ref = useRef(null);
+
+  const autoResize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.max(el.scrollHeight, 40) + "px";
+  }, []);
+
+  useEffect(() => { autoResize(); }, [value, autoResize, autoResizeDep]);
+
+  const handleFocus = () => {
+    if (!value) onChange(BULLET);
+  };
+
+  const handleBlur = () => {
+    if (value === BULLET || value.trim() === "•") onChange("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const el = ref.current;
+      const pos = el.selectionStart;
+      const before = value.slice(0, pos);
+      const after = value.slice(pos);
+      const newValue = before + "\n" + BULLET + after;
+      onChange(newValue);
+      requestAnimationFrame(() => {
+        const newPos = pos + 1 + BULLET.length;
+        el.selectionStart = newPos;
+        el.selectionEnd = newPos;
+        autoResize();
+      });
+      return;
+    }
+
+    if (e.key === "Backspace") {
+      const el = ref.current;
+      const pos = el.selectionStart;
+      const selEnd = el.selectionEnd;
+      if (pos !== selEnd) return;
+
+      const lineStart = value.lastIndexOf("\n", pos - 1) + 1;
+      const lineText = value.slice(lineStart, pos);
+
+      if (lineText === BULLET && lineStart > 0) {
+        e.preventDefault();
+        const newValue = value.slice(0, lineStart - 1) + value.slice(pos);
+        onChange(newValue);
+        requestAnimationFrame(() => {
+          const newPos = lineStart - 1;
+          el.selectionStart = newPos;
+          el.selectionEnd = newPos;
+          autoResize();
+        });
+        return;
+      }
+
+      if (lineText === BULLET && lineStart === 0) {
+        e.preventDefault();
+        return;
+      }
+    }
+  };
+
+  const handleChange = (e) => {
+    onChange(e.target.value);
+    autoResize();
+  };
+
+  const lines = (value || "").split("\n");
+  const hasBullets = lines.some((l) => l.startsWith(BULLET));
+
   return (
-    <div ref={cardRef} className="group relative rounded-lg border border-card-border/60 bg-card">
-      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        {showTickets && (
-          <TicketSelect
-            value={entry.ticketId}
-            usedIds={usedIds}
-            onChange={(id) => onUpdate(index, { ticketId: id })}
-            containerRef={cardRef}
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      onChange={handleChange}
+      placeholder={placeholder}
+      className={`w-full border-0 bg-transparent px-0 py-1.5 text-[15px] leading-[1.85] outline-none resize-none text-foreground placeholder:text-muted/30 ${hasBullets ? "standup-bullet-text" : ""}`}
+    />
+  );
+}
+
+function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descPlaceholder, showTickets, isLast }) {
+  const cardRef = useRef(null);
+
+  return (
+    <div ref={cardRef} className="group relative standup-entry-in">
+      <div className="rounded-xl border border-card-border/50 bg-white/80 hover:bg-white hover:border-card-border/80 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all duration-200">
+        {showTickets && entry.ticketId && (
+          <div className="px-3 pt-3">
+            <TicketSelect
+              value={entry.ticketId}
+              usedIds={usedIds}
+              onChange={(id) => onUpdate(index, { ticketId: id })}
+              containerRef={cardRef}
+            />
+          </div>
+        )}
+        <div className="px-3 pt-2 pb-1">
+          <BulletTextarea
+            value={entry.description}
+            onChange={(val) => onUpdate(index, { description: val })}
+            placeholder={descPlaceholder}
           />
-        )}
-        <div className="flex-1" />
-        {canRemove && (
-          <button
-            type="button"
-            onClick={() => onRemove(index)}
-            className="w-5 h-5 rounded flex items-center justify-center text-muted/30 hover:text-danger hover:bg-red-50/80 transition-colors cursor-pointer opacity-0 group-hover:opacity-100 shrink-0"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        )}
-      </div>
-      <div className="px-3 pb-2.5">
-        <textarea
-          rows={2}
-          value={entry.description}
-          onChange={(e) => onUpdate(index, { description: e.target.value })}
-          placeholder={descPlaceholder}
-          className="w-full rounded-md border-0 bg-transparent px-0 py-1 text-sm outline-none resize-none text-foreground placeholder:text-muted/40"
-        />
+        </div>
+        <div className="flex items-center justify-between px-3 pb-2.5">
+          <div className="flex items-center gap-1.5">
+            {showTickets && !entry.ticketId && (
+              <TicketSelect
+                value={entry.ticketId}
+                usedIds={usedIds}
+                onChange={(id) => onUpdate(index, { ticketId: id })}
+                containerRef={cardRef}
+              />
+            )}
+          </div>
+          {canRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted/30 hover:text-danger hover:bg-red-50/80 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Remove
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 function Section({ label, entries, setEntries, descPlaceholder, showTickets }) {
+  const meta = SECTION_META[label] || SECTION_META.Today;
   const usedIds = entries.map((e) => e.ticketId).filter(Boolean);
   const update = (i, p) => setEntries((prev) => prev.map((e, idx) => idx === i ? { ...e, ...p } : e));
   const remove = (i) => setEntries((prev) => prev.filter((_, idx) => idx !== i));
   const add = () => setEntries((prev) => [...prev, { ticketId: "", description: "" }]);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-sm font-semibold text-foreground">{label}</label>
-        <button
-          type="button"
-          onClick={add}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium text-primary/70 hover:text-primary hover:bg-primary-light/30 transition-all cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add
-        </button>
+    <div className="standup-section-in">
+      <div className="flex items-start gap-3 mb-3">
+        <div className={`w-8 h-8 rounded-lg ${meta.accentBg} flex items-center justify-center text-white shrink-0 shadow-sm`}>
+          {meta.icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-[15px] font-bold text-foreground leading-tight">{label}</h3>
+              <p className="text-xs text-muted/50 mt-0.5">{meta.subtitle}</p>
+            </div>
+            <button
+              type="button"
+              onClick={add}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${meta.accentText} ${meta.accentLight} border ${meta.accentBorder} hover:shadow-sm transition-all cursor-pointer`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Add entry
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 ml-11">
         {entries.map((entry, i) => (
           <TaskEntry
             key={i}
@@ -225,6 +406,7 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets }) {
             usedIds={usedIds}
             descPlaceholder={descPlaceholder}
             showTickets={showTickets}
+            isLast={i === entries.length - 1}
           />
         ))}
       </div>
@@ -234,15 +416,15 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets }) {
 
 function PreviewEntry({ ticket, description, badgeBg, badgeText, borderColor }) {
   return (
-    <div className={`rounded-lg bg-white/60 border ${borderColor} px-3 py-2`}>
+    <div className={`rounded-lg bg-white/70 border ${borderColor} px-3.5 py-2.5 backdrop-blur-sm`}>
       {ticket && (
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className={`text-[11px] font-bold ${badgeText} ${badgeBg} px-1.5 py-0.5 rounded`}>{ticket.ticket_number}</span>
-          {ticket.title && <span className="text-xs text-foreground/60">{ticket.title}</span>}
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className={`text-xs font-bold ${badgeText} ${badgeBg} px-2 py-0.5 rounded-md`}>{ticket.ticket_number}</span>
+          {ticket.title && <span className="text-sm text-foreground/65 truncate">{ticket.title}</span>}
         </div>
       )}
       {description && (
-        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{description}</p>
+        <p className="text-[15px] text-foreground whitespace-pre-wrap leading-relaxed">{description}</p>
       )}
     </div>
   );
@@ -310,7 +492,6 @@ export default function StandupForm({ onSubmitted }) {
 
   useEffect(() => {
     if (!userId) return;
-    // Clean up old un-scoped draft key from before per-user scoping
     try { sessionStorage.removeItem("standup-form-draft"); } catch { /* ignore */ }
     const draft = loadDraft(userId);
     if (draft) {
@@ -345,16 +526,22 @@ export default function StandupForm({ onSubmitted }) {
   const activeTickets = tickets.filter((t) => t.status !== "closed");
   const showTickets = !ticketsLoading && activeTickets.length > 0;
 
+  const stripBullets = (text) =>
+    text.replace(/^• /gm, "").trim();
+
   const buildText = (entries) =>
     entries.map((e) => {
       const t = e.ticketId ? tickets.find((tk) => tk.id === e.ticketId) : null;
-      return `${t ? `[${t.ticket_number}] ` : ""}${e.description}`.trim();
+      const desc = stripBullets(e.description);
+      return `${t ? `[${t.ticket_number}] ` : ""}${desc}`.trim();
     }).filter(Boolean).join("\n\n");
 
   const buildTicketData = (entries) =>
     entries.filter((e) => e.ticketId).map((e) => ({ ticket_id: e.ticketId, description: e.description }));
 
-  const hasContent = (entries) => entries.some((e) => e.description.trim() || e.ticketId);
+  const hasContent = (entries) => entries.some((e) => stripBullets(e.description).length > 0 || e.ticketId);
+
+  const filledSections = [hasContent(yesterdayEntries), hasContent(todayEntries), hasContent(blockerEntries)].filter(Boolean).length;
 
   const handlePreview = (e) => {
     e.preventDefault();
@@ -413,42 +600,66 @@ export default function StandupForm({ onSubmitted }) {
     const bItems = resolve(blockerEntries);
 
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-accent-light flex items-center justify-center">
-            <svg className="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="space-y-5">
+        <div className="flex items-center gap-3 pb-1">
+          <div className="w-9 h-9 rounded-xl bg-accent-light flex items-center justify-center">
+            <svg className="w-4.5 h-4.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>
           </div>
-          <h2 className="text-sm font-semibold text-accent uppercase tracking-wide">Preview</h2>
+          <div>
+            <h2 className="text-base font-bold text-foreground">Review Your Update</h2>
+            <p className="text-xs text-muted/50">Make sure everything looks good before submitting</p>
+          </div>
         </div>
 
-        <div className="space-y-2.5">
-          <div className="rounded-xl bg-primary-light/40 border border-primary/10 p-3">
-            <p className="text-[11px] font-semibold text-primary-dark uppercase tracking-wide mb-1.5">Yesterday</p>
-            <div className="space-y-1.5">
+        <div className="space-y-3">
+          <div className="rounded-xl bg-gradient-to-br from-violet-50/60 to-violet-50/30 border border-violet-100/60 p-4">
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-sm font-bold text-violet-700">Yesterday</p>
+            </div>
+            <div className="space-y-2">
               {yItems.map((item, i) => (
+                <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-violet-100" badgeText="text-violet-700" borderColor="border-violet-100/60" />
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-gradient-to-br from-primary-light/60 to-primary-light/30 border border-primary/10 p-4">
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <p className="text-sm font-bold text-primary-dark">Today</p>
+            </div>
+            <div className="space-y-2">
+              {tItems.map((item, i) => (
                 <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-primary-light" badgeText="text-primary-dark" borderColor="border-primary/10" />
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl bg-accent-light/40 border border-accent/10 p-3">
-            <p className="text-[11px] font-semibold text-accent uppercase tracking-wide mb-1.5">Today</p>
-            <div className="space-y-1.5">
-              {tItems.map((item, i) => (
-                <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-accent-light" badgeText="text-accent" borderColor="border-accent/10" />
-              ))}
-            </div>
-          </div>
-
           {bItems.length > 0 && (
-            <div className="rounded-xl bg-red-50/40 border border-red-100 p-3">
-              <p className="text-[11px] font-semibold text-danger uppercase tracking-wide mb-1.5">Blockers</p>
-              <div className="space-y-1.5">
+            <div className="rounded-xl bg-gradient-to-br from-orange-50/60 to-orange-50/30 border border-orange-100 p-4">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-6 h-6 rounded-md bg-orange-500 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-bold text-orange-700">Blockers</p>
+              </div>
+              <div className="space-y-2">
                 {bItems.map((item, i) => (
-                  <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-red-50" badgeText="text-danger" borderColor="border-red-100" />
+                  <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-orange-100" badgeText="text-orange-700" borderColor="border-orange-100" />
                 ))}
               </div>
             </div>
@@ -456,19 +667,26 @@ export default function StandupForm({ onSubmitted }) {
         </div>
 
         {message.text && (
-          <p className={`text-sm rounded-lg px-3 py-2 border ${message.type === "success" ? "text-primary-dark bg-primary-light border-primary/20" : "text-danger bg-red-50 border-red-100"}`}>
+          <div className={`flex items-center gap-2 text-sm rounded-xl px-4 py-3 border ${message.type === "success" ? "text-primary-dark bg-primary-light border-primary/20" : "text-danger bg-red-50 border-red-100"}`}>
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {message.type === "success" ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              )}
+            </svg>
             {message.text}
-          </p>
+          </div>
         )}
 
-        <div className="flex gap-3 pt-1">
+        <div className="flex gap-3 pt-2">
           <button type="button" onClick={() => setPreviewing(false)} disabled={loading}
-            className="flex-1 rounded-lg border border-card-border py-2.5 text-sm font-semibold text-muted hover:bg-background transition-colors disabled:opacity-50 cursor-pointer">
-            Edit
+            className="flex-1 rounded-xl border border-card-border py-3 text-sm font-semibold text-muted hover:bg-background hover:border-card-border/80 transition-all disabled:opacity-50 cursor-pointer">
+            Back to Edit
           </button>
           <button type="button" onClick={handleSubmit} disabled={loading}
-            className="btn-press flex-1 rounded-lg bg-primary text-white py-2.5 text-sm font-semibold hover:bg-primary-dark transition-all disabled:opacity-50 shadow-md shadow-primary/20 cursor-pointer">
-            {loading ? "Submitting..." : "Confirm & Submit"}
+            className="btn-press btn-shimmer flex-1 rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white py-3 text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 cursor-pointer">
+            <span>{loading ? "Submitting..." : "Confirm & Submit"}</span>
           </button>
         </div>
       </div>
@@ -477,25 +695,52 @@ export default function StandupForm({ onSubmitted }) {
 
   return (
     <TicketsCtx.Provider value={ctxValue}>
-      <form onSubmit={handlePreview} className="space-y-5">
+      <form onSubmit={handlePreview} className="space-y-6">
+        {/* Progress indicator */}
+        <div className="flex items-center gap-2 pb-1">
+          <div className="flex items-center gap-1.5 text-xs text-muted/50">
+            <span className={`w-2 h-2 rounded-full transition-colors ${hasContent(yesterdayEntries) ? "bg-violet-500" : "bg-card-border"}`} />
+            <span className={`w-2 h-2 rounded-full transition-colors ${hasContent(todayEntries) ? "bg-primary" : "bg-card-border"}`} />
+            <span className={`w-2 h-2 rounded-full transition-colors ${hasContent(blockerEntries) ? "bg-orange-500" : "bg-card-border"}`} />
+          </div>
+          <span className="text-xs text-muted/40 font-medium">{filledSections}/3 sections filled</span>
+        </div>
+
         <Section label="Yesterday" entries={yesterdayEntries} setEntries={setYesterdayEntries}
-          descPlaceholder="What did you do?" showTickets={showTickets} />
+          descPlaceholder="What did you accomplish yesterday?" showTickets={showTickets} />
+
+        <div className="border-t border-card-border/30" />
 
         <Section label="Today" entries={todayEntries} setEntries={setTodayEntries}
-          descPlaceholder="What will you do?" showTickets={showTickets} />
+          descPlaceholder="What are you planning to work on?" showTickets={showTickets} />
+
+        <div className="border-t border-card-border/30" />
 
         <Section label="Blockers" entries={blockerEntries} setEntries={setBlockerEntries}
-          descPlaceholder="Any blockers? (optional)" showTickets={showTickets} />
+          descPlaceholder="Any impediments or blockers? (optional)" showTickets={showTickets} />
 
         {message.text && (
-          <p className={`text-sm rounded-lg px-3 py-2 border ${message.type === "success" ? "text-primary-dark bg-primary-light border-primary/20" : "text-danger bg-red-50 border-red-100"}`}>
+          <div className={`flex items-center gap-2 text-sm rounded-xl px-4 py-3 border ${message.type === "success" ? "text-primary-dark bg-primary-light border-primary/20" : "text-danger bg-red-50 border-red-100"}`}>
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {message.type === "success" ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              )}
+            </svg>
             {message.text}
-          </p>
+          </div>
         )}
 
         <button type="submit"
-          className="btn-press w-full rounded-lg bg-primary text-white py-2.5 text-sm font-semibold hover:bg-primary-dark transition-all shadow-md shadow-primary/20 cursor-pointer">
-          Preview Standup
+          className="btn-press btn-shimmer w-full rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white py-3.5 text-sm font-bold transition-all shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 cursor-pointer">
+          <span className="flex items-center justify-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Preview Standup
+          </span>
         </button>
       </form>
     </TicketsCtx.Provider>
