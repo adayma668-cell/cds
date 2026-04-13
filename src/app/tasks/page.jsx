@@ -31,6 +31,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     ticket_number: "",
+    title: "",
     due_date: "",
     status: "to_be_done",
     description: "",
@@ -76,7 +77,7 @@ export default function TasksPage() {
       body: JSON.stringify(form),
     });
     if (res.ok) {
-      setForm({ ticket_number: "", due_date: "", status: "to_be_done", description: "" });
+      setForm({ ticket_number: "", title: "", due_date: "", status: "to_be_done", description: "" });
       fetchTickets();
     }
     setSubmitting(false);
@@ -86,6 +87,7 @@ export default function TasksPage() {
     setEditingId(ticket.id);
     setEditForm({
       ticket_number: ticket.ticket_number,
+      title: ticket.title || "",
       due_date: ticket.due_date ? ticket.due_date.slice(0, 10) : "",
       status: ticket.status,
       description: ticket.description || "",
@@ -243,6 +245,18 @@ export default function TasksPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
+                Title
+              </label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Brief summary of this ticket"
+                className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
                 Status
               </label>
               <select
@@ -357,6 +371,20 @@ export default function TasksPage() {
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-muted uppercase mb-1">
+                            Title
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.title || ""}
+                            onChange={(e) =>
+                              setEditForm((f) => ({ ...f, title: e.target.value }))
+                            }
+                            placeholder="Brief summary of this ticket"
+                            className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-muted uppercase mb-1">
                             Status
                           </label>
                           <select
@@ -407,6 +435,9 @@ export default function TasksPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold text-foreground">{ticket.ticket_number}</p>
+                            {ticket.title && (
+                              <span className="text-sm text-foreground/70">&mdash; {ticket.title}</span>
+                            )}
                             {ticket.due_date && (
                               <span className="text-xs text-muted">
                                 Due: {formatDate(ticket.due_date)}

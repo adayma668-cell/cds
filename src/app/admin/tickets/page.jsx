@@ -65,6 +65,7 @@ function ChangeItem({ field, oldVal, newVal }) {
     due_date: "Due Date",
     status: "Status",
     ticket_number: "Ticket #",
+    title: "Title",
     description: "Description",
   };
   const label = fieldLabels[field] || field;
@@ -131,9 +132,14 @@ function TicketCard({ ticket }) {
         className="w-full text-left flex flex-wrap items-start justify-between gap-3 py-3 px-4 cursor-pointer hover:bg-primary-light/5 transition-colors"
       >
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-foreground text-[15px]">
-            {ticket.ticket_number}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-foreground text-[15px]">
+              {ticket.ticket_number}
+            </p>
+            {ticket.title && (
+              <span className="text-sm text-foreground/70">&mdash; {ticket.title}</span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
             {ticket.created_at && (
               <span className="inline-flex items-center gap-1 text-xs text-muted/80">

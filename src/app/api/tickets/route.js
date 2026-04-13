@@ -50,7 +50,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { ticket_number, due_date, status, description } = body;
+  const { ticket_number, due_date, status, description, title } = body;
 
   if (!ticket_number || !ticket_number.trim()) {
     return NextResponse.json(
@@ -69,6 +69,7 @@ export async function POST(request) {
     due_date: due_date || null,
     status: validStatus,
     description: description || "",
+    title: title?.trim() || "",
   };
 
   const { data: created, error } = await supabaseAdmin

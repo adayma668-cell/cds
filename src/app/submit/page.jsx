@@ -18,8 +18,46 @@ function formatTime(seconds) {
 
 const ALLOWED_ROLES = ["employee", "scrum_master"];
 
+function TicketEntries({ entries, ticketMap, badgeClass, bgClass }) {
+  if (!entries || entries.length === 0) return null;
+
+  return (
+    <div className="space-y-2 mb-3">
+      {entries.map((entry, i) => {
+        const t = entry.ticket_id ? ticketMap?.[entry.ticket_id] : null;
+        if (!t && !entry.description) return null;
+        return (
+          <div
+            key={i}
+            className={`rounded-lg bg-white/60 border overflow-hidden ${bgClass || "border-card-border/30"}`}
+          >
+            {t && (
+              <div className="flex items-start gap-2 px-3 py-2 border-b border-inherit">
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${badgeClass || "text-primary-dark bg-primary-light"}`}>
+                  {t.ticket_number}
+                </span>
+                {t.title && (
+                  <span className="text-xs text-foreground/70 leading-snug pt-0.5">
+                    {t.title}
+                  </span>
+                )}
+              </div>
+            )}
+            {entry.description && (
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed px-3 py-2">
+                {entry.description}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function WaitingRoom({ submittedData }) {
   const [showUpdates, setShowUpdates] = useState(false);
+  const ticketMap = submittedData._ticketMap || {};
 
   return (
     <div className="space-y-5">
@@ -115,28 +153,40 @@ function WaitingRoom({ submittedData }) {
               <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
                 Yesterday
               </p>
-              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                {submittedData.yesterday}
-              </p>
+              {submittedData.yesterday_tickets?.length > 0 ? (
+                <TicketEntries entries={submittedData.yesterday_tickets} ticketMap={ticketMap} badgeClass="text-primary-dark bg-primary-light" bgClass="border-primary/10" />
+              ) : (
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                  {submittedData.yesterday}
+                </p>
+              )}
             </div>
 
             <div className="rounded-xl bg-accent-light/50 border border-accent/10 p-4">
               <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1.5">
                 Today
               </p>
-              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                {submittedData.today}
-              </p>
+              {submittedData.today_tickets?.length > 0 ? (
+                <TicketEntries entries={submittedData.today_tickets} ticketMap={ticketMap} badgeClass="text-accent bg-accent-light" bgClass="border-accent/10" />
+              ) : (
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                  {submittedData.today}
+                </p>
+              )}
             </div>
 
-            {submittedData.blockers && (
+            {(submittedData.blockers || (submittedData.blocker_tickets && submittedData.blocker_tickets.length > 0)) && (
               <div className="rounded-xl bg-red-50/50 border border-red-100 p-4">
                 <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-1.5">
                   Blockers
                 </p>
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                  {submittedData.blockers}
-                </p>
+                {submittedData.blocker_tickets?.length > 0 ? (
+                  <TicketEntries entries={submittedData.blocker_tickets} ticketMap={ticketMap} badgeClass="text-danger bg-red-50" bgClass="border-red-100" />
+                ) : submittedData.blockers ? (
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                    {submittedData.blockers}
+                  </p>
+                ) : null}
               </div>
             )}
           </div>
@@ -550,7 +600,37 @@ export default function Submit() {
         const { standups } = await res.json();
         if (standups && standups.length > 0) {
           const s = standups[0];
-          setSubmittedData({ yesterday: s.yesterday, today: s.today, blockers: s.blockers });
+
+          const extractIds = (arr) =>
+            (arr || []).map((e) => (typeof e === "string" ? e : e.ticket_id)).filter(Boolean);
+          const allTicketIds = [
+            ...extractIds(s.yesterday_tickets),
+            ...extractIds(s.today_tickets),
+            ...extractIds(s.blocker_tickets),
+          ];
+
+          let ticketMap = {};
+          if (allTicketIds.length > 0) {
+            try {
+              const tRes = await fetch("/api/tickets", {
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              });
+              if (tRes.ok) {
+                const { tickets } = await tRes.json();
+                ticketMap = Object.fromEntries((tickets || []).map((t) => [t.id, t]));
+              }
+            } catch { /* ignore */ }
+          }
+
+          setSubmittedData({
+            yesterday: s.yesterday,
+            today: s.today,
+            blockers: s.blockers,
+            yesterday_tickets: s.yesterday_tickets || [],
+            today_tickets: s.today_tickets || [],
+            blocker_tickets: s.blocker_tickets || [],
+            _ticketMap: ticketMap,
+          });
         }
       } catch {
         // ignore – let user submit if check fails

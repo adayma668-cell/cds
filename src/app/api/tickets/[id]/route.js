@@ -26,7 +26,7 @@ export async function PATCH(request, context) {
 
   const { id } = await context.params;
   const body = await request.json();
-  const { ticket_number, due_date, status, description } = body;
+  const { ticket_number, due_date, status, description, title } = body;
 
   const { data: existing } = await supabaseAdmin
     .from("tickets")
@@ -44,6 +44,7 @@ export async function PATCH(request, context) {
     updateData.status = status;
   }
   if (description !== undefined) updateData.description = description;
+  if (title !== undefined) updateData.title = title.trim();
 
   const { data: updated, error } = await supabaseAdmin
     .from("tickets")

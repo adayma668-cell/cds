@@ -1,0 +1,2 @@
+ALTER TABLE tickets
+ADD COLUMN IF NOT EXISTS title text DEFAULT '';

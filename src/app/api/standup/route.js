@@ -92,7 +92,10 @@ export async function POST(request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { ticket_number, due_date, yesterday, today, blockers, mood } = await request.json();
+  const {
+    ticket_number, due_date, yesterday, today, blockers, mood,
+    yesterday_tickets, today_tickets, blocker_tickets,
+  } = await request.json();
 
   if (!yesterday || !today) {
     return NextResponse.json(
@@ -124,6 +127,9 @@ export async function POST(request) {
         ticket_number: ticket_number || prev.ticket_number || null,
         due_date: due_date || prev.due_date || null,
         mood: mood || prev.mood || "good",
+        yesterday_tickets: yesterday_tickets ?? prev.yesterday_tickets ?? [],
+        today_tickets: today_tickets ?? prev.today_tickets ?? [],
+        blocker_tickets: blocker_tickets ?? prev.blocker_tickets ?? [],
       })
       .eq("id", prev.id)
       .select()
@@ -156,6 +162,9 @@ export async function POST(request) {
     mood: mood || "good",
     standup_date: todayStr,
     created_at: new Date().toISOString(),
+    yesterday_tickets: yesterday_tickets || [],
+    today_tickets: today_tickets || [],
+    blocker_tickets: blocker_tickets || [],
   };
 
   const { data: created, error } = await supabaseAdmin
@@ -184,7 +193,10 @@ export async function PATCH(request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, ticket_number, due_date, yesterday, today, blockers, mood } = await request.json();
+  const {
+    id, ticket_number, due_date, yesterday, today, blockers, mood,
+    yesterday_tickets, today_tickets, blocker_tickets,
+  } = await request.json();
 
   if (!id)
     return NextResponse.json(
@@ -211,6 +223,9 @@ export async function PATCH(request) {
   if (today !== undefined) updateData.today = today;
   if (blockers !== undefined) updateData.blockers = blockers;
   if (mood !== undefined) updateData.mood = mood;
+  if (yesterday_tickets !== undefined) updateData.yesterday_tickets = yesterday_tickets;
+  if (today_tickets !== undefined) updateData.today_tickets = today_tickets;
+  if (blocker_tickets !== undefined) updateData.blocker_tickets = blocker_tickets;
 
   const { data: updated, error } = await supabaseAdmin
     .from("standups")
