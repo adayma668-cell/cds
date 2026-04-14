@@ -59,8 +59,9 @@ const SECTION_META = {
 
 const TicketsCtx = createContext({ tickets: [], activeTickets: [] });
 
-function TicketSelect({ value, usedIds, onChange, containerRef }) {
-  const { activeTickets } = useContext(TicketsCtx);
+function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed }) {
+  const { activeTickets, tickets: allTickets } = useContext(TicketsCtx);
+  const pool = includeClosed ? allTickets : activeTickets;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const triggerRef = useRef(null);
@@ -68,7 +69,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef }) {
   const inputRef = useRef(null);
   const [pos, setPos] = useState(null);
 
-  const ticket = value ? activeTickets.find((t) => t.id === value) : null;
+  const ticket = value ? pool.find((t) => t.id === value) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -102,7 +103,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef }) {
     setOpen(true);
   };
 
-  const available = activeTickets.filter(
+  const available = pool.filter(
     (t) => !usedIds.includes(t.id) && t.id !== value &&
       (t.ticket_number.toLowerCase().includes(search.toLowerCase()) ||
         (t.title || "").toLowerCase().includes(search.toLowerCase()))
@@ -310,7 +311,7 @@ function BulletTextarea({ value, onChange, placeholder, autoResizeDep }) {
   );
 }
 
-function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descPlaceholder, showTickets, isLast }) {
+function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descPlaceholder, showTickets, isLast, includeClosed }) {
   const cardRef = useRef(null);
 
   return (
@@ -323,6 +324,7 @@ function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descP
               usedIds={usedIds}
               onChange={(id) => onUpdate(index, { ticketId: id })}
               containerRef={cardRef}
+              includeClosed={includeClosed}
             />
           </div>
         )}
@@ -341,6 +343,7 @@ function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descP
                 usedIds={usedIds}
                 onChange={(id) => onUpdate(index, { ticketId: id })}
                 containerRef={cardRef}
+                includeClosed={includeClosed}
               />
             )}
           </div>
@@ -362,7 +365,7 @@ function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descP
   );
 }
 
-function Section({ label, entries, setEntries, descPlaceholder, showTickets }) {
+function Section({ label, entries, setEntries, descPlaceholder, showTickets, includeClosed }) {
   const meta = SECTION_META[label] || SECTION_META.Today;
   const usedIds = entries.map((e) => e.ticketId).filter(Boolean);
   const update = (i, p) => setEntries((prev) => prev.map((e, idx) => idx === i ? { ...e, ...p } : e));
@@ -407,6 +410,7 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets }) {
             descPlaceholder={descPlaceholder}
             showTickets={showTickets}
             isLast={i === entries.length - 1}
+            includeClosed={includeClosed}
           />
         ))}
       </div>
@@ -524,7 +528,7 @@ export default function StandupForm({ onSubmitted }) {
   }, []);
 
   const activeTickets = tickets.filter((t) => t.status !== "closed");
-  const showTickets = !ticketsLoading && activeTickets.length > 0;
+  const showTickets = !ticketsLoading && tickets.length > 0;
 
   const stripBullets = (text) =>
     text.replace(/^• /gm, "").trim();
@@ -707,7 +711,7 @@ export default function StandupForm({ onSubmitted }) {
         </div>
 
         <Section label="Yesterday" entries={yesterdayEntries} setEntries={setYesterdayEntries}
-          descPlaceholder="What did you accomplish yesterday?" showTickets={showTickets} />
+          descPlaceholder="What did you accomplish yesterday?" showTickets={showTickets} includeClosed />
 
         <div className="border-t border-card-border/30" />
 
