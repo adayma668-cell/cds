@@ -537,7 +537,7 @@ export default function StandupForm({ onSubmitted }) {
     }).filter(Boolean).join("\n\n");
 
   const buildTicketData = (entries) =>
-    entries.filter((e) => e.ticketId).map((e) => ({ ticket_id: e.ticketId, description: e.description }));
+    entries.filter((e) => e.ticketId || stripBullets(e.description)).map((e) => ({ ticket_id: e.ticketId || null, description: e.description }));
 
   const hasContent = (entries) => entries.some((e) => stripBullets(e.description).length > 0 || e.ticketId);
 

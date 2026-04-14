@@ -158,7 +158,7 @@ function StandupCard({
 }
 
 export default function TeamUpdatesPage() {
-  const { user, role, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [standups, setStandups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState("all");
@@ -168,23 +168,19 @@ export default function TeamUpdatesPage() {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const isLeader = role === "super_admin" || role === "scrum_master";
-
   const fetchStandups = useCallback(async () => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
     const dateParam = selectedDate === toLocalYMD() ? "today" : selectedDate;
-    const url = isLeader
-      ? `/api/standup?date=${dateParam}&include=teams&presented=true`
-      : `/api/standup?date=${dateParam}&presented=true`;
+    const url = `/api/standup?date=${dateParam}&include=teams&presented=true`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });
     const data = await res.json();
     setStandups(data.standups || []);
     setLoading(false);
-  }, [selectedDate, isLeader]);
+  }, [selectedDate]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -246,7 +242,7 @@ export default function TeamUpdatesPage() {
   if (!user) return null;
 
   const teamFiltered =
-    isLeader && selectedTeam !== "all"
+    selectedTeam !== "all"
       ? standups.filter((s) => (s.teams || []).includes(selectedTeam))
       : standups;
 
@@ -297,23 +293,21 @@ export default function TeamUpdatesPage() {
           </div>
         </div>
 
-        {isLeader && (
-          <div className="relative z-10 flex flex-wrap gap-3">
-            <DatePicker value={selectedDate} onChange={setSelectedDate} />
-            <TeamPicker
-              value={selectedTeam}
-              onChange={(team) => {
-                setSelectedTeam(team);
-                setSelectedMember("all");
-              }}
-            />
-            <MemberPicker
-              value={selectedMember}
-              onChange={setSelectedMember}
-              members={uniqueMembers}
-            />
-          </div>
-        )}
+        <div className="relative z-10 flex flex-wrap gap-3">
+          <DatePicker value={selectedDate} onChange={setSelectedDate} />
+          <TeamPicker
+            value={selectedTeam}
+            onChange={(team) => {
+              setSelectedTeam(team);
+              setSelectedMember("all");
+            }}
+          />
+          <MemberPicker
+            value={selectedMember}
+            onChange={setSelectedMember}
+            members={uniqueMembers}
+          />
+        </div>
 
         {/* Blocker alert */}
         {displayedBlockerCount > 0 && (
@@ -350,16 +344,16 @@ export default function TeamUpdatesPage() {
           <EmptyState
             type="team"
             title={`No updates yet${
-              isLeader && selectedMember !== "all"
+              selectedMember !== "all"
                 ? " for this member"
-                : isLeader && selectedTeam !== "all"
+                : selectedTeam !== "all"
                 ? " for this team"
                 : ""
             }`}
             description={
-              isLeader && selectedMember !== "all"
+              selectedMember !== "all"
                 ? "No standup updates found for this member on this date."
-                : isLeader && selectedTeam !== "all"
+                : selectedTeam !== "all"
                 ? "No standup meeting has been completed for this team on this date."
                 : "The standup meeting hasn't been completed yet. Updates will appear here once the meeting is finished."
             }
