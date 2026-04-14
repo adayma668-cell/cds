@@ -36,9 +36,9 @@ function TicketEntries({ entries, ticketMap, badgeClass, bgClass }) {
                 <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${badgeClass || "text-primary-dark bg-primary-light"}`}>
                   {t.ticket_number}
                 </span>
-                {t.title && (
+                {(t.title || t.description) && (
                   <span className="text-xs text-foreground/70 leading-snug pt-0.5">
-                    {t.title}
+                    {t.title || t.description?.split("\n")[0]?.slice(0, 60)}
                   </span>
                 )}
               </div>

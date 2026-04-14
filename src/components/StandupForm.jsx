@@ -106,7 +106,8 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
   const available = pool.filter(
     (t) => !usedIds.includes(t.id) && t.id !== value &&
       (t.ticket_number.toLowerCase().includes(search.toLowerCase()) ||
-        (t.title || "").toLowerCase().includes(search.toLowerCase()))
+        (t.title || "").toLowerCase().includes(search.toLowerCase()) ||
+        (t.description || "").toLowerCase().includes(search.toLowerCase()))
   );
 
   const dropdown = open && pos && createPortal(
@@ -141,22 +142,27 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
             </p>
           </div>
         ) : (
-          available.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
-              className="w-full px-3 py-2.5 text-left flex items-start gap-3 hover:bg-primary-light/40 transition-colors cursor-pointer border-b border-card-border/15 last:border-0 group"
-            >
-              <span className="text-xs font-bold text-accent bg-accent-light px-2 py-0.5 rounded-md shrink-0 mt-0.5 group-hover:bg-accent/10 transition-colors">{t.ticket_number}</span>
-              <div className="flex-1 min-w-0">
-                {t.title && <p className="text-sm text-foreground/80 leading-snug truncate">{t.title}</p>}
-                <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border mt-1 ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
-                  {STATUS_LABELS[t.status] || t.status}
-                </span>
-              </div>
-            </button>
-          ))
+          available.map((t) => {
+            const displayTitle = t.title || t.description?.split("\n")[0]?.slice(0, 60) || "";
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
+                className="w-full px-3 py-2.5 text-left flex items-start gap-3 hover:bg-primary-light/40 transition-colors cursor-pointer border-b border-card-border/15 last:border-0 group"
+              >
+                <span className="text-xs font-bold text-accent bg-accent-light px-2 py-0.5 rounded-md shrink-0 mt-0.5 group-hover:bg-accent/10 transition-colors">{t.ticket_number}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm leading-snug truncate ${displayTitle ? "text-foreground/80" : "text-muted/40 italic"}`}>
+                    {displayTitle || "Untitled"}
+                  </p>
+                  <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border mt-1 ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
+                    {STATUS_LABELS[t.status] || t.status}
+                  </span>
+                </div>
+              </button>
+            );
+          })
         )}
       </div>
     </div>,
@@ -164,6 +170,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
   );
 
   if (ticket) {
+    const chipTitle = ticket.title || ticket.description?.split("\n")[0]?.slice(0, 60) || "";
     return (
       <>
         <div ref={triggerRef} className="w-full">
@@ -177,7 +184,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[ticket.status] || STATUS_COLORS.to_be_done}`}>
                 {STATUS_LABELS[ticket.status] || ticket.status}
               </span>
-              {ticket.title && <span className="text-sm text-foreground/70 truncate">{ticket.title}</span>}
+              {chipTitle && <span className="text-sm text-foreground/70 truncate">{chipTitle}</span>}
             </button>
             <button
               type="button"
@@ -419,12 +426,13 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets, inc
 }
 
 function PreviewEntry({ ticket, description, badgeBg, badgeText, borderColor }) {
+  const previewTitle = ticket ? (ticket.title || ticket.description?.split("\n")[0]?.slice(0, 60) || "") : "";
   return (
     <div className={`rounded-lg bg-white/70 border ${borderColor} px-3.5 py-2.5 backdrop-blur-sm`}>
       {ticket && (
         <div className="flex items-center gap-2 mb-1.5">
           <span className={`text-xs font-bold ${badgeText} ${badgeBg} px-2 py-0.5 rounded-md`}>{ticket.ticket_number}</span>
-          {ticket.title && <span className="text-sm text-foreground/65 truncate">{ticket.title}</span>}
+          {previewTitle && <span className="text-sm text-foreground/65 truncate">{previewTitle}</span>}
         </div>
       )}
       {description && (
