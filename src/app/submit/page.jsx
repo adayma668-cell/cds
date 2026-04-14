@@ -145,10 +145,10 @@ function WaitingRoom({ submittedData }) {
 
         <div
           className={`transition-all duration-400 ease-in-out overflow-hidden ${
-            showUpdates ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+            showUpdates ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
           }`}
         >
-          <div className="px-5 sm:px-6 pb-5 space-y-3 border-t border-card-border/50 pt-4">
+          <div className="px-5 sm:px-6 pb-5 space-y-3 border-t border-card-border/50 pt-4 max-h-[calc(80vh-60px)] overflow-y-auto">
             <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
               <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
                 Yesterday
