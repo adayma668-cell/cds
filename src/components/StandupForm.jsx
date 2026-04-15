@@ -80,6 +80,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
   const pool = includeClosed ? allTickets : activeTickets;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [collapsedBoards, setCollapsedBoards] = useState({});
   const triggerRef = useRef(null);
   const dropRef = useRef(null);
   const inputRef = useRef(null);
@@ -123,7 +124,8 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
     (t) => !usedIds.includes(t.id) && t.id !== value &&
       (t.ticket_number.toLowerCase().includes(search.toLowerCase()) ||
         (t.title || "").toLowerCase().includes(search.toLowerCase()) ||
-        (t.description || "").toLowerCase().includes(search.toLowerCase()))
+        (t.description || "").toLowerCase().includes(search.toLowerCase()) ||
+        (t._project || "").toLowerCase().includes(search.toLowerCase()))
   );
 
   const dropdown = open && pos && createPortal(
@@ -142,12 +144,12 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by ticket # or title..."
+            placeholder="Search by ticket #, title, or board..."
             className="w-full rounded-lg border border-card-border/60 bg-white pl-8 pr-3 py-2 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted/35"
           />
         </div>
       </div>
-      <div className="max-h-[220px] overflow-y-auto">
+      <div className="max-h-[280px] overflow-y-auto">
         {available.length === 0 ? (
           <div className="text-center py-6 px-4">
             <svg className="w-8 h-8 text-muted/20 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,59 +160,99 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
             </p>
           </div>
         ) : (
-          available.map((t) => {
-            const displayTitle = t.title || t.description?.split("\n")[0]?.slice(0, 60) || "";
-            const typeBadge = TYPE_BADGES[t._type] || "";
-            const devopsUrl = t._project
-              ? `https://dev.azure.com/${process.env.NEXT_PUBLIC_AZURE_DEVOPS_ORG || "xLMValiMation"}/${encodeURIComponent(t._project)}/_workitems/edit/${t.ticket_number}`
-              : null;
-            return (
-              <div
-                key={t.id}
-                className="flex items-start gap-0 border-b border-card-border/15 last:border-0 group hover:bg-primary-light/40 transition-colors"
-              >
-                <button
-                  type="button"
-                  onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
-                  className="flex-1 px-3 py-2.5 text-left flex items-start gap-3 cursor-pointer min-w-0"
-                >
-                  <span className="text-xs font-bold text-accent bg-accent-light px-2 py-0.5 rounded-md shrink-0 mt-0.5 group-hover:bg-accent/10 transition-colors">#{t.ticket_number}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm leading-snug truncate ${displayTitle ? "text-foreground/80" : "text-muted/40 italic"}`}>
-                      {displayTitle || "Untitled"}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      {t._type && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${typeBadge || "bg-gray-50 text-gray-600"}`}>
-                          {t._type}
-                        </span>
-                      )}
-                      <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
-                        {t._state || STATUS_LABELS[t.status] || t.status}
-                      </span>
-                      {t._project && (
-                        <span className="text-[10px] text-muted/50 truncate">{t._project}</span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-                {devopsUrl && (
-                  <a
-                    href={devopsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    title="Open in Azure DevOps"
-                    className="shrink-0 px-2.5 py-3 flex items-center justify-center text-muted/30 hover:text-blue-600 hover:bg-blue-50/60 transition-colors rounded-r-lg cursor-pointer"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                )}
-              </div>
-            );
-          })
+          (() => {
+            const grouped = {};
+            available.forEach((t) => {
+              const board = t._project || "Other";
+              if (!grouped[board]) grouped[board] = [];
+              grouped[board].push(t);
+            });
+            const boards = Object.keys(grouped);
+            const showHeaders = boards.length > 1 || (boards.length === 1 && boards[0] !== "Other");
+            const toggleBoard = (board) => setCollapsedBoards((prev) => ({ ...prev, [board]: !prev[board] }));
+            const isSearching = search.trim().length > 0;
+            return boards.map((board) => {
+              const isCollapsed = !isSearching && collapsedBoards[board];
+              const items = grouped[board];
+              return (
+                <div key={board}>
+                  {showHeaders && (
+                    <button
+                      type="button"
+                      onClick={() => toggleBoard(board)}
+                      className="sticky top-0 z-10 w-full px-3 py-2 bg-gray-50/95 backdrop-blur-sm border-b border-card-border/30 cursor-pointer hover:bg-gray-100/80 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <svg className="w-3 h-3 text-muted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                          <span className="text-[11px] font-bold text-foreground/60 uppercase tracking-wider">{board}</span>
+                          <span className="text-[10px] font-medium text-muted/40 ml-0.5">({items.length})</span>
+                        </div>
+                        <svg
+                          className={`w-3.5 h-3.5 text-muted/40 transition-transform duration-200 ${isCollapsed ? "" : "rotate-180"}`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+                  )}
+                  {!isCollapsed && items.map((t) => {
+                    const displayTitle = t.title || t.description?.split("\n")[0]?.slice(0, 60) || "";
+                    const typeBadge = TYPE_BADGES[t._type] || "";
+                    const devopsUrl = t._project
+                      ? `https://dev.azure.com/${process.env.NEXT_PUBLIC_AZURE_DEVOPS_ORG || "xLMValiMation"}/${encodeURIComponent(t._project)}/_workitems/edit/${t.ticket_number}`
+                      : null;
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-start gap-0 border-b border-card-border/15 last:border-0 group hover:bg-primary-light/40 transition-colors"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
+                          className="flex-1 px-3 py-2.5 text-left flex items-start gap-3 cursor-pointer min-w-0"
+                        >
+                          <span className="text-xs font-bold text-accent bg-accent-light px-2 py-0.5 rounded-md shrink-0 mt-0.5 group-hover:bg-accent/10 transition-colors">#{t.ticket_number}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm leading-snug truncate ${displayTitle ? "text-foreground/80" : "text-muted/40 italic"}`}>
+                              {displayTitle || "Untitled"}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              {t._type && (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${typeBadge || "bg-gray-50 text-gray-600"}`}>
+                                  {t._type}
+                                </span>
+                              )}
+                              <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
+                                {t._state || STATUS_LABELS[t.status] || t.status}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                        {devopsUrl && (
+                          <a
+                            href={devopsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Open in Azure DevOps"
+                            className="shrink-0 px-2.5 py-3 flex items-center justify-center text-muted/30 hover:text-blue-600 hover:bg-blue-50/60 transition-colors rounded-r-lg cursor-pointer"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            });
+          })()
         )}
       </div>
     </div>,
@@ -804,12 +846,12 @@ export default function StandupForm({ onSubmitted }) {
         <div className="border-t border-card-border/30" />
 
         <Section label="Today" entries={todayEntries} setEntries={setTodayEntries}
-          descPlaceholder="What are you planning to work on?" showTickets={showTickets} />
+          descPlaceholder="What are you planning to work on?" showTickets={showTickets} includeClosed />
 
         <div className="border-t border-card-border/30" />
 
         <Section label="Blockers" entries={blockerEntries} setEntries={setBlockerEntries}
-          descPlaceholder="Any impediments or blockers? (optional)" showTickets={showTickets} />
+          descPlaceholder="Any impediments or blockers? (optional)" showTickets={showTickets} includeClosed />
 
         {message.text && (
           <div className={`flex items-center gap-2 text-sm rounded-xl px-4 py-3 border ${message.type === "success" ? "text-primary-dark bg-primary-light border-primary/20" : "text-danger bg-red-50 border-red-100"}`}>
