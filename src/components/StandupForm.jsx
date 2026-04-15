@@ -773,6 +773,7 @@ export default function StandupForm({ onSubmitted, initialData }) {
         }),
       });
       if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Failed to submit standup"); }
+      clearDraft(userId);
       if (onSubmitted) {
         onSubmitted({
           yesterday: buildText(yesterdayEntries), today: buildText(todayEntries), blockers: buildText(blockerEntries),
@@ -781,7 +782,6 @@ export default function StandupForm({ onSubmitted, initialData }) {
         });
         return;
       }
-      clearDraft(userId);
       setMessage({ text: "Standup submitted successfully!", type: "success" });
       setYesterdayEntries(defaultEntry());
       setTodayEntries(defaultEntry());

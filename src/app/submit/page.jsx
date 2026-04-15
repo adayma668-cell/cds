@@ -764,6 +764,10 @@ export default function Submit() {
       setSubmittedData(null);
       setResubmitting(false);
     }
+    if (meetingPhase === "completed" && prevPhaseRef.current === "active") {
+      setSubmittedData(null);
+      setResubmitting(false);
+    }
     if (meetingPhase === "active") {
       setResubmitting(false);
     }
