@@ -24,21 +24,25 @@ function TicketEntries({ entries, ticketMap, badgeClass, bgClass }) {
   return (
     <div className="space-y-2 mb-3">
       {entries.map((entry, i) => {
+        const inlineNumber = entry.ticket_number;
+        const inlineTitle = entry.title;
         const t = entry.ticket_id ? ticketMap?.[entry.ticket_id] : null;
-        if (!t && !entry.description) return null;
+        const displayNumber = inlineNumber || t?.ticket_number;
+        const displayTitle = inlineTitle || t?.title || t?.description?.split("\n")[0]?.slice(0, 60);
+        if (!displayNumber && !entry.description) return null;
         return (
           <div
             key={i}
             className={`rounded-lg bg-white/60 border overflow-hidden ${bgClass || "border-card-border/30"}`}
           >
-            {t && (
+            {displayNumber && (
               <div className="flex items-start gap-2 px-3 py-2 border-b border-inherit">
                 <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${badgeClass || "text-primary-dark bg-primary-light"}`}>
-                  {t.ticket_number}
+                  #{displayNumber}
                 </span>
-                {(t.title || t.description) && (
+                {displayTitle && (
                   <span className="text-xs text-foreground/70 leading-snug pt-0.5">
-                    {t.title || t.description?.split("\n")[0]?.slice(0, 60)}
+                    {displayTitle}
                   </span>
                 )}
               </div>

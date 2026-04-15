@@ -8,6 +8,7 @@ import AppLayout from "@/components/AppLayout";
 import { TasksSkeleton } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 import ConfirmModal from "@/components/ConfirmModal";
+import AzureWorkItemPicker from "@/components/AzureWorkItemPicker";
 
 const STATUS_OPTIONS = [
   { value: "to_be_done", label: "To Be Done", color: "bg-amber-100 text-amber-700 border-amber-200", hoverColor: "hover:bg-amber-100 hover:text-amber-700 hover:border-amber-200" },
@@ -41,6 +42,7 @@ export default function TasksPage() {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [manualMode, setManualMode] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     const {
@@ -211,26 +213,82 @@ export default function TasksPage() {
           ))}
         </div>
 
-        {/* Add form */}
+        {/* Add form — Azure DevOps picker + manual fallback */}
         <div className="bg-card rounded-2xl border border-card-border shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-accent uppercase tracking-wider mb-4">
-            Add New Ticket
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-accent uppercase tracking-wider">
+              {manualMode ? "Add Ticket Manually" : "Add from Azure DevOps"}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setManualMode((m) => !m)}
+              className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              {manualMode ? "Import from Azure DevOps" : "Enter manually"}
+            </button>
+          </div>
+
+          {!manualMode && (
+            <div className="mb-4">
+              <AzureWorkItemPicker
+                disabled={submitting}
+                onSelect={({ ticket_number, title, status, due_date }) => {
+                  setForm((f) => ({
+                    ...f,
+                    ticket_number,
+                    title,
+                    status: status || f.status,
+                    due_date: due_date || f.due_date,
+                  }));
+                }}
+              />
+              {form.ticket_number && (
+                <div className="mt-3 px-3.5 py-2.5 rounded-lg bg-primary-light/30 border border-primary/20">
+                  <p className="text-sm font-semibold text-foreground">
+                    #{form.ticket_number} — {form.title || "No title"}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5">
+                    Selected — fill in details below and click Add Ticket
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleAdd} className="space-y-4">
+            {manualMode && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
+                      Ticket Number
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={form.ticket_number}
+                      onChange={(e) => setForm((f) => ({ ...f, ticket_number: e.target.value }))}
+                      placeholder="e.g. PROJ-123"
+                      className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
+                      Title
+                    </label>
+                    <input
+                      type="text"
+                      value={form.title}
+                      onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="Brief summary of this ticket"
+                      className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
-                  Ticket Number
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.ticket_number}
-                  onChange={(e) => setForm((f) => ({ ...f, ticket_number: e.target.value }))}
-                  placeholder="e.g. PROJ-123"
-                  className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
                   Due Date
@@ -242,34 +300,22 @@ export default function TasksPage() {
                   className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none"
                 />
               </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
-                Title
-              </label>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="Brief summary of this ticket"
-                className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
-                Status
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-                className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%235f7a6e%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10"
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
+                  Status
+                </label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                  className="w-full rounded-lg border border-card-border bg-background px-3.5 py-2.5 text-sm outline-none appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%235f7a6e%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted uppercase mb-1.5">
@@ -285,7 +331,7 @@ export default function TasksPage() {
             </div>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || (!manualMode && !form.ticket_number)}
               className="btn-press rounded-lg bg-primary text-white px-6 py-2.5 text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 cursor-pointer transition-transform"
             >
               {submitting ? "Adding..." : "Add Ticket"}

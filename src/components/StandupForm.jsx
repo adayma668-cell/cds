@@ -12,6 +12,22 @@ const STATUS_COLORS = {
 };
 const STATUS_LABELS = { in_progress: "In Progress", to_be_done: "To Do", closed: "Closed" };
 
+const TYPE_BADGES = {
+  "User Story": "bg-blue-50 text-blue-600",
+  Task: "bg-yellow-50 text-yellow-700",
+  Bug: "bg-red-50 text-red-600",
+  Feature: "bg-purple-50 text-purple-600",
+  Epic: "bg-orange-50 text-orange-600",
+};
+
+function mapAzureState(state) {
+  const s = (state || "").toLowerCase();
+  if (["new", "to do", "approved"].includes(s)) return "to_be_done";
+  if (["active", "in progress", "committed", "resolved"].includes(s)) return "in_progress";
+  if (["closed", "done", "removed"].includes(s)) return "closed";
+  return "to_be_done";
+}
+
 const SECTION_META = {
   Yesterday: {
     icon: (
@@ -144,23 +160,55 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
         ) : (
           available.map((t) => {
             const displayTitle = t.title || t.description?.split("\n")[0]?.slice(0, 60) || "";
+            const typeBadge = TYPE_BADGES[t._type] || "";
+            const devopsUrl = t._project
+              ? `https://dev.azure.com/${process.env.NEXT_PUBLIC_AZURE_DEVOPS_ORG || "xLMValiMation"}/${encodeURIComponent(t._project)}/_workitems/edit/${t.ticket_number}`
+              : null;
             return (
-              <button
+              <div
                 key={t.id}
-                type="button"
-                onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
-                className="w-full px-3 py-2.5 text-left flex items-start gap-3 hover:bg-primary-light/40 transition-colors cursor-pointer border-b border-card-border/15 last:border-0 group"
+                className="flex items-start gap-0 border-b border-card-border/15 last:border-0 group hover:bg-primary-light/40 transition-colors"
               >
-                <span className="text-xs font-bold text-accent bg-accent-light px-2 py-0.5 rounded-md shrink-0 mt-0.5 group-hover:bg-accent/10 transition-colors">{t.ticket_number}</span>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm leading-snug truncate ${displayTitle ? "text-foreground/80" : "text-muted/40 italic"}`}>
-                    {displayTitle || "Untitled"}
-                  </p>
-                  <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border mt-1 ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
-                    {STATUS_LABELS[t.status] || t.status}
-                  </span>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => { onChange(t.id); setOpen(false); setSearch(""); }}
+                  className="flex-1 px-3 py-2.5 text-left flex items-start gap-3 cursor-pointer min-w-0"
+                >
+                  <span className="text-xs font-bold text-accent bg-accent-light px-2 py-0.5 rounded-md shrink-0 mt-0.5 group-hover:bg-accent/10 transition-colors">#{t.ticket_number}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm leading-snug truncate ${displayTitle ? "text-foreground/80" : "text-muted/40 italic"}`}>
+                      {displayTitle || "Untitled"}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {t._type && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${typeBadge || "bg-gray-50 text-gray-600"}`}>
+                          {t._type}
+                        </span>
+                      )}
+                      <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${STATUS_COLORS[t.status] || STATUS_COLORS.to_be_done}`}>
+                        {t._state || STATUS_LABELS[t.status] || t.status}
+                      </span>
+                      {t._project && (
+                        <span className="text-[10px] text-muted/50 truncate">{t._project}</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+                {devopsUrl && (
+                  <a
+                    href={devopsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Open in Azure DevOps"
+                    className="shrink-0 px-2.5 py-3 flex items-center justify-center text-muted/30 hover:text-blue-600 hover:bg-blue-50/60 transition-colors rounded-r-lg cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                )}
+              </div>
             );
           })
         )}
@@ -180,7 +228,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
               onClick={openDrop}
               className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer hover:opacity-80 transition-opacity"
             >
-              <span className="text-sm font-bold text-accent bg-white/80 px-2 py-0.5 rounded-md shadow-sm shrink-0">{ticket.ticket_number}</span>
+              <span className="text-sm font-bold text-accent bg-white/80 px-2 py-0.5 rounded-md shadow-sm shrink-0">#{ticket.ticket_number}</span>
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[ticket.status] || STATUS_COLORS.to_be_done}`}>
                 {STATUS_LABELS[ticket.status] || ticket.status}
               </span>
@@ -520,19 +568,29 @@ export default function StandupForm({ onSubmitted }) {
   }, [yesterdayEntries, todayEntries, blockerEntries, draftLoaded, userId]);
 
   useEffect(() => {
-    async function fetchTickets() {
+    async function fetchWorkItems() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        const res = await fetch("/api/tickets", {
+        const res = await fetch("/api/azure-devops/work-items", {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (!res.ok) return;
-        const { tickets: data } = await res.json();
-        setTickets(data || []);
+        const { workItems } = await res.json();
+        const mapped = (workItems || []).map((wi) => ({
+          id: String(wi.id),
+          ticket_number: String(wi.id),
+          title: wi.title || "",
+          status: mapAzureState(wi.state),
+          description: "",
+          _type: wi.type,
+          _state: wi.state,
+          _project: wi.project,
+        }));
+        setTickets(mapped);
       } catch { /* silent */ } finally { setTicketsLoading(false); }
     }
-    fetchTickets();
+    fetchWorkItems();
   }, []);
 
   const activeTickets = tickets.filter((t) => t.status !== "closed");
@@ -545,11 +603,19 @@ export default function StandupForm({ onSubmitted }) {
     entries.map((e) => {
       const t = e.ticketId ? tickets.find((tk) => tk.id === e.ticketId) : null;
       const desc = stripBullets(e.description);
-      return `${t ? `[${t.ticket_number}] ` : ""}${desc}`.trim();
+      return `${t ? `[#${t.ticket_number}] ` : ""}${desc}`.trim();
     }).filter(Boolean).join("\n\n");
 
   const buildTicketData = (entries) =>
-    entries.filter((e) => e.ticketId || stripBullets(e.description)).map((e) => ({ ticket_id: e.ticketId || null, description: e.description }));
+    entries.filter((e) => e.ticketId || stripBullets(e.description)).map((e) => {
+      const t = e.ticketId ? tickets.find((tk) => tk.id === e.ticketId) : null;
+      return {
+        ticket_id: e.ticketId || null,
+        ticket_number: t?.ticket_number || null,
+        title: t?.title || null,
+        description: e.description,
+      };
+    });
 
   const hasContent = (entries) => entries.some((e) => stripBullets(e.description).length > 0 || e.ticketId);
 
@@ -603,10 +669,13 @@ export default function StandupForm({ onSubmitted }) {
 
   if (previewing) {
     const resolve = (entries) =>
-      entries.filter((e) => e.description.trim() || e.ticketId).map((e) => ({
-        ticket: e.ticketId ? tickets.find((t) => t.id === e.ticketId) : null,
-        description: e.description,
-      }));
+      entries.filter((e) => e.description.trim() || e.ticketId).map((e) => {
+        const t = e.ticketId ? tickets.find((tk) => tk.id === e.ticketId) : null;
+        return {
+          ticket: t ? { ...t, ticket_number: `#${t.ticket_number}` } : null,
+          description: e.description,
+        };
+      });
     const yItems = resolve(yesterdayEntries);
     const tItems = resolve(todayEntries);
     const bItems = resolve(blockerEntries);
