@@ -243,13 +243,25 @@ export default function TasksPage() {
                 }}
               />
               {form.ticket_number && (
-                <div className="mt-3 px-3.5 py-2.5 rounded-lg bg-primary-light/30 border border-primary/20">
-                  <p className="text-sm font-semibold text-foreground">
-                    #{form.ticket_number} — {form.title || "No title"}
-                  </p>
-                  <p className="text-xs text-muted mt-0.5">
-                    Selected — fill in details below and click Add Ticket
-                  </p>
+                <div className="mt-3 px-3.5 py-2.5 rounded-lg bg-primary-light/30 border border-primary/20 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      #{form.ticket_number} — {form.title || "No title"}
+                    </p>
+                    <p className="text-xs text-muted mt-0.5">
+                      Selected — fill in details below and click Add Ticket
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ticket_number: "", title: "", due_date: "", status: "to_be_done", description: "" })}
+                    className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-muted/50 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer mt-0.5"
+                    title="Clear selection"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               )}
             </div>
