@@ -496,13 +496,23 @@ function getDraftKey(userId) {
   return userId ? `${DRAFT_KEY_PREFIX}-${userId}` : null;
 }
 
+function getTodayDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function loadDraft(userId) {
   const key = getDraftKey(userId);
   if (!key) return null;
   try {
-    const raw = sessionStorage.getItem(key);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (parsed.date && parsed.date !== getTodayDateString()) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -512,24 +522,24 @@ function saveDraft(userId, yesterday, today, blockers) {
   const key = getDraftKey(userId);
   if (!key) return;
   try {
-    sessionStorage.setItem(key, JSON.stringify({ yesterday, today, blockers }));
+    localStorage.setItem(key, JSON.stringify({ yesterday, today, blockers, date: getTodayDateString() }));
   } catch { /* quota exceeded – ignore */ }
 }
 
 function clearDraft(userId) {
   const key = getDraftKey(userId);
   if (!key) return;
-  try { sessionStorage.removeItem(key); } catch { /* ignore */ }
+  try { localStorage.removeItem(key); } catch { /* ignore */ }
 }
 
 function clearAllDrafts() {
   try {
     const keys = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const k = sessionStorage.key(i);
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
       if (k && k.startsWith(DRAFT_KEY_PREFIX)) keys.push(k);
     }
-    keys.forEach((k) => sessionStorage.removeItem(k));
+    keys.forEach((k) => localStorage.removeItem(k));
   } catch { /* ignore */ }
 }
 
@@ -553,6 +563,7 @@ export default function StandupForm({ onSubmitted }) {
   useEffect(() => {
     if (!userId) return;
     try { sessionStorage.removeItem("standup-form-draft"); } catch { /* ignore */ }
+    try { sessionStorage.removeItem(`standup-form-draft-${userId}`); } catch { /* ignore */ }
     const draft = loadDraft(userId);
     if (draft) {
       setYesterdayEntries(draft.yesterday || defaultEntry());

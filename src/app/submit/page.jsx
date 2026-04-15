@@ -667,22 +667,45 @@ export default function Submit() {
     setResubmitting(true);
   };
 
-  if (loading || checkingExisting) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   const effectivePhase = resubmitting && meetingPhase === "completed" ? null : meetingPhase;
   const isInMeeting = submittedData && effectivePhase && effectivePhase !== "lobby";
+  const isLoading = loading || checkingExisting;
 
   return (
     <AppLayout>
-      <div className={`mx-auto px-4 sm:px-6 py-10 space-y-6 ${isInMeeting ? "max-w-3xl" : "max-w-2xl"}`}>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-6">
+        {/* Loading skeleton — keeps layout stable while checking */}
+        {isLoading && (
+          <div className="standup-skeleton-in">
+            <div className="text-center space-y-1 mb-6">
+              <div className="h-7 w-48 bg-card-border/40 rounded-lg mx-auto shimmer-skeleton" />
+              <div className="h-4 w-36 bg-card-border/30 rounded-md mx-auto mt-2 shimmer-skeleton" />
+            </div>
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-card-border/60 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_4px_rgba(0,0,0,0.02)] p-5 sm:p-7 space-y-7">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="space-y-3" style={{ animationDelay: `${i * 80}ms` }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-card-border/40 shimmer-skeleton" />
+                    <div className="flex-1">
+                      <div className="h-4 w-24 bg-card-border/40 rounded-md shimmer-skeleton" />
+                      <div className="h-3 w-40 bg-card-border/25 rounded-md mt-1.5 shimmer-skeleton" />
+                    </div>
+                  </div>
+                  <div className="ml-11">
+                    <div className="rounded-xl border border-card-border/30 bg-white/60 p-3.5">
+                      <div className="h-4 w-full bg-card-border/25 rounded-md shimmer-skeleton" />
+                      <div className="h-4 w-2/3 bg-card-border/20 rounded-md mt-2 shimmer-skeleton" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="h-12 w-full bg-card-border/30 rounded-xl shimmer-skeleton" />
+            </div>
+          </div>
+        )}
+
         {/* Form phase — not yet submitted */}
-        {!submittedData && (
+        {!isLoading && !submittedData && (
           <>
             <div className="text-center space-y-1">
               <h1 className="text-2xl font-bold text-accent">Submit Standup</h1>
@@ -695,17 +718,17 @@ export default function Submit() {
         )}
 
         {/* Submitted + meeting not started or in lobby */}
-        {submittedData && (!effectivePhase || effectivePhase === "lobby") && (
+        {!isLoading && submittedData && (!effectivePhase || effectivePhase === "lobby") && (
           <WaitingRoom submittedData={submittedData} />
         )}
 
         {/* Meeting active — show current speaker in sync */}
-        {submittedData && effectivePhase === "active" && (
+        {!isLoading && submittedData && effectivePhase === "active" && (
           <ActiveMeetingView meetingState={meetingState} userId={user?.id} />
         )}
 
         {/* Meeting completed */}
-        {submittedData && effectivePhase === "completed" && (
+        {!isLoading && submittedData && effectivePhase === "completed" && (
           <CompletedMeetingView
             meetingState={meetingState}
             onNewStandup={handleNewStandup}

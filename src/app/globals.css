@@ -1016,10 +1016,40 @@ nav {
   font-variant-numeric: tabular-nums;
 }
 
+@keyframes skeletonFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.standup-skeleton-in {
+  animation: skeletonFadeIn 0.2s ease-out both;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.shimmer-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.04) 40%,
+    rgba(0, 0, 0, 0.06) 50%,
+    rgba(0, 0, 0, 0.04) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .standup-section-in,
   .standup-entry-in,
   .standup-dropdown-in {
+    animation: none;
+  }
+  .shimmer-skeleton {
     animation: none;
   }
 }
