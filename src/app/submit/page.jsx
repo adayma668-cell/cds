@@ -59,69 +59,54 @@ function TicketEntries({ entries, ticketMap, badgeClass, bgClass }) {
   );
 }
 
-function WaitingRoom({ submittedData }) {
-  const [showUpdates, setShowUpdates] = useState(false);
+function WaitingRoom({ submittedData, onEdit }) {
   const ticketMap = submittedData._ticketMap || {};
 
   return (
     <div className="space-y-5">
       {/* ── Hero Card ── */}
-      <div className="lobby-stagger-1 bg-card rounded-2xl border border-card-border shadow-sm p-8 sm:p-10 text-center space-y-5">
-        {/* Orbital waiting animation */}
-        <div className="relative w-32 h-32 mx-auto">
-          <div className="absolute inset-0 rounded-full border-2 border-primary/15 lobby-ripple" />
-          <div className="absolute inset-0 rounded-full border-2 border-primary/10 lobby-ripple-delayed" />
-          <div className="absolute inset-0 rounded-full border border-primary/8 lobby-ripple-delayed-2" />
+      <div className="lobby-stagger-1 relative overflow-hidden rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-[0_2px_16px_rgba(6,194,134,0.08),0_1px_3px_rgba(0,0,0,0.04)]">
+        {/* Gradient top accent */}
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary via-accent to-primary lobby-gradient-bar" />
 
-          {/* Outer orbit */}
-          <div className="absolute inset-[-4px] lobby-orbit">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary shadow-md shadow-primary/40" />
-          </div>
-
-          {/* Reverse orbit */}
-          <div className="absolute inset-1 lobby-orbit-reverse">
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent/50" />
-          </div>
-
-          {/* Center icon */}
-          <div className="absolute inset-5 rounded-full bg-primary-light flex items-center justify-center lobby-breath">
-            <div className="w-16 h-16 rounded-2xl bg-primary-light flex items-center justify-center">
-              <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div className="px-4 py-3.5 flex items-center gap-3.5">
+          {/* Status icon with layered glow */}
+          <div className="relative w-9 h-9 shrink-0">
+            <div className="absolute inset-0 rounded-lg bg-primary/8 lobby-breath" />
+            <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm shadow-primary/25">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
           </div>
-        </div>
 
-        <h1 className="text-2xl font-bold text-accent">You&apos;re All Set</h1>
-        <p className="text-sm text-muted max-w-sm mx-auto leading-relaxed">
-          Standup submitted successfully. This page will update automatically when the meeting begins.
-        </p>
+          {/* Text content */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-foreground leading-tight">Standup Submitted</p>
+            <p className="text-[11px] text-muted mt-0.5">This page will update when the meeting begins</p>
+          </div>
 
-        {/* Status pill */}
-        <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-primary-light/60 border border-primary/15">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inset-0 rounded-full bg-primary lobby-connected-pulse" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
-          </span>
-          <span className="text-xs font-semibold text-primary-dark tracking-wide">
-            Waiting for Scrum Master
-          </span>
-          <span className="flex items-center gap-0.5 ml-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1.2s" }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "200ms", animationDuration: "1.2s" }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "400ms", animationDuration: "1.2s" }} />
-          </span>
+          {/* Live status indicator */}
+          <div className="shrink-0 flex items-center gap-2 pl-3.5 border-l border-card-border/40">
+            <div className="relative flex h-2 w-2">
+              <span className="absolute inset-0 rounded-full bg-primary lobby-connected-pulse" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider leading-none">
+                Live
+              </span>
+              <span className="text-[10px] text-muted leading-tight mt-0.5 whitespace-nowrap">
+                Waiting for Scrum Master
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Submitted Updates (collapsible, original theme) ── */}
+      {/* ── Submitted Updates (shown by default) ── */}
       <div className="lobby-stagger-2 rounded-2xl border border-card-border bg-card shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowUpdates(!showUpdates)}
-          className="w-full px-5 sm:px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-background/50 transition-colors"
-        >
+        <div className="px-5 sm:px-6 py-4 flex items-center justify-between border-b border-card-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary-light flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,70 +115,64 @@ function WaitingRoom({ submittedData }) {
             </div>
             <div className="text-left">
               <p className="text-sm font-semibold text-foreground">Your Submitted Updates</p>
-              <p className="text-xs text-muted mt-0.5">
-                {showUpdates ? "Tap to collapse" : "Tap to review what you submitted"}
-              </p>
+              <p className="text-xs text-muted mt-0.5">Review your standup below</p>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center shrink-0">
-            <svg
-              className={`w-4 h-4 text-muted transition-transform duration-300 ${showUpdates ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-primary bg-primary-light/60 border border-primary/15 hover:bg-primary-light hover:border-primary/25 hover:shadow-sm transition-all cursor-pointer"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </button>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+          )}
+        </div>
 
-        <div
-          className={`transition-all duration-400 ease-in-out overflow-hidden ${
-            showUpdates ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
-          }`}
-        >
-          <div className="px-5 sm:px-6 pb-5 space-y-3 border-t border-card-border/50 pt-4 max-h-[calc(80vh-60px)] overflow-y-auto">
-            <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
-              <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
-                Yesterday
+        <div className="px-5 sm:px-6 pb-5 space-y-3 pt-4 max-h-[60vh] overflow-y-auto">
+          <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
+            <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
+              Yesterday
+            </p>
+            {submittedData.yesterday_tickets?.length > 0 ? (
+              <TicketEntries entries={submittedData.yesterday_tickets} ticketMap={ticketMap} badgeClass="text-primary-dark bg-primary-light" bgClass="border-primary/10" />
+            ) : (
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {submittedData.yesterday}
               </p>
-              {submittedData.yesterday_tickets?.length > 0 ? (
-                <TicketEntries entries={submittedData.yesterday_tickets} ticketMap={ticketMap} badgeClass="text-primary-dark bg-primary-light" bgClass="border-primary/10" />
-              ) : (
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                  {submittedData.yesterday}
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl bg-accent-light/50 border border-accent/10 p-4">
-              <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1.5">
-                Today
-              </p>
-              {submittedData.today_tickets?.length > 0 ? (
-                <TicketEntries entries={submittedData.today_tickets} ticketMap={ticketMap} badgeClass="text-accent bg-accent-light" bgClass="border-accent/10" />
-              ) : (
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                  {submittedData.today}
-                </p>
-              )}
-            </div>
-
-            {(submittedData.blockers || (submittedData.blocker_tickets && submittedData.blocker_tickets.length > 0)) && (
-              <div className="rounded-xl bg-red-50/50 border border-red-100 p-4">
-                <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-1.5">
-                  Blockers
-                </p>
-                {submittedData.blocker_tickets?.length > 0 ? (
-                  <TicketEntries entries={submittedData.blocker_tickets} ticketMap={ticketMap} badgeClass="text-danger bg-red-50" bgClass="border-red-100" />
-                ) : submittedData.blockers ? (
-                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                    {submittedData.blockers}
-                  </p>
-                ) : null}
-              </div>
             )}
           </div>
+
+          <div className="rounded-xl bg-accent-light/50 border border-accent/10 p-4">
+            <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1.5">
+              Today
+            </p>
+            {submittedData.today_tickets?.length > 0 ? (
+              <TicketEntries entries={submittedData.today_tickets} ticketMap={ticketMap} badgeClass="text-accent bg-accent-light" bgClass="border-accent/10" />
+            ) : (
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {submittedData.today}
+              </p>
+            )}
+          </div>
+
+          {(submittedData.blockers || (submittedData.blocker_tickets && submittedData.blocker_tickets.length > 0)) && (
+            <div className="rounded-xl bg-red-50/50 border border-red-100 p-4">
+              <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-1.5">
+                Blockers
+              </p>
+              {submittedData.blocker_tickets?.length > 0 ? (
+                <TicketEntries entries={submittedData.blocker_tickets} ticketMap={ticketMap} badgeClass="text-danger bg-red-50" bgClass="border-red-100" />
+              ) : submittedData.blockers ? (
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                  {submittedData.blockers}
+                </p>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -673,6 +652,7 @@ export default function Submit() {
   const [submittedData, setSubmittedData] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
   const [resubmitting, setResubmitting] = useState(false);
+  const [editInitialData, setEditInitialData] = useState(null);
   const prevPhaseRef = useRef(null);
 
   useEffect(() => {
@@ -745,6 +725,26 @@ export default function Submit() {
 
   const handleSubmitted = (data) => {
     setSubmittedData(data);
+    setEditInitialData(null);
+  };
+
+  const toFormEntries = (ticketEntries) => {
+    if (!ticketEntries || ticketEntries.length === 0) return [{ ticketId: "", description: "" }];
+    return ticketEntries.map((e) => ({
+      ticketId: e.ticket_id || "",
+      description: e.description || "",
+    }));
+  };
+
+  const handleEditStandup = () => {
+    if (submittedData) {
+      setEditInitialData({
+        yesterday: toFormEntries(submittedData.yesterday_tickets),
+        today: toFormEntries(submittedData.today_tickets),
+        blockers: toFormEntries(submittedData.blocker_tickets),
+      });
+    }
+    setSubmittedData(null);
   };
 
   const handleNewStandup = () => {
@@ -797,14 +797,14 @@ export default function Submit() {
               <p className="text-sm text-muted">Share your daily update</p>
             </div>
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-card-border/60 shadow-[0_4px_24px_rgba(0,0,0,0.04),0_1px_4px_rgba(0,0,0,0.02)] p-5 sm:p-7">
-              <StandupForm onSubmitted={handleSubmitted} />
+              <StandupForm onSubmitted={handleSubmitted} initialData={editInitialData} />
             </div>
           </>
         )}
 
         {/* Submitted + meeting not started or in lobby */}
         {!isLoading && submittedData && (!effectivePhase || effectivePhase === "lobby") && (
-          <WaitingRoom submittedData={submittedData} />
+          <WaitingRoom submittedData={submittedData} onEdit={handleEditStandup} />
         )}
 
         {/* Meeting active — show current speaker in sync */}

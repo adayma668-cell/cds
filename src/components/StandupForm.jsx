@@ -542,23 +542,6 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets, inc
   );
 }
 
-function PreviewEntry({ ticket, description, badgeBg, badgeText, borderColor }) {
-  const previewTitle = ticket ? (ticket.title || ticket.description?.split("\n")[0]?.slice(0, 60) || "") : "";
-  return (
-    <div className={`rounded-lg bg-white/70 border ${borderColor} px-3.5 py-2.5 backdrop-blur-sm`}>
-      {ticket && (
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className={`text-xs font-bold ${badgeText} ${badgeBg} px-2 py-0.5 rounded-md`}>{ticket.ticket_number}</span>
-          {previewTitle && <span className="text-sm text-foreground/65 truncate">{previewTitle}</span>}
-        </div>
-      )}
-      {description && (
-        <p className="text-[15px] text-foreground whitespace-pre-wrap leading-relaxed">{description}</p>
-      )}
-    </div>
-  );
-}
-
 const DRAFT_KEY_PREFIX = "standup-form-draft";
 
 function getDraftKey(userId) {
@@ -616,7 +599,7 @@ export { clearAllDrafts };
 
 const defaultEntry = () => [{ ticketId: "", description: "" }];
 
-export default function StandupForm({ onSubmitted }) {
+export default function StandupForm({ onSubmitted, initialData }) {
   const { user } = useAuthContext();
   const userId = user?.id;
   const [yesterdayEntries, setYesterdayEntries] = useState(defaultEntry);
@@ -627,7 +610,6 @@ export default function StandupForm({ onSubmitted }) {
   const [ticketsLoading, setTicketsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
-  const [previewing, setPreviewing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restored, setRestored] = useState(false);
 
@@ -635,6 +617,15 @@ export default function StandupForm({ onSubmitted }) {
     if (!userId) return;
     try { sessionStorage.removeItem("standup-form-draft"); } catch { /* ignore */ }
     try { sessionStorage.removeItem(`standup-form-draft-${userId}`); } catch { /* ignore */ }
+
+    if (initialData) {
+      setYesterdayEntries(initialData.yesterday || defaultEntry());
+      setTodayEntries(initialData.today || defaultEntry());
+      setBlockerEntries(initialData.blockers || defaultEntry());
+      setDraftLoaded(true);
+      return;
+    }
+
     const draft = loadDraft(userId);
     if (draft) {
       setYesterdayEntries(draft.yesterday || defaultEntry());
@@ -642,7 +633,7 @@ export default function StandupForm({ onSubmitted }) {
       setBlockerEntries(draft.blockers || defaultEntry());
     }
     setDraftLoaded(true);
-  }, [userId]);
+  }, [userId, initialData]);
 
   useEffect(() => {
     if (!draftLoaded || !userId) return;
@@ -697,13 +688,20 @@ export default function StandupForm({ onSubmitted }) {
       const todayText = prev.today || "";
       const todayTickets = prev.today_tickets || [];
 
+      const appendToYesterday = (newEntries) => {
+        setYesterdayEntries((prev) => {
+          const existing = prev.filter((e) => e.ticketId || stripBullets(e.description));
+          return existing.length > 0 ? [...existing, ...newEntries] : newEntries;
+        });
+      };
+
       if (todayTickets.length > 0) {
         const entries = todayTickets.map((t) => ({
           ticketId: t.ticket_id || "",
           description: t.description || "",
         }));
         if (entries.length === 0) entries.push({ ticketId: "", description: "" });
-        setYesterdayEntries(entries);
+        appendToYesterday(entries);
       } else if (todayText.trim()) {
         const blocks = todayText.split("\n\n").filter(Boolean);
         const entries = blocks.map((block) => {
@@ -715,13 +713,13 @@ export default function StandupForm({ onSubmitted }) {
           return { ticketId: "", description: bulletLines };
         });
         if (entries.length === 0) entries.push({ ticketId: "", description: "" });
-        setYesterdayEntries(entries);
+        appendToYesterday(entries);
       } else {
         setMessage({ text: "Previous standup had no 'Today' content to restore", type: "error" });
         return;
       }
       setRestored(true);
-      setMessage({ text: `Restored from your standup on ${prev.standup_date}. Feel free to edit.`, type: "success" });
+      setMessage({ text: `Added entries from your standup on ${prev.standup_date}. Feel free to edit.`, type: "success" });
     } catch (err) {
       setMessage({ text: err.message, type: "error" });
     } finally {
@@ -754,19 +752,14 @@ export default function StandupForm({ onSubmitted }) {
 
   const filledSections = [hasContent(yesterdayEntries), hasContent(todayEntries), hasContent(blockerEntries)].filter(Boolean).length;
 
-  const handlePreview = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
     if (!hasContent(yesterdayEntries)) {
       setMessage({ text: "Please add at least one update for Yesterday", type: "error" }); return;
     }
     if (!hasContent(todayEntries)) {
       setMessage({ text: "Please add at least one update for Today", type: "error" }); return;
     }
-    setMessage({ text: "", type: "" });
-    setPreviewing(true);
-  };
-
-  const handleSubmit = async () => {
     setMessage({ text: "", type: "" });
     setLoading(true);
     try {
@@ -780,7 +773,6 @@ export default function StandupForm({ onSubmitted }) {
         }),
       });
       if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Failed to submit standup"); }
-      clearDraft(userId);
       if (onSubmitted) {
         onSubmitted({
           yesterday: buildText(yesterdayEntries), today: buildText(todayEntries), blockers: buildText(blockerEntries),
@@ -789,127 +781,20 @@ export default function StandupForm({ onSubmitted }) {
         });
         return;
       }
+      clearDraft(userId);
       setMessage({ text: "Standup submitted successfully!", type: "success" });
       setYesterdayEntries(defaultEntry());
       setTodayEntries(defaultEntry());
       setBlockerEntries(defaultEntry());
-      setPreviewing(false);
     } catch (err) { setMessage({ text: err.message, type: "error" }); }
     finally { setLoading(false); }
   };
 
   const ctxValue = { tickets, activeTickets };
 
-  if (previewing) {
-    const resolve = (entries) =>
-      entries.filter((e) => e.description.trim() || e.ticketId).map((e) => {
-        const t = e.ticketId ? tickets.find((tk) => tk.id === e.ticketId) : null;
-        return {
-          ticket: t ? { ...t, ticket_number: `#${t.ticket_number}` } : null,
-          description: e.description,
-        };
-      });
-    const yItems = resolve(yesterdayEntries);
-    const tItems = resolve(todayEntries);
-    const bItems = resolve(blockerEntries);
-
-    return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-3 pb-1">
-          <div className="w-9 h-9 rounded-xl bg-accent-light flex items-center justify-center">
-            <svg className="w-4.5 h-4.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-foreground">Review Your Update</h2>
-            <p className="text-xs text-muted/50">Make sure everything looks good before submitting</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="rounded-xl bg-gradient-to-br from-violet-50/60 to-violet-50/30 border border-violet-100/60 p-4">
-            <div className="flex items-center gap-2 mb-2.5">
-              <div className="w-6 h-6 rounded-md bg-violet-500 flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <p className="text-sm font-bold text-violet-700">Yesterday</p>
-            </div>
-            <div className="space-y-2">
-              {yItems.map((item, i) => (
-                <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-violet-100" badgeText="text-violet-700" borderColor="border-violet-100/60" />
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-gradient-to-br from-primary-light/60 to-primary-light/30 border border-primary/10 p-4">
-            <div className="flex items-center gap-2 mb-2.5">
-              <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <p className="text-sm font-bold text-primary-dark">Today</p>
-            </div>
-            <div className="space-y-2">
-              {tItems.map((item, i) => (
-                <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-primary-light" badgeText="text-primary-dark" borderColor="border-primary/10" />
-              ))}
-            </div>
-          </div>
-
-          {bItems.length > 0 && (
-            <div className="rounded-xl bg-gradient-to-br from-orange-50/60 to-orange-50/30 border border-orange-100 p-4">
-              <div className="flex items-center gap-2 mb-2.5">
-                <div className="w-6 h-6 rounded-md bg-orange-500 flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-bold text-orange-700">Blockers</p>
-              </div>
-              <div className="space-y-2">
-                {bItems.map((item, i) => (
-                  <PreviewEntry key={i} ticket={item.ticket} description={item.description} badgeBg="bg-orange-100" badgeText="text-orange-700" borderColor="border-orange-100" />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {message.text && (
-          <div className={`flex items-center gap-2 text-sm rounded-xl px-4 py-3 border ${message.type === "success" ? "text-primary-dark bg-primary-light border-primary/20" : "text-danger bg-red-50 border-red-100"}`}>
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {message.type === "success" ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              )}
-            </svg>
-            {message.text}
-          </div>
-        )}
-
-        <div className="flex gap-3 pt-2">
-          <button type="button" onClick={() => setPreviewing(false)} disabled={loading}
-            className="flex-1 rounded-xl border border-card-border py-3 text-sm font-semibold text-muted hover:bg-background hover:border-card-border/80 transition-all disabled:opacity-50 cursor-pointer">
-            Back to Edit
-          </button>
-          <button type="button" onClick={handleSubmit} disabled={loading}
-            className="btn-press btn-shimmer flex-1 rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white py-3 text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 cursor-pointer">
-            <span>{loading ? "Submitting..." : "Confirm & Submit"}</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <TicketsCtx.Provider value={ctxValue}>
-      <form onSubmit={handlePreview} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Progress indicator */}
         <div className="flex items-center gap-2 pb-1">
           <div className="flex items-center gap-1.5 text-xs text-muted/50">
@@ -947,14 +832,25 @@ export default function StandupForm({ onSubmitted }) {
           </div>
         )}
 
-        <button type="submit"
-          className="btn-press btn-shimmer w-full rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white py-3.5 text-sm font-bold transition-all shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 cursor-pointer">
+        <button type="submit" disabled={loading}
+          className="btn-press btn-shimmer w-full rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white py-3.5 text-sm font-bold transition-all shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-50 cursor-pointer">
           <span className="flex items-center justify-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            Preview Standup
+            {loading ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Submitting...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Submit Standup
+              </>
+            )}
           </span>
         </button>
       </form>
