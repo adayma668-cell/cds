@@ -300,6 +300,7 @@ export default function StartMeeting() {
   const [error, setError] = useState(null);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [abandoning, setAbandoning] = useState(false);
+  const [completedMembers, setCompletedMembers] = useState([]);
 
   useEffect(() => {
     const saved = loadMeetingFromStorage();
@@ -353,11 +354,14 @@ export default function StartMeeting() {
         });
       }, 1500);
     } else if (saved.phase === "completed") {
+      const members = saved.completedMembers?.length ? saved.completedMembers : filtered;
+      setCompletedMembers(members);
+
       setTimeout(() => {
         broadcastState({
           phase: "completed",
-          totalMembers: filtered.length,
-          allMembers: filtered,
+          totalMembers: members.length,
+          allMembers: members,
         });
       }, 1500);
     }
@@ -526,17 +530,20 @@ export default function StartMeeting() {
         submittedAll, pendingAll,
       });
     } else {
+      const meetingMembers = [...filteredStandups];
       setPhase("completed");
       setIsRunning(false);
+      setCompletedMembers(meetingMembers);
       broadcastState({
         phase: "completed",
-        totalMembers,
-        allMembers: filteredStandups,
+        totalMembers: meetingMembers.length,
+        allMembers: meetingMembers,
       });
       saveMeetingToStorage({
         phase: "completed", selectedTeam, currentIndex,
         seconds: 0, isRunning: false, timerEndTime: null,
         submittedAll, pendingAll,
+        completedMembers: meetingMembers,
       });
 
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -592,6 +599,7 @@ export default function StartMeeting() {
     setCurrentIndex(0);
     setSeconds(TIMER_SECONDS);
     setIsRunning(false);
+    setCompletedMembers([]);
     clearTimer();
     endTimeRef.current = null;
     broadcastState({ phase: "lobby" });
@@ -1174,7 +1182,7 @@ export default function StartMeeting() {
                 Meeting Complete
               </h1>
               <p className="text-sm text-muted max-w-sm mx-auto leading-relaxed">
-                All {totalMembers} team member{totalMembers !== 1 ? "s" : ""} have
+                All {completedMembers.length} team member{completedMembers.length !== 1 ? "s" : ""} have
                 presented their standup updates. Great job keeping the meeting on
                 track!
               </p>
@@ -1188,7 +1196,7 @@ export default function StartMeeting() {
                 </h2>
               </div>
               <div className="divide-y divide-card-border/50">
-                {filteredStandups.map((member) => (
+                {completedMembers.map((member) => (
                   <div key={member.id} className="px-6 py-4">
                     <div className="flex items-center gap-3 mb-3">
                       {member.avatar_url ? (
