@@ -7,6 +7,44 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+const AZURE_ORG = process.env.AZURE_DEVOPS_ORG;
+const AZURE_PAT = process.env.AZURE_DEVOPS_PAT;
+
+async function resolveWorkItemTitles(ids) {
+  if (!ids.length || !AZURE_PAT || !AZURE_ORG) return {};
+  const authHeader = "Basic " + Buffer.from(":" + AZURE_PAT).toString("base64");
+  const titleMap = {};
+  const batchSize = 200;
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const chunk = ids.slice(i, i + batchSize);
+    try {
+      const res = await fetch(
+        `https://dev.azure.com/${AZURE_ORG}/_apis/wit/workitems?ids=${chunk.join(",")}&fields=System.Title,System.WorkItemType&api-version=7.0`,
+        { headers: { Authorization: authHeader } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const wi of data.value || []) {
+        titleMap[String(wi.id)] = {
+          title: wi.fields?.["System.Title"] || null,
+          type: wi.fields?.["System.WorkItemType"] || null,
+        };
+      }
+    } catch { /* skip on error */ }
+  }
+  return titleMap;
+}
+
+function enrichTickets(tickets, titleMap) {
+  if (!tickets || !tickets.length) return tickets;
+  return tickets.map((t) => {
+    if (t.title || !t.ticket_number) return t;
+    const info = titleMap[String(t.ticket_number)] || titleMap[String(t.ticket_id)];
+    if (!info) return t;
+    return { ...t, title: info.title || t.title, type: info.type || t.type };
+  });
+}
+
 async function getLeader(req) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return null;
@@ -72,6 +110,21 @@ export async function GET(request) {
 
   const submittedUserIds = new Set(standups.map((s) => s.user_id));
 
+  const allTicketEntries = standups.flatMap((s) => [
+    ...(s.yesterday_tickets || []),
+    ...(s.today_tickets || []),
+    ...(s.blocker_tickets || []),
+  ]);
+  const missingTitleIds = [
+    ...new Set(
+      allTicketEntries
+        .filter((t) => !t.title && (t.ticket_number || t.ticket_id))
+        .map((t) => String(t.ticket_number || t.ticket_id))
+        .filter(Boolean)
+    ),
+  ];
+  const titleMap = await resolveWorkItemTitles(missingTitleIds);
+
   const submitted = standups
     .filter((s) => !superAdminIds.has(s.user_id))
     .map((s) => {
@@ -89,9 +142,9 @@ export async function GET(request) {
         yesterday: s.yesterday,
         today: s.today,
         blockers: s.blockers,
-        yesterday_tickets: s.yesterday_tickets || [],
-        today_tickets: s.today_tickets || [],
-        blocker_tickets: s.blocker_tickets || [],
+        yesterday_tickets: enrichTickets(s.yesterday_tickets || [], titleMap),
+        today_tickets: enrichTickets(s.today_tickets || [], titleMap),
+        blocker_tickets: enrichTickets(s.blocker_tickets || [], titleMap),
         created_at: s.created_at,
       };
     });

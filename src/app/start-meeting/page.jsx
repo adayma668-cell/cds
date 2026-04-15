@@ -62,17 +62,17 @@ function TicketEntry({ entry }) {
   return (
     <div className="rounded-lg bg-white/70 border border-card-border/40 overflow-hidden hover:border-card-border/70 transition-colors">
       {num && (
-        <div className="flex items-center gap-2.5 px-3.5 py-2 border-b border-card-border/30 bg-gray-50/40">
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${colors?.badge || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+        <div className="flex items-start gap-2.5 px-3.5 py-2 border-b border-card-border/30 bg-gray-50/40">
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${colors?.badge || "bg-gray-50 text-gray-600 border-gray-200"}`}>
             #{num}
           </span>
           {type && (
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors?.badge || "bg-gray-50 text-gray-600"}`}>
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${colors?.badge || "bg-gray-50 text-gray-600"}`}>
               {type}
             </span>
           )}
           {title && (
-            <span className="text-sm text-foreground/75 truncate flex-1">{title}</span>
+            <span className="text-[13px] font-semibold text-blue-600 leading-snug">{title}</span>
           )}
         </div>
       )}
@@ -1189,101 +1189,152 @@ export default function StartMeeting() {
             </div>
 
             {/* Summary */}
-            <div className="bg-card rounded-2xl border border-card-border shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-card-border">
-                <h2 className="text-sm font-semibold text-accent uppercase tracking-wider">
-                  Meeting Summary
-                </h2>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h2 className="text-base font-bold text-foreground">Meeting Summary</h2>
+                <span className="text-xs font-medium text-muted bg-background px-2 py-0.5 rounded-full border border-card-border">
+                  {completedMembers.length} member{completedMembers.length !== 1 ? "s" : ""}
+                </span>
               </div>
-              <div className="divide-y divide-card-border/50">
-                {completedMembers.map((member) => (
-                  <div key={member.id} className="px-6 py-4">
-                    <div className="flex items-center gap-3 mb-3">
+
+              {completedMembers.map((member) => (
+                <div key={member.id} className="bg-card rounded-2xl border border-card-border shadow-sm overflow-hidden">
+                  {/* Member header */}
+                  <div className="px-5 py-4 bg-gradient-to-r from-background to-card border-b border-card-border/60">
+                    <div className="flex items-center gap-3">
                       {member.avatar_url ? (
-                        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-primary/20">
-                          <img
-                            src={member.avatar_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
+                        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 border-primary/20 shadow-sm">
+                          <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
                         </div>
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center">
-                          <span className="text-xs font-bold text-primary-dark">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-light to-primary/20 flex items-center justify-center shadow-sm">
+                          <span className="text-sm font-bold text-primary-dark">
                             {(member.name || "?").charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
-                      <p className="font-semibold text-sm text-foreground">
-                        {member.name}
-                      </p>
-                      {(member.teams || []).map((t) => (
-                        <span
-                          key={t}
-                          className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${getTeamColor(t)}`}
-                        >
-                          {getTeamLabel(t)}
-                        </span>
-                      ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-sm text-foreground">{member.name}</p>
+                          {(member.teams || []).map((t) => (
+                            <span key={t} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getTeamColor(t)}`}>
+                              {getTeamLabel(t)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                       {member.blockers && member.blockers.trim() && (
-                        <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-danger border border-red-100">
-                          HAS BLOCKERS
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-red-50 text-danger border border-red-200 flex items-center gap-1 shrink-0">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          BLOCKERS
                         </span>
                       )}
                     </div>
-                    <div className="space-y-2 pl-11">
-                      <div>
-                        <p className="text-[10px] font-semibold text-primary-dark uppercase tracking-wide mb-1">Today</p>
-                        {member.today_tickets && member.today_tickets.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {member.today_tickets.map((t, ti) => (
-                              <div key={ti} className="flex items-center gap-2 text-xs">
-                                {t.ticket_number && (
-                                  <span className="font-bold text-primary-dark bg-primary-light/60 px-1.5 py-0.5 rounded text-[10px]">
+                  </div>
+
+                  {/* Ticket sections */}
+                  <div className="p-4 sm:p-5 space-y-3">
+                    {/* Yesterday */}
+                    <div className="rounded-xl bg-primary-light/40 border border-primary/10 p-3.5">
+                      <p className="text-[10px] font-bold text-primary-dark uppercase tracking-wider mb-2">Yesterday</p>
+                      {member.yesterday_tickets && member.yesterday_tickets.length > 0 ? (
+                        <div className="space-y-2">
+                          {member.yesterday_tickets.map((t, ti) => (
+                            <div key={ti} className="rounded-lg bg-white/70 border border-primary/10 overflow-hidden">
+                              {t.ticket_number && (
+                                <div className="flex items-start gap-2.5 px-3 py-2 border-b border-primary/5 bg-white/50">
+                                  <span className="text-[10px] font-bold text-primary-dark bg-primary-light px-1.5 py-0.5 rounded-md shrink-0">
                                     #{t.ticket_number}
                                   </span>
+                                  {t.title && <span className="text-xs font-semibold text-blue-600 leading-snug">{t.title}</span>}
+                                </div>
+                              )}
+                              {t.description && (
+                                <p className="text-xs text-foreground leading-relaxed px-3 py-2 whitespace-pre-wrap">
+                                  {t.description.replace(/^• /gm, "").slice(0, 150)}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-foreground/70 leading-relaxed whitespace-pre-wrap">
+                          {member.yesterday}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Today */}
+                    <div className="rounded-xl bg-accent-light/40 border border-accent/10 p-3.5">
+                      <p className="text-[10px] font-bold text-accent uppercase tracking-wider mb-2">Today</p>
+                      {member.today_tickets && member.today_tickets.length > 0 ? (
+                        <div className="space-y-2">
+                          {member.today_tickets.map((t, ti) => (
+                            <div key={ti} className="rounded-lg bg-white/70 border border-accent/10 overflow-hidden">
+                              {t.ticket_number && (
+                                <div className="flex items-start gap-2.5 px-3 py-2 border-b border-accent/5 bg-white/50">
+                                  <span className="text-[10px] font-bold text-accent bg-accent-light px-1.5 py-0.5 rounded-md shrink-0">
+                                    #{t.ticket_number}
+                                  </span>
+                                  {t.title && <span className="text-xs font-semibold text-blue-600 leading-snug">{t.title}</span>}
+                                </div>
+                              )}
+                              {t.description && (
+                                <p className="text-xs text-foreground leading-relaxed px-3 py-2 whitespace-pre-wrap">
+                                  {t.description.replace(/^• /gm, "").slice(0, 150)}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-foreground/70 leading-relaxed whitespace-pre-wrap">
+                          {member.today}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Blockers */}
+                    {(member.blockers?.trim() || (member.blocker_tickets && member.blocker_tickets.length > 0)) && (
+                      <div className="rounded-xl bg-red-50/50 border border-red-100 p-3.5">
+                        <p className="text-[10px] font-bold text-danger uppercase tracking-wider mb-2">Blockers</p>
+                        {member.blocker_tickets && member.blocker_tickets.length > 0 ? (
+                          <div className="space-y-2">
+                            {member.blocker_tickets.map((t, ti) => (
+                              <div key={ti} className="rounded-lg bg-white/70 border border-red-100 overflow-hidden">
+                                {t.ticket_number && (
+                                  <div className="flex items-start gap-2.5 px-3 py-2 border-b border-red-50 bg-white/50">
+                                    <span className="text-[10px] font-bold text-danger bg-red-50 px-1.5 py-0.5 rounded-md shrink-0">
+                                      #{t.ticket_number}
+                                    </span>
+                                    {t.title && <span className="text-xs font-semibold text-blue-600 leading-snug">{t.title}</span>}
+                                  </div>
                                 )}
-                                <span className="text-foreground/70 truncate">
-                                  {t.title || t.description?.replace(/^• /gm, "").slice(0, 80) || ""}
-                                </span>
+                                {t.description && (
+                                  <p className="text-xs text-foreground leading-relaxed px-3 py-2 whitespace-pre-wrap">
+                                    {t.description.replace(/^• /gm, "").slice(0, 150)}
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-muted">
-                            {member.today?.length > 100 ? member.today.slice(0, 100) + "..." : member.today}
+                          <p className="text-xs text-foreground/70 leading-relaxed whitespace-pre-wrap">
+                            {member.blockers}
                           </p>
                         )}
                       </div>
-                      {(member.blockers?.trim() || (member.blocker_tickets && member.blocker_tickets.length > 0)) && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-danger uppercase tracking-wide mb-1">Blockers</p>
-                          {member.blocker_tickets && member.blocker_tickets.length > 0 ? (
-                            <div className="space-y-1.5">
-                              {member.blocker_tickets.map((t, ti) => (
-                                <div key={ti} className="flex items-center gap-2 text-xs">
-                                  {t.ticket_number && (
-                                    <span className="font-bold text-danger bg-red-50 px-1.5 py-0.5 rounded text-[10px]">
-                                      #{t.ticket_number}
-                                    </span>
-                                  )}
-                                  <span className="text-foreground/70 truncate">
-                                    {t.title || t.description?.replace(/^• /gm, "").slice(0, 80) || ""}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted">
-                              {member.blockers?.length > 100 ? member.blockers.slice(0, 100) + "..." : member.blockers}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
 
             {/* Pending reminder */}
