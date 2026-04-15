@@ -654,9 +654,15 @@ export default function Submit() {
   const [resubmitting, setResubmitting] = useState(false);
   const [editInitialData, setEditInitialData] = useState(null);
   const prevPhaseRef = useRef(null);
+  const isEditingRef = useRef(false);
+  const hasCheckedRef = useRef(false);
 
   useEffect(() => {
     async function checkTodaySubmission() {
+      if (isEditingRef.current || hasCheckedRef.current) {
+        setCheckingExisting(false);
+        return;
+      }
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { setCheckingExisting(false); return; }
@@ -667,6 +673,8 @@ export default function Submit() {
         if (!res.ok) { setCheckingExisting(false); return; }
 
         const { standups } = await res.json();
+        if (isEditingRef.current) { setCheckingExisting(false); return; }
+
         if (standups && standups.length > 0) {
           const s = standups[0];
 
@@ -691,19 +699,22 @@ export default function Submit() {
             } catch { /* ignore */ }
           }
 
-          setSubmittedData({
-            yesterday: s.yesterday,
-            today: s.today,
-            blockers: s.blockers,
-            yesterday_tickets: s.yesterday_tickets || [],
-            today_tickets: s.today_tickets || [],
-            blocker_tickets: s.blocker_tickets || [],
-            _ticketMap: ticketMap,
-          });
+          if (!isEditingRef.current) {
+            setSubmittedData({
+              yesterday: s.yesterday,
+              today: s.today,
+              blockers: s.blockers,
+              yesterday_tickets: s.yesterday_tickets || [],
+              today_tickets: s.today_tickets || [],
+              blocker_tickets: s.blocker_tickets || [],
+              _ticketMap: ticketMap,
+            });
+          }
         }
       } catch {
         // ignore – let user submit if check fails
       } finally {
+        hasCheckedRef.current = true;
         setCheckingExisting(false);
       }
     }
@@ -724,6 +735,7 @@ export default function Submit() {
   }, [meetingPhase]);
 
   const handleSubmitted = (data) => {
+    isEditingRef.current = false;
     setSubmittedData(data);
     setEditInitialData(null);
   };
@@ -737,6 +749,7 @@ export default function Submit() {
   };
 
   const handleEditStandup = () => {
+    isEditingRef.current = true;
     if (submittedData) {
       setEditInitialData({
         yesterday: toFormEntries(submittedData.yesterday_tickets),
