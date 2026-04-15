@@ -201,7 +201,6 @@ function WaitingRoom({ submittedData }) {
 }
 
 function EmployeeTimer({ timerSeconds, isTimerRunning, timerEndTime }) {
-  const endTimeRef = useRef(isTimerRunning && timerEndTime ? timerEndTime : null);
   const intervalRef = useRef(null);
 
   const [seconds, setSeconds] = useState(() => {
@@ -213,50 +212,52 @@ function EmployeeTimer({ timerSeconds, isTimerRunning, timerEndTime }) {
   const [running, setRunning] = useState(isTimerRunning ?? false);
 
   useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
     if (isTimerRunning && timerEndTime) {
-      endTimeRef.current = timerEndTime;
+      setRunning(true);
       const remaining = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
       setSeconds(remaining);
-    } else if (timerSeconds != null) {
-      endTimeRef.current = null;
-      setSeconds(timerSeconds);
-    }
-  }, [timerSeconds, timerEndTime, isTimerRunning]);
 
-  useEffect(() => {
-    setRunning(isTimerRunning ?? false);
-    if (isTimerRunning && timerEndTime) {
-      endTimeRef.current = timerEndTime;
-    } else if (!isTimerRunning) {
-      endTimeRef.current = null;
+      if (remaining > 0) {
+        const endTime = timerEndTime;
+        intervalRef.current = setInterval(() => {
+          const r = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+          setSeconds(r);
+          if (r <= 0) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+        }, 200);
+      }
+    } else {
+      setRunning(isTimerRunning ?? false);
+      if (timerSeconds != null) {
+        setSeconds(timerSeconds);
+      }
     }
-  }, [isTimerRunning, timerEndTime]);
 
-  useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (running && endTimeRef.current) {
-      intervalRef.current = setInterval(() => {
-        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
-        setSeconds(remaining);
-        if (remaining <= 0) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      }, 1000);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isTimerRunning, timerEndTime, timerSeconds]);
 
   useEffect(() => {
     const handleVisibility = () => {
-      if (!document.hidden && endTimeRef.current && running) {
-        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+      if (!document.hidden && isTimerRunning && timerEndTime) {
+        const remaining = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
         setSeconds(remaining);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [running]);
+  }, [isTimerRunning, timerEndTime]);
 
   const radius = 52;
   const circumference = 2 * Math.PI * radius;
@@ -335,6 +336,44 @@ function EmployeeTimer({ timerSeconds, isTimerRunning, timerEndTime }) {
           {statusLabel}
         </span>
       </div>
+    </div>
+  );
+}
+
+function MeetingTicketEntry({ entry }) {
+  const num = entry.ticket_number;
+  const title = entry.title;
+  const desc = entry.description;
+  if (!num && !desc) return null;
+  return (
+    <div className="rounded-lg bg-white/70 border border-card-border/40 overflow-hidden">
+      {num && (
+        <div className="flex items-center gap-2.5 px-3.5 py-2 border-b border-card-border/30 bg-gray-50/40">
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-md border bg-gray-50 text-gray-700 border-gray-200">
+            #{num}
+          </span>
+          {title && <span className="text-sm text-foreground/75 truncate flex-1">{title}</span>}
+        </div>
+      )}
+      {desc && (
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap px-3.5 py-2.5">{desc}</p>
+      )}
+    </div>
+  );
+}
+
+function MeetingSection({ entries, fallbackText, sectionBg, sectionBorder, labelColor, label }) {
+  const hasTickets = entries && entries.length > 0 && entries.some((e) => e.ticket_number || e.description);
+  return (
+    <div className={`rounded-xl ${sectionBg} border ${sectionBorder} p-4`}>
+      <p className={`text-xs font-semibold ${labelColor} uppercase tracking-wide mb-2.5`}>{label}</p>
+      {hasTickets ? (
+        <div className="space-y-2">
+          {entries.map((e, i) => <MeetingTicketEntry key={i} entry={e} />)}
+        </div>
+      ) : (
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{fallbackText}</p>
+      )}
     </div>
   );
 }
@@ -470,21 +509,33 @@ function ActiveMeetingView({ meetingState, userId }) {
             </div>
           )}
 
-          <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
-            <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">Yesterday</p>
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{currentMember.yesterday}</p>
-          </div>
+          <MeetingSection
+            entries={currentMember.yesterday_tickets}
+            fallbackText={currentMember.yesterday}
+            sectionBg="bg-primary-light/50"
+            sectionBorder="border-primary/10"
+            labelColor="text-primary-dark"
+            label="Yesterday"
+          />
 
-          <div className="rounded-xl bg-accent-light/50 border border-accent/10 p-4">
-            <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1.5">Today</p>
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{currentMember.today}</p>
-          </div>
+          <MeetingSection
+            entries={currentMember.today_tickets}
+            fallbackText={currentMember.today}
+            sectionBg="bg-accent-light/50"
+            sectionBorder="border-accent/10"
+            labelColor="text-accent"
+            label="Today"
+          />
 
-          {currentMember.blockers && currentMember.blockers.trim() && (
-            <div className="rounded-xl bg-red-50/50 border border-red-100 p-4">
-              <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-1.5">Blockers</p>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{currentMember.blockers}</p>
-            </div>
+          {(currentMember.blockers?.trim() || (currentMember.blocker_tickets && currentMember.blocker_tickets.length > 0)) && (
+            <MeetingSection
+              entries={currentMember.blocker_tickets}
+              fallbackText={currentMember.blockers}
+              sectionBg="bg-red-50/50"
+              sectionBorder="border-red-100"
+              labelColor="text-danger"
+              label="Blockers"
+            />
           )}
         </div>
       </div>
@@ -557,19 +608,53 @@ function CompletedMeetingView({ meetingState, onNewStandup }) {
                     </span>
                   )}
                 </div>
-                <div className="grid sm:grid-cols-2 gap-2 pl-11">
-                  <div className="text-xs">
-                    <span className="font-semibold text-primary-dark">Today: </span>
-                    <span className="text-muted">
-                      {member.today?.length > 80 ? member.today.slice(0, 80) + "..." : member.today}
-                    </span>
+                <div className="space-y-2 pl-11">
+                  <div>
+                    <p className="text-[10px] font-semibold text-primary-dark uppercase tracking-wide mb-1">Today</p>
+                    {member.today_tickets && member.today_tickets.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {member.today_tickets.map((t, ti) => (
+                          <div key={ti} className="flex items-center gap-2 text-xs">
+                            {t.ticket_number && (
+                              <span className="font-bold text-primary-dark bg-primary-light/60 px-1.5 py-0.5 rounded text-[10px]">
+                                #{t.ticket_number}
+                              </span>
+                            )}
+                            <span className="text-foreground/70 truncate">
+                              {t.title || t.description?.replace(/^• /gm, "").slice(0, 80) || ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted">
+                        {member.today?.length > 100 ? member.today.slice(0, 100) + "..." : member.today}
+                      </p>
+                    )}
                   </div>
-                  {member.blockers && member.blockers.trim() && (
-                    <div className="text-xs">
-                      <span className="font-semibold text-danger">Blocker: </span>
-                      <span className="text-muted">
-                        {member.blockers.length > 80 ? member.blockers.slice(0, 80) + "..." : member.blockers}
-                      </span>
+                  {(member.blockers?.trim() || (member.blocker_tickets && member.blocker_tickets.length > 0)) && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-danger uppercase tracking-wide mb-1">Blockers</p>
+                      {member.blocker_tickets && member.blocker_tickets.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {member.blocker_tickets.map((t, ti) => (
+                            <div key={ti} className="flex items-center gap-2 text-xs">
+                              {t.ticket_number && (
+                                <span className="font-bold text-danger bg-red-50 px-1.5 py-0.5 rounded text-[10px]">
+                                  #{t.ticket_number}
+                                </span>
+                              )}
+                              <span className="text-foreground/70 truncate">
+                                {t.title || t.description?.replace(/^• /gm, "").slice(0, 80) || ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted">
+                          {member.blockers?.length > 100 ? member.blockers.slice(0, 100) + "..." : member.blockers}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

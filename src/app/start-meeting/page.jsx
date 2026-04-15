@@ -9,6 +9,102 @@ import { TEAMS, getTeamLabel, getTeamColor } from "@/lib/teams";
 
 const ALLOWED_ROLES = ["scrum_master", "super_admin"];
 const TIMER_SECONDS = 120;
+const MEETING_STORAGE_KEY = "standup-meeting-sm-state";
+
+function saveMeetingToStorage(state) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      MEETING_STORAGE_KEY,
+      JSON.stringify({ ...state, savedDate: new Date().toISOString().split("T")[0] })
+    );
+  } catch {}
+}
+
+function loadMeetingFromStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(MEETING_STORAGE_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    if (state.savedDate !== new Date().toISOString().split("T")[0]) {
+      localStorage.removeItem(MEETING_STORAGE_KEY);
+      return null;
+    }
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+function clearMeetingStorage() {
+  if (typeof window === "undefined") return;
+  try { localStorage.removeItem(MEETING_STORAGE_KEY); } catch {}
+}
+
+const WORK_ITEM_COLORS = {
+  "User Story": { badge: "bg-blue-50 text-blue-700 border-blue-200", icon: "📘" },
+  Task: { badge: "bg-amber-50 text-amber-700 border-amber-200", icon: "📋" },
+  Bug: { badge: "bg-red-50 text-red-600 border-red-200", icon: "🐛" },
+  Feature: { badge: "bg-purple-50 text-purple-700 border-purple-200", icon: "✨" },
+  Epic: { badge: "bg-orange-50 text-orange-700 border-orange-200", icon: "🏔" },
+};
+
+function TicketEntry({ entry }) {
+  const num = entry.ticket_number;
+  const title = entry.title;
+  const desc = entry.description;
+  const type = entry.type;
+  const colors = WORK_ITEM_COLORS[type] || null;
+
+  if (!num && !desc) return null;
+
+  return (
+    <div className="rounded-lg bg-white/70 border border-card-border/40 overflow-hidden hover:border-card-border/70 transition-colors">
+      {num && (
+        <div className="flex items-center gap-2.5 px-3.5 py-2 border-b border-card-border/30 bg-gray-50/40">
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${colors?.badge || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+            #{num}
+          </span>
+          {type && (
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${colors?.badge || "bg-gray-50 text-gray-600"}`}>
+              {type}
+            </span>
+          )}
+          {title && (
+            <span className="text-sm text-foreground/75 truncate flex-1">{title}</span>
+          )}
+        </div>
+      )}
+      {desc && (
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap px-3.5 py-2.5">{desc}</p>
+      )}
+    </div>
+  );
+}
+
+function TicketEntriesBlock({ entries, fallbackText, sectionBg, sectionBorder, labelColor, label }) {
+  const hasTickets = entries && entries.length > 0 && entries.some((e) => e.ticket_number || e.description);
+
+  return (
+    <div className={`rounded-xl ${sectionBg} border ${sectionBorder} p-4`}>
+      <p className={`text-xs font-semibold ${labelColor} uppercase tracking-wide mb-2.5`}>
+        {label}
+      </p>
+      {hasTickets ? (
+        <div className="space-y-2">
+          {entries.map((entry, i) => (
+            <TicketEntry key={i} entry={entry} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+          {fallbackText}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
@@ -193,6 +289,10 @@ export default function StartMeeting() {
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef(null);
   const endTimeRef = useRef(null);
+  const [timerEpoch, setTimerEpoch] = useState(0);
+  const meetingInfoRef = useRef({});
+  const prevSecondsRef = useRef(TIMER_SECONDS);
+  const restoredRef = useRef(false);
 
   const [submittedAll, setSubmittedAll] = useState([]);
   const [pendingAll, setPendingAll] = useState([]);
@@ -202,6 +302,70 @@ export default function StartMeeting() {
   const [abandoning, setAbandoning] = useState(false);
 
   useEffect(() => {
+    const saved = loadMeetingFromStorage();
+    if (!saved || !saved.phase || saved.phase === "lobby") return;
+
+    restoredRef.current = true;
+    setPhase(saved.phase);
+    setSelectedTeam(saved.selectedTeam || "all");
+    setCurrentIndex(saved.currentIndex || 0);
+    setSubmittedAll(saved.submittedAll || []);
+    setPendingAll(saved.pendingAll || []);
+    setDataLoading(false);
+
+    const filtered =
+      saved.selectedTeam === "all"
+        ? saved.submittedAll || []
+        : (saved.submittedAll || []).filter((m) => (m.teams || []).includes(saved.selectedTeam));
+    const idx = saved.currentIndex || 0;
+
+    if (saved.phase === "active") {
+      let restoredEndTime = null;
+      let restoredRunning = false;
+      let restoredSeconds = saved.seconds ?? 0;
+
+      if (saved.isRunning && saved.timerEndTime) {
+        const remaining = Math.max(0, Math.ceil((saved.timerEndTime - Date.now()) / 1000));
+        if (remaining > 0) {
+          restoredEndTime = saved.timerEndTime;
+          restoredRunning = true;
+          restoredSeconds = remaining;
+        }
+      }
+
+      endTimeRef.current = restoredEndTime;
+      setSeconds(restoredSeconds);
+      setIsRunning(restoredRunning);
+      setTimerEpoch((e) => e + 1);
+
+      setTimeout(() => {
+        broadcastState({
+          phase: "active",
+          currentIndex: idx,
+          totalMembers: filtered.length,
+          currentMember: filtered[idx],
+          allMembers: filtered,
+          timerSeconds: restoredEndTime
+            ? Math.max(0, Math.ceil((restoredEndTime - Date.now()) / 1000))
+            : restoredSeconds,
+          timerEndTime: restoredEndTime,
+          isRunning: restoredRunning,
+        });
+      }, 1500);
+    } else if (saved.phase === "completed") {
+      setTimeout(() => {
+        broadcastState({
+          phase: "completed",
+          totalMembers: filtered.length,
+          allMembers: filtered,
+        });
+      }, 1500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (restoredRef.current) return;
     if (authLoading || !user) return;
 
     (async () => {
@@ -245,6 +409,8 @@ export default function StartMeeting() {
   const totalAll = totalMembers + filteredPending.length;
   const isWarning = seconds <= 30 && seconds > 0;
 
+  meetingInfoRef.current = { phase, currentIndex, totalMembers, filteredStandups, selectedTeam, submittedAll, pendingAll };
+
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -253,35 +419,60 @@ export default function StartMeeting() {
   }, []);
 
   useEffect(() => {
-    if (isRunning && seconds > 0 && endTimeRef.current) {
-      intervalRef.current = setInterval(() => {
-        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
-        setSeconds(remaining);
-        if (remaining <= 0) {
-          clearTimer();
-          setIsRunning(false);
-          endTimeRef.current = null;
-        }
-      }, 1000);
-    }
+    clearTimer();
+    if (!isRunning || !endTimeRef.current) return;
+
+    const sync = () => {
+      if (!endTimeRef.current) { clearTimer(); return; }
+      const r = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+      setSeconds(r);
+      if (r <= 0) {
+        clearTimer();
+        setIsRunning(false);
+        endTimeRef.current = null;
+      }
+    };
+
+    sync();
+    intervalRef.current = setInterval(sync, 200);
     return clearTimer;
-  }, [isRunning, clearTimer]);
+  }, [isRunning, timerEpoch, clearTimer]);
+
+  useEffect(() => {
+    if (prevSecondsRef.current > 0 && seconds === 0) {
+      const info = meetingInfoRef.current;
+      if (info.phase === "active") {
+        broadcastState({
+          phase: "active",
+          currentIndex: info.currentIndex,
+          totalMembers: info.totalMembers,
+          currentMember: info.filteredStandups[info.currentIndex],
+          allMembers: info.filteredStandups,
+          timerSeconds: 0,
+          timerEndTime: null,
+          isRunning: false,
+        });
+        saveMeetingToStorage({
+          phase: "active", selectedTeam: info.selectedTeam,
+          currentIndex: info.currentIndex, seconds: 0,
+          isRunning: false, timerEndTime: null,
+          submittedAll: info.submittedAll, pendingAll: info.pendingAll,
+        });
+      }
+    }
+    prevSecondsRef.current = seconds;
+  }, [seconds, broadcastState]);
 
   useEffect(() => {
     const handleVisibility = () => {
       if (!document.hidden && endTimeRef.current && isRunning) {
         const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
         setSeconds(remaining);
-        if (remaining <= 0) {
-          clearTimer();
-          setIsRunning(false);
-          endTimeRef.current = null;
-        }
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [isRunning, clearTimer]);
+  }, [isRunning]);
 
   const startMeeting = () => {
     if (filteredStandups.length === 0) return;
@@ -291,6 +482,7 @@ export default function StartMeeting() {
     setCurrentIndex(0);
     setSeconds(TIMER_SECONDS);
     setIsRunning(true);
+    setTimerEpoch(e => e + 1);
     broadcastState({
       phase: "active",
       currentIndex: 0,
@@ -300,6 +492,11 @@ export default function StartMeeting() {
       timerSeconds: TIMER_SECONDS,
       timerEndTime: endTime,
       isRunning: true,
+    });
+    saveMeetingToStorage({
+      phase: "active", selectedTeam, currentIndex: 0,
+      seconds: TIMER_SECONDS, isRunning: true, timerEndTime: endTime,
+      submittedAll, pendingAll,
     });
   };
 
@@ -312,6 +509,7 @@ export default function StartMeeting() {
       setCurrentIndex(nextIdx);
       setSeconds(TIMER_SECONDS);
       setIsRunning(true);
+      setTimerEpoch(e => e + 1);
       broadcastState({
         phase: "active",
         currentIndex: nextIdx,
@@ -322,6 +520,11 @@ export default function StartMeeting() {
         timerEndTime: endTime,
         isRunning: true,
       });
+      saveMeetingToStorage({
+        phase: "active", selectedTeam, currentIndex: nextIdx,
+        seconds: TIMER_SECONDS, isRunning: true, timerEndTime: endTime,
+        submittedAll, pendingAll,
+      });
     } else {
       setPhase("completed");
       setIsRunning(false);
@@ -329,6 +532,11 @@ export default function StartMeeting() {
         phase: "completed",
         totalMembers,
         allMembers: filteredStandups,
+      });
+      saveMeetingToStorage({
+        phase: "completed", selectedTeam, currentIndex,
+        seconds: 0, isRunning: false, timerEndTime: null,
+        submittedAll, pendingAll,
       });
 
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -361,6 +569,7 @@ export default function StartMeeting() {
       endTimeRef.current = null;
     }
     setIsRunning(nextRunning);
+    setTimerEpoch(e => e + 1);
     broadcastState({
       phase: "active",
       currentIndex,
@@ -370,6 +579,11 @@ export default function StartMeeting() {
       timerSeconds: seconds,
       timerEndTime: endTime,
       isRunning: nextRunning,
+    });
+    saveMeetingToStorage({
+      phase: "active", selectedTeam, currentIndex,
+      seconds, isRunning: nextRunning, timerEndTime: endTime,
+      submittedAll, pendingAll,
     });
   };
 
@@ -381,6 +595,7 @@ export default function StartMeeting() {
     clearTimer();
     endTimeRef.current = null;
     broadcastState({ phase: "lobby" });
+    clearMeetingStorage();
     await handleRefresh();
   };
 
@@ -390,6 +605,7 @@ export default function StartMeeting() {
     setIsRunning(false);
     endTimeRef.current = null;
     broadcastState({ phase: "lobby" });
+    clearMeetingStorage();
 
     try {
       const {
@@ -837,33 +1053,33 @@ export default function StartMeeting() {
                     )}
                   </div>
                 )}
-                <div className="rounded-xl bg-primary-light/50 border border-primary/10 p-4">
-                  <p className="text-xs font-semibold text-primary-dark uppercase tracking-wide mb-1.5">
-                    Yesterday
-                  </p>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                    {currentMember.yesterday}
-                  </p>
-                </div>
+                <TicketEntriesBlock
+                  entries={currentMember.yesterday_tickets}
+                  fallbackText={currentMember.yesterday}
+                  sectionBg="bg-primary-light/50"
+                  sectionBorder="border-primary/10"
+                  labelColor="text-primary-dark"
+                  label="Yesterday"
+                />
 
-                <div className="rounded-xl bg-accent-light/50 border border-accent/10 p-4">
-                  <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1.5">
-                    Today
-                  </p>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                    {currentMember.today}
-                  </p>
-                </div>
+                <TicketEntriesBlock
+                  entries={currentMember.today_tickets}
+                  fallbackText={currentMember.today}
+                  sectionBg="bg-accent-light/50"
+                  sectionBorder="border-accent/10"
+                  labelColor="text-accent"
+                  label="Today"
+                />
 
-                {currentMember.blockers && currentMember.blockers.trim() && (
-                  <div className="rounded-xl bg-red-50/50 border border-red-100 p-4">
-                    <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-1.5">
-                      Blockers
-                    </p>
-                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                      {currentMember.blockers}
-                    </p>
-                  </div>
+                {(currentMember.blockers?.trim() || (currentMember.blocker_tickets && currentMember.blocker_tickets.length > 0)) && (
+                  <TicketEntriesBlock
+                    entries={currentMember.blocker_tickets}
+                    fallbackText={currentMember.blockers}
+                    sectionBg="bg-red-50/50"
+                    sectionBorder="border-red-100"
+                    labelColor="text-danger"
+                    label="Blockers"
+                  />
                 )}
               </div>
 
@@ -1007,27 +1223,53 @@ export default function StartMeeting() {
                         </span>
                       )}
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-2 pl-11">
-                      <div className="text-xs">
-                        <span className="font-semibold text-primary-dark">
-                          Today:{" "}
-                        </span>
-                        <span className="text-muted">
-                          {member.today?.length > 80
-                            ? member.today.slice(0, 80) + "..."
-                            : member.today}
-                        </span>
+                    <div className="space-y-2 pl-11">
+                      <div>
+                        <p className="text-[10px] font-semibold text-primary-dark uppercase tracking-wide mb-1">Today</p>
+                        {member.today_tickets && member.today_tickets.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {member.today_tickets.map((t, ti) => (
+                              <div key={ti} className="flex items-center gap-2 text-xs">
+                                {t.ticket_number && (
+                                  <span className="font-bold text-primary-dark bg-primary-light/60 px-1.5 py-0.5 rounded text-[10px]">
+                                    #{t.ticket_number}
+                                  </span>
+                                )}
+                                <span className="text-foreground/70 truncate">
+                                  {t.title || t.description?.replace(/^• /gm, "").slice(0, 80) || ""}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted">
+                            {member.today?.length > 100 ? member.today.slice(0, 100) + "..." : member.today}
+                          </p>
+                        )}
                       </div>
-                      {member.blockers && member.blockers.trim() && (
-                        <div className="text-xs">
-                          <span className="font-semibold text-danger">
-                            Blocker:{" "}
-                          </span>
-                          <span className="text-muted">
-                            {member.blockers.length > 80
-                              ? member.blockers.slice(0, 80) + "..."
-                              : member.blockers}
-                          </span>
+                      {(member.blockers?.trim() || (member.blocker_tickets && member.blocker_tickets.length > 0)) && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-danger uppercase tracking-wide mb-1">Blockers</p>
+                          {member.blocker_tickets && member.blocker_tickets.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {member.blocker_tickets.map((t, ti) => (
+                                <div key={ti} className="flex items-center gap-2 text-xs">
+                                  {t.ticket_number && (
+                                    <span className="font-bold text-danger bg-red-50 px-1.5 py-0.5 rounded text-[10px]">
+                                      #{t.ticket_number}
+                                    </span>
+                                  )}
+                                  <span className="text-foreground/70 truncate">
+                                    {t.title || t.description?.replace(/^• /gm, "").slice(0, 80) || ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted">
+                              {member.blockers?.length > 100 ? member.blockers.slice(0, 100) + "..." : member.blockers}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

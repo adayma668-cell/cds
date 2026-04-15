@@ -89,6 +89,9 @@ export async function GET(request) {
         yesterday: s.yesterday,
         today: s.today,
         blockers: s.blockers,
+        yesterday_tickets: s.yesterday_tickets || [],
+        today_tickets: s.today_tickets || [],
+        blocker_tickets: s.blocker_tickets || [],
         created_at: s.created_at,
       };
     });

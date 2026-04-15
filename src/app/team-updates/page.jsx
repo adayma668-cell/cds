@@ -64,6 +64,7 @@ function StandupCard({
               {new Date(standup.created_at).toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
+                timeZone: "Asia/Kolkata",
               })}
             </p>
           </div>

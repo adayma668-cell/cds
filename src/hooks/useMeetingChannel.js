@@ -30,6 +30,8 @@ export function useMeetingChannel(role = "employee") {
   }, []);
 
   useEffect(() => {
+    let heartbeatInterval = null;
+
     const channel = supabase.channel(CHANNEL_NAME, {
       config: { broadcast: { self: false } },
     });
@@ -62,10 +64,22 @@ export function useMeetingChannel(role = "employee") {
             });
           }, 300);
         }
+        if (role === "scrum_master") {
+          heartbeatInterval = setInterval(() => {
+            if (localStateRef.current && channelRef.current) {
+              channelRef.current.send({
+                type: "broadcast",
+                event: "meeting_update",
+                payload: localStateRef.current,
+              });
+            }
+          }, 5000);
+        }
       }
     });
 
     return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       supabase.removeChannel(channel);
       channelRef.current = null;
     };

@@ -41,6 +41,14 @@ export async function GET(request) {
     query = query.eq("standup_date", dateStr);
   }
 
+  const before = searchParams.get("before");
+  if (before) {
+    const beforeStr = before === "today"
+      ? new Date().toLocaleDateString("en-CA")
+      : before;
+    query = query.lt("standup_date", beforeStr);
+  }
+
   const presented = searchParams.get("presented");
   if (presented === "false") {
     query = query.or("presented.eq.false,presented.is.null");
@@ -48,7 +56,12 @@ export async function GET(request) {
     query = query.eq("presented", true);
   }
 
-  query = query.order("created_at", { ascending: false });
+  query = query.order("standup_date", { ascending: false }).order("created_at", { ascending: false });
+
+  const limit = parseInt(searchParams.get("limit"), 10);
+  if (limit > 0) {
+    query = query.limit(limit);
+  }
 
   const { data, error } = await query;
   if (error)

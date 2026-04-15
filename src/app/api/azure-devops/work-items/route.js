@@ -99,7 +99,6 @@ export async function GET(request) {
               WHERE [System.AssignedTo] = '${devopsEmail}'
                 AND [System.State] <> 'Removed'
                 AND [System.WorkItemType] IN ('User Story', 'Task', 'Bug', 'Feature', 'Epic')
-                AND [System.CreatedDate] >= '2026-01-01T00:00:00Z'
                 ${searchFilter}
               ORDER BY [System.IterationPath] DESC, [System.ChangedDate] DESC`,
     };
@@ -126,7 +125,7 @@ export async function GET(request) {
     }
 
     const wiqlData = await wiqlRes.json();
-    const ids = wiqlData.workItems?.map((wi) => wi.id).slice(0, 100);
+    const ids = wiqlData.workItems?.map((wi) => wi.id).slice(0, 200);
 
     if (!ids || ids.length === 0) {
       const result = { workItems: [], grouped: {} };

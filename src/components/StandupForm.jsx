@@ -22,9 +22,9 @@ const TYPE_BADGES = {
 
 function mapAzureState(state) {
   const s = (state || "").toLowerCase();
-  if (["new", "to do", "approved"].includes(s)) return "to_be_done";
+  if (["new", "to do", "approved", "new / backlog", "parking lot", "parking lot / future use"].includes(s)) return "to_be_done";
   if (["active", "in progress", "committed", "resolved"].includes(s)) return "in_progress";
-  if (["closed", "done", "removed"].includes(s)) return "closed";
+  if (["closed", "done", "removed", "rejected", "accepted / done"].includes(s)) return "closed";
   return "to_be_done";
 }
 
@@ -462,7 +462,7 @@ function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descP
   );
 }
 
-function Section({ label, entries, setEntries, descPlaceholder, showTickets, includeClosed }) {
+function Section({ label, entries, setEntries, descPlaceholder, showTickets, includeClosed, onRestore, restoring }) {
   const meta = SECTION_META[label] || SECTION_META.Today;
   const usedIds = entries.map((e) => e.ticketId).filter(Boolean);
   const update = (i, p) => setEntries((prev) => prev.map((e, idx) => idx === i ? { ...e, ...p } : e));
@@ -481,16 +481,43 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets, inc
               <h3 className="text-[15px] font-bold text-foreground leading-tight">{label}</h3>
               <p className="text-xs text-muted/50 mt-0.5">{meta.subtitle}</p>
             </div>
-            <button
-              type="button"
-              onClick={add}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${meta.accentText} ${meta.accentLight} border ${meta.accentBorder} hover:shadow-sm transition-all cursor-pointer`}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
-              Add entry
-            </button>
+            <div className="flex items-center gap-2">
+              {onRestore && (
+                <button
+                  type="button"
+                  onClick={onRestore}
+                  disabled={restoring}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-violet-600 bg-violet-50 border border-violet-200/60 hover:bg-violet-100/60 hover:border-violet-300/60 hover:shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {restoring ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Restoring...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Restore
+                    </>
+                  )}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={add}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${meta.accentText} ${meta.accentLight} border ${meta.accentBorder} hover:shadow-sm transition-all cursor-pointer`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                Add entry
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -601,6 +628,8 @@ export default function StandupForm({ onSubmitted }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
   const [previewing, setPreviewing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -648,6 +677,57 @@ export default function StandupForm({ onSubmitted }) {
 
   const activeTickets = tickets.filter((t) => t.status !== "closed");
   const showTickets = !ticketsLoading && tickets.length > 0;
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    setMessage({ text: "", type: "" });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const res = await fetch("/api/standup?scope=mine&before=today&limit=1", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch previous standup");
+      const { standups } = await res.json();
+      if (!standups || standups.length === 0) {
+        setMessage({ text: "No previous standup found to restore from", type: "error" });
+        return;
+      }
+      const prev = standups[0];
+      const todayText = prev.today || "";
+      const todayTickets = prev.today_tickets || [];
+
+      if (todayTickets.length > 0) {
+        const entries = todayTickets.map((t) => ({
+          ticketId: t.ticket_id || "",
+          description: t.description || "",
+        }));
+        if (entries.length === 0) entries.push({ ticketId: "", description: "" });
+        setYesterdayEntries(entries);
+      } else if (todayText.trim()) {
+        const blocks = todayText.split("\n\n").filter(Boolean);
+        const entries = blocks.map((block) => {
+          const ticketMatch = block.match(/^\[#(\d+)\]\s*/);
+          const desc = ticketMatch ? block.replace(ticketMatch[0], "") : block;
+          const bulletLines = desc.split("\n").map((line) =>
+            line.startsWith(BULLET) ? line : BULLET + line
+          ).join("\n");
+          return { ticketId: "", description: bulletLines };
+        });
+        if (entries.length === 0) entries.push({ ticketId: "", description: "" });
+        setYesterdayEntries(entries);
+      } else {
+        setMessage({ text: "Previous standup had no 'Today' content to restore", type: "error" });
+        return;
+      }
+      setRestored(true);
+      setMessage({ text: `Restored from your standup on ${prev.standup_date}. Feel free to edit.`, type: "success" });
+    } catch (err) {
+      setMessage({ text: err.message, type: "error" });
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   const stripBullets = (text) =>
     text.replace(/^• /gm, "").trim();
@@ -841,7 +921,8 @@ export default function StandupForm({ onSubmitted }) {
         </div>
 
         <Section label="Yesterday" entries={yesterdayEntries} setEntries={setYesterdayEntries}
-          descPlaceholder="What did you accomplish yesterday?" showTickets={showTickets} includeClosed />
+          descPlaceholder="What did you accomplish yesterday?" showTickets={showTickets} includeClosed
+          onRestore={!restored ? handleRestore : undefined} restoring={restoring} />
 
         <div className="border-t border-card-border/30" />
 
