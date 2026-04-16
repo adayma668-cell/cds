@@ -18,6 +18,7 @@ const TYPE_BADGES = {
   Bug: "bg-red-50 text-red-600",
   Feature: "bg-purple-50 text-purple-600",
   Epic: "bg-orange-50 text-orange-600",
+  Requirement: "bg-teal-50 text-teal-600",
 };
 
 function mapAzureState(state) {

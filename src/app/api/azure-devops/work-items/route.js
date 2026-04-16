@@ -98,13 +98,13 @@ export async function GET(request) {
               FROM WorkItems
               WHERE [System.AssignedTo] = '${devopsEmail}'
                 AND [System.State] <> 'Removed'
-                AND [System.WorkItemType] IN ('User Story', 'Task', 'Bug', 'Feature', 'Epic')
+                AND [System.WorkItemType] IN ('User Story', 'Task', 'Bug', 'Requirement')
                 ${searchFilter}
               ORDER BY [System.IterationPath] DESC, [System.ChangedDate] DESC`,
     };
 
     const wiqlRes = await fetch(
-      `https://dev.azure.com/${ORG}/_apis/wit/wiql?api-version=7.0`,
+      `https://dev.azure.com/${ORG}/_apis/wit/wiql?$top=20000&api-version=7.0`,
       {
         method: "POST",
         headers: {
@@ -125,7 +125,7 @@ export async function GET(request) {
     }
 
     const wiqlData = await wiqlRes.json();
-    const ids = wiqlData.workItems?.map((wi) => wi.id).slice(0, 200);
+    const ids = wiqlData.workItems?.map((wi) => wi.id);
 
     if (!ids || ids.length === 0) {
       const result = { workItems: [], grouped: {} };

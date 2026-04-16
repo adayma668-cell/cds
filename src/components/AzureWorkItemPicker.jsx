@@ -9,6 +9,7 @@ const TYPE_BADGES = {
   Bug: { bg: "bg-red-100", text: "text-red-700", label: "Bug" },
   Feature: { bg: "bg-purple-100", text: "text-purple-700", label: "Feature" },
   Epic: { bg: "bg-orange-100", text: "text-orange-700", label: "Epic" },
+  Requirement: { bg: "bg-teal-100", text: "text-teal-700", label: "Requirement" },
 };
 
 const STATE_COLORS = {
