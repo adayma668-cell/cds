@@ -229,6 +229,12 @@ export async function PATCH(request) {
       { status: 403 }
     );
 
+  if (existing.presented)
+    return NextResponse.json(
+      { error: "Cannot edit a standup after the meeting has finished" },
+      { status: 403 }
+    );
+
   const updateData = {};
   if (ticket_number !== undefined) updateData.ticket_number = ticket_number;
   if (due_date !== undefined) updateData.due_date = due_date;

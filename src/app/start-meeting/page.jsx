@@ -289,6 +289,7 @@ export default function StartMeeting() {
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef(null);
   const endTimeRef = useRef(null);
+  const dotsContainerRef = useRef(null);
   const [timerEpoch, setTimerEpoch] = useState(0);
   const meetingInfoRef = useRef({});
   const prevSecondsRef = useRef(TIMER_SECONDS);
@@ -593,6 +594,45 @@ export default function StartMeeting() {
       submittedAll, pendingAll,
     });
   };
+
+  const handleJumpTo = (idx) => {
+    if (idx < 0 || idx >= totalMembers || idx === currentIndex) return;
+    clearTimer();
+    const endTime = Date.now() + TIMER_SECONDS * 1000;
+    endTimeRef.current = endTime;
+    setCurrentIndex(idx);
+    setSeconds(TIMER_SECONDS);
+    setIsRunning(true);
+    setTimerEpoch((e) => e + 1);
+    broadcastState({
+      phase: "active",
+      currentIndex: idx,
+      totalMembers,
+      currentMember: filteredStandups[idx],
+      allMembers: filteredStandups,
+      timerSeconds: TIMER_SECONDS,
+      timerEndTime: endTime,
+      isRunning: true,
+    });
+    saveMeetingToStorage({
+      phase: "active", selectedTeam, currentIndex: idx,
+      seconds: TIMER_SECONDS, isRunning: true, timerEndTime: endTime,
+      submittedAll, pendingAll,
+    });
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) handleJumpTo(currentIndex - 1);
+  };
+
+  useEffect(() => {
+    if (phase !== "active" || !dotsContainerRef.current) return;
+    const container = dotsContainerRef.current;
+    const activeBtn = container.children[currentIndex];
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }, [currentIndex, phase]);
 
   const handleRestart = async () => {
     setPhase("lobby");
@@ -935,57 +975,96 @@ export default function StartMeeting() {
         {/* ── ACTIVE MEETING ── */}
         {phase === "active" && currentMember && (
           <div className="space-y-6">
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>
-                  Member {currentIndex + 1} of {totalMembers}
-                </span>
-                <div className="flex items-center gap-3">
-                  <span>
-                    {Math.round(((currentIndex + 1) / totalMembers) * 100)}%
-                    complete
-                  </span>
-                  <button
-                    onClick={() => setShowAbandonConfirm(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-red-400 hover:text-white hover:bg-danger border border-red-200 hover:border-danger transition-all cursor-pointer"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    End Meeting
-                  </button>
+            {/* Meeting Header */}
+            <div className="bg-card rounded-2xl border border-card-border shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-accent">Meeting In Progress</h2>
+                  <p className="text-xs text-muted mt-0.5">
+                    {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-foreground">
+                    {currentIndex + 1}/{totalMembers}
+                  </p>
+                  <p className="text-[10px] text-muted uppercase tracking-wider">Members</p>
                 </div>
               </div>
-              <div className="w-full h-2 bg-card-border rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-500"
-                  style={{
-                    width: `${((currentIndex + 1) / totalMembers) * 100}%`,
-                  }}
-                />
+
+              {/* Segmented Progress */}
+              <div className="flex gap-1">
+                {filteredStandups.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                      i < currentIndex
+                        ? "bg-primary"
+                        : i === currentIndex
+                        ? "bg-accent"
+                        : "bg-card-border/60"
+                    }`}
+                  />
+                ))}
               </div>
 
-              {/* Member Dots */}
-              <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
-                {filteredStandups.map((m, i) => (
-                  <div
-                    key={m.id}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all overflow-hidden shrink-0 ${
-                      i === currentIndex
-                        ? "bg-primary text-white scale-110 shadow-md shadow-primary/30 ring-2 ring-primary"
-                        : i < currentIndex
-                        ? "bg-primary-light text-primary-dark"
-                        : "bg-card-border text-muted"
-                    }`}
-                  >
-                    {m.avatar_url ? (
-                      <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      (m.name || "?").charAt(0).toUpperCase()
-                    )}
-                  </div>
-                ))}
+              {/* Member Avatars with Navigation */}
+              <div className="flex items-center justify-center gap-3 py-1">
+                <button
+                  onClick={handlePrev}
+                  disabled={currentIndex === 0}
+                  className="w-9 h-9 rounded-full border border-card-border bg-background flex items-center justify-center text-muted hover:bg-card hover:text-foreground hover:border-primary/30 transition-all cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                <div
+                  ref={dotsContainerRef}
+                  className="flex items-center gap-3 overflow-x-auto scroll-smooth py-2 px-1 scrollbar-hide"
+                >
+                  {filteredStandups.map((m, i) => (
+                    <button
+                      key={m.id}
+                      onClick={() => handleJumpTo(i)}
+                      title={m.name || "Unknown"}
+                      className="shrink-0 cursor-pointer"
+                    >
+                      <div className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-colors duration-200 ${
+                        i === currentIndex
+                          ? "border-accent"
+                          : i < currentIndex
+                          ? "border-primary/30 opacity-80 hover:opacity-100"
+                          : "border-card-border opacity-50 hover:opacity-80"
+                      }`}>
+                        {m.avatar_url ? (
+                          <img src={m.avatar_url} alt={m.name || ""} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className={`w-full h-full flex items-center justify-center text-xs font-bold ${
+                            i === currentIndex
+                              ? "bg-accent text-white"
+                              : i < currentIndex
+                              ? "bg-primary-light text-primary-dark"
+                              : "bg-card-border text-muted"
+                          }`}>
+                            {(m.name || "?").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => { if (currentIndex < totalMembers - 1) handleJumpTo(currentIndex + 1); }}
+                  disabled={currentIndex >= totalMembers - 1}
+                  className="w-9 h-9 rounded-full border border-card-border bg-background flex items-center justify-center text-muted hover:bg-card hover:text-foreground hover:border-primary/30 transition-all cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -1106,11 +1185,9 @@ export default function StartMeeting() {
                 </button>
                 <button
                   onClick={handleNext}
-                  className="flex-1 rounded-lg bg-primary text-white py-2.5 text-sm font-semibold hover:bg-primary-dark transition-colors shadow-md shadow-primary/20 cursor-pointer"
+                  className="flex-1 rounded-lg bg-accent text-white py-2.5 text-sm font-semibold hover:bg-accent-dark transition-colors shadow-md shadow-accent/20 cursor-pointer"
                 >
-                  {currentIndex < totalMembers - 1
-                    ? "Next Member"
-                    : "Finish Meeting"}
+                  Finish Meeting
                 </button>
               </div>
             </div>

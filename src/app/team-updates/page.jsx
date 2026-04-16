@@ -18,23 +18,7 @@ import MemberPicker from "@/components/MemberPicker";
 import { TeamUpdatesSkeleton } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 
-function StandupCard({
-  standup,
-  currentUserId,
-  editingId,
-  editForm,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onEditFormChange,
-  saving,
-}) {
-  const isMine = standup.user_id === currentUserId;
-  const isEditing = editingId === standup.id;
-  const todayStr = new Date().toDateString();
-  const standupDateStr = new Date(standup.created_at).toDateString();
-  const canEdit = isMine && standupDateStr === todayStr;
-
+function StandupCard({ standup }) {
   return (
     <div className="bg-card rounded-xl border border-card-border shadow-sm overflow-hidden card-hover">
       <div className="px-5 py-4 flex items-center justify-between border-b border-card-border bg-background/50">
@@ -78,80 +62,23 @@ function StandupCard({
               {getTeamLabel(t)}
             </span>
           ))}
-          {canEdit && !isEditing && (
-            <button
-              onClick={() => onStartEdit(standup)}
-              className="text-xs font-semibold text-accent hover:text-accent/80 cursor-pointer"
-            >
-              Edit
-            </button>
-          )}
         </div>
       </div>
 
       <div className="p-5 space-y-3">
-        {isEditing ? (
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-muted uppercase block mb-1">Yesterday</label>
-              <textarea
-                rows={2}
-                value={editForm.yesterday || ""}
-                onChange={(e) => onEditFormChange("yesterday", e.target.value)}
-                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none resize-none"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted uppercase block mb-1">Today</label>
-              <textarea
-                rows={2}
-                value={editForm.today || ""}
-                onChange={(e) => onEditFormChange("today", e.target.value)}
-                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none resize-none"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted uppercase block mb-1">Blockers</label>
-              <textarea
-                rows={2}
-                value={editForm.blockers || ""}
-                onChange={(e) => onEditFormChange("blockers", e.target.value)}
-                className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none resize-none"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={onCancelEdit}
-                className="flex-1 rounded-lg border border-card-border py-2 text-sm font-semibold text-muted hover:bg-background cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => onSaveEdit(standup.id)}
-                disabled={saving}
-                className="flex-1 rounded-lg bg-primary text-white py-2 text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 cursor-pointer"
-              >
-                {saving ? "Saving..." : "Save"}
-              </button>
-            </div>
+        <div>
+          <p className="text-xs font-semibold text-primary-dark mb-1">Yesterday</p>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{standup.yesterday}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-accent mb-1">Today</p>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{standup.today}</p>
+        </div>
+        {standup.blockers && standup.blockers.trim() && (
+          <div>
+            <p className="text-xs font-semibold text-danger mb-1">Blockers</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{standup.blockers}</p>
           </div>
-        ) : (
-          <>
-            <div>
-              <p className="text-xs font-semibold text-primary-dark mb-1">Yesterday</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{standup.yesterday}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-accent mb-1">Today</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{standup.today}</p>
-            </div>
-            {standup.blockers && standup.blockers.trim() && (
-              <div>
-                <p className="text-xs font-semibold text-danger mb-1">Blockers</p>
-                <p className="text-sm text-foreground whitespace-pre-wrap">{standup.blockers}</p>
-              </div>
-            )}
-          </>
         )}
       </div>
     </div>
@@ -165,10 +92,6 @@ export default function TeamUpdatesPage() {
   const [selectedTeam, setSelectedTeam] = useState("all");
   const [selectedMember, setSelectedMember] = useState("all");
   const [selectedDate, setSelectedDate] = useState(() => toLocalYMD());
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
-  const [saving, setSaving] = useState(false);
-
   const fetchStandups = useCallback(async () => {
     const {
       data: { session },
@@ -189,48 +112,6 @@ export default function TeamUpdatesPage() {
       fetchStandups();
     }
   }, [authLoading, user, fetchStandups]);
-
-  const startEdit = (standup) => {
-    setEditingId(standup.id);
-    setEditForm({
-      yesterday: standup.yesterday,
-      today: standup.today,
-      blockers: standup.blockers || "",
-    });
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditForm({});
-  };
-
-  const handleEditFormChange = (field, value) => {
-    setEditForm((f) => ({ ...f, [field]: value }));
-  };
-
-  const saveEdit = async (id) => {
-    setSaving(true);
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    await fetch("/api/standup", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({
-        id,
-        yesterday: editForm.yesterday,
-        today: editForm.today,
-        blockers: editForm.blockers,
-      }),
-    });
-    setEditingId(null);
-    setEditForm({});
-    setSaving(false);
-    fetchStandups();
-  };
 
   if (authLoading) {
     return (
@@ -362,18 +243,7 @@ export default function TeamUpdatesPage() {
         ) : (
           <div className="space-y-3">
             {displayed.map((standup) => (
-              <StandupCard
-                key={standup.id}
-                standup={standup}
-                currentUserId={user.id}
-                editingId={editingId}
-                editForm={editForm}
-                onStartEdit={startEdit}
-                onCancelEdit={cancelEdit}
-                onSaveEdit={saveEdit}
-                onEditFormChange={handleEditFormChange}
-                saving={saving}
-              />
+              <StandupCard key={standup.id} standup={standup} />
             ))}
           </div>
         )}

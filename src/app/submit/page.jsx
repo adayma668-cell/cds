@@ -441,14 +441,9 @@ function ActiveMeetingView({ meetingState, userId }) {
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-foreground truncate">
-                  {currentMember.name}
-                </h2>
-                <span className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-primary text-white animate-pulse">
-                  NOW SPEAKING
-                </span>
-              </div>
+              <h2 className="text-base sm:text-lg font-bold text-foreground truncate">
+                {currentMember.name}
+              </h2>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <p className="text-xs sm:text-sm text-muted truncate">{currentMember.email}</p>
                 {(currentMember.teams || []).map((t) => (
