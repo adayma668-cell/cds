@@ -22,7 +22,6 @@ const ACTION_COLORS = {
 };
 
 const ENTITY_LABELS = {
-  ticket: "Ticket",
   standup: "Standup",
   meeting: "Meeting",
   retro_session: "Retro",
@@ -56,17 +55,6 @@ function buildMessage(log) {
   if (log.entity_type === "meeting" && log.action === "completed") {
     const count = log.metadata?.memberCount;
     return `${actor} finished a standup meeting${count ? ` with ${count} members` : ""}`;
-  }
-
-  if (log.entity_type === "ticket") {
-    const ticket = log.new_data?.ticket_number || log.old_data?.ticket_number || "";
-    if (log.action === "created") return `${actor} created ticket ${ticket}`;
-    if (log.action === "status_changed") {
-      const to = log.changes?.status?.new?.replace(/_/g, " ") || "";
-      return `${actor} changed ticket ${ticket} to ${to}`;
-    }
-    if (log.action === "deleted") return `${actor} deleted ticket ${ticket}`;
-    return `${actor} updated ticket ${ticket}`;
   }
 
   if (log.entity_type === "standup") {

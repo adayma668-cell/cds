@@ -65,43 +65,59 @@ function WaitingRoom({ submittedData, onEdit }) {
   return (
     <div className="space-y-5">
       {/* ── Hero Card ── */}
-      <div className="lobby-stagger-1 relative overflow-hidden rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-[0_2px_16px_rgba(6,194,134,0.08),0_1px_3px_rgba(0,0,0,0.04)]">
-        {/* Gradient top accent */}
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-primary via-accent to-primary lobby-gradient-bar" />
+      <div className="lobby-stagger-1 relative overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary-light via-white to-accent-light shadow-lg shadow-primary/10">
+        {/* Animated gradient bar at top */}
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-primary lobby-gradient-bar" />
 
-        <div className="px-4 py-3.5 flex items-center gap-3.5">
-          {/* Status icon with layered glow */}
-          <div className="relative w-9 h-9 shrink-0">
-            <div className="absolute inset-0 rounded-lg bg-primary/8 lobby-breath" />
-            <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm shadow-primary/25">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
+        {/* Decorative background elements */}
+        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/4" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-accent/5 to-transparent rounded-full translate-y-1/2 -translate-x-1/4" />
+
+        <div className="relative px-5 sm:px-6 py-5 sm:py-6">
+          <div className="flex items-center gap-4">
+            {/* Animated status icon with ripple */}
+            <div className="relative shrink-0">
+              <div className="absolute inset-0 rounded-xl bg-primary/20 lobby-ripple" />
+              <div className="absolute inset-0 rounded-xl bg-primary/10 lobby-ripple-delayed" />
+              <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md shadow-primary/30">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
             </div>
-          </div>
 
-          {/* Text content */}
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-foreground leading-tight">Standup Submitted</p>
-            <p className="text-[11px] text-muted mt-0.5">This page will update when the meeting begins</p>
-          </div>
-
-          {/* Live status indicator */}
-          <div className="shrink-0 flex items-center gap-2 pl-3.5 border-l border-card-border/40">
-            <div className="relative flex h-2 w-2">
-              <span className="absolute inset-0 rounded-full bg-primary lobby-connected-pulse" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+            {/* Text content */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
+                Standup Submitted
+              </h3>
+              <p className="text-xs sm:text-sm text-muted mt-1">
+                This page will update automatically when the meeting begins
+              </p>
             </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider leading-none">
-                Live
-              </span>
-              <span className="text-[10px] text-muted leading-tight mt-0.5 whitespace-nowrap">
-                Waiting for Scrum Master
-              </span>
+
+            {/* Live status badge */}
+            <div className="shrink-0">
+              <div className="flex flex-col items-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 border border-primary/10 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inset-0 rounded-full bg-primary lobby-connected-pulse" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+                  </span>
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                    Live
+                  </span>
+                </div>
+                <span className="text-[10px] text-muted font-medium whitespace-nowrap">
+                  Waiting for Scrum Master
+                </span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Shimmer bar at bottom */}
+        <div className="h-1 lobby-shimmer-bar" />
       </div>
 
       {/* ── Submitted Updates (shown by default) ── */}
@@ -709,27 +725,6 @@ export default function Submit() {
         if (standups && standups.length > 0) {
           const s = standups[0];
 
-          const extractIds = (arr) =>
-            (arr || []).map((e) => (typeof e === "string" ? e : e.ticket_id)).filter(Boolean);
-          const allTicketIds = [
-            ...extractIds(s.yesterday_tickets),
-            ...extractIds(s.today_tickets),
-            ...extractIds(s.blocker_tickets),
-          ];
-
-          let ticketMap = {};
-          if (allTicketIds.length > 0) {
-            try {
-              const tRes = await fetch("/api/tickets", {
-                headers: { Authorization: `Bearer ${session.access_token}` },
-              });
-              if (tRes.ok) {
-                const { tickets } = await tRes.json();
-                ticketMap = Object.fromEntries((tickets || []).map((t) => [t.id, t]));
-              }
-            } catch { /* ignore */ }
-          }
-
           if (!isEditingRef.current) {
             setSubmittedData({
               yesterday: s.yesterday,
@@ -738,7 +733,6 @@ export default function Submit() {
               yesterday_tickets: s.yesterday_tickets || [],
               today_tickets: s.today_tickets || [],
               blocker_tickets: s.blocker_tickets || [],
-              _ticketMap: ticketMap,
             });
           }
         }

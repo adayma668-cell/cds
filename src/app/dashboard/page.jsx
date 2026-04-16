@@ -167,21 +167,6 @@ export default function Dashboard() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Link
-              href="/tasks"
-              className="group bg-card rounded-xl border border-card-border shadow-sm p-5 card-hover hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary-light flex items-center justify-center mb-3 group-hover:bg-primary/15 transition-colors">
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-foreground">My Tasks</h3>
-              <p className="text-sm text-muted mt-0.5">
-                Add tickets, track status, update at end of day
-              </p>
-            </Link>
-
-            <Link
               href="/submit"
               className="group bg-card rounded-xl border border-card-border shadow-sm p-5 card-hover hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
             >
@@ -239,23 +224,6 @@ export default function Dashboard() {
                 <h3 className="font-semibold text-foreground">Start Meeting</h3>
                 <p className="text-sm text-muted mt-0.5">
                   Begin a standup session for your team
-                </p>
-              </Link>
-            )}
-
-            {role === "super_admin" && (
-              <Link
-                href="/admin/tickets"
-                className="group bg-card rounded-xl border border-card-border shadow-sm p-5 card-hover hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
-              >
-                <div className="w-10 h-10 rounded-lg bg-primary-light flex items-center justify-center mb-3 group-hover:bg-primary/15 transition-colors">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                  </svg>
-                </div>
-                <h3 className="font-semibold text-foreground">All Tickets</h3>
-                <p className="text-sm text-muted mt-0.5">
-                  View all tickets by team with user details
                 </p>
               </Link>
             )}

@@ -8,7 +8,6 @@ import AppLayout from "@/components/AppLayout";
 const ENTITY_TYPES = [
   { value: "", label: "All Types" },
   { value: "meeting", label: "Meetings" },
-  { value: "ticket", label: "Tickets" },
   { value: "standup", label: "Standups" },
   { value: "retro_session", label: "Retro Sessions" },
   { value: "retro_item", label: "Retro Items" },

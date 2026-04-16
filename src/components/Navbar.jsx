@@ -32,9 +32,6 @@ export default function Navbar() {
           <Link href="/dashboard" className={linkClass("/dashboard")}>
             Dashboard
           </Link>
-          <Link href="/tasks" className={linkClass("/tasks")}>
-            Tasks
-          </Link>
           <Link href="/submit" className={linkClass("/submit")}>
             Submit
           </Link>
@@ -55,14 +52,9 @@ export default function Navbar() {
           )}
 
           {role === "super_admin" && (
-            <>
-              <Link href="/admin/tickets" className={linkClass("/admin/tickets")}>
-                All Tickets
-              </Link>
-              <Link href="/admin" className={linkClass("/admin")}>
-                Admin
-              </Link>
-            </>
+            <Link href="/admin" className={linkClass("/admin")}>
+              Admin
+            </Link>
           )}
 
           <div className="ml-2 pl-3 border-l border-card-border">

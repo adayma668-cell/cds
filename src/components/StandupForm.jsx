@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, createContext, useContext, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuthContext } from "@/context/AuthContext";
 
@@ -85,7 +84,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
   const triggerRef = useRef(null);
   const dropRef = useRef(null);
   const inputRef = useRef(null);
-  const [pos, setPos] = useState(null);
+  const [dropUp, setDropUp] = useState(false);
 
   const ticket = value ? pool.find((t) => t.id === value) : null;
 
@@ -105,19 +104,12 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
   }, [open]);
 
   const openDrop = () => {
-    const anchor = containerRef?.current || triggerRef.current;
-    if (!anchor) return;
-    const r = anchor.getBoundingClientRect();
-    const tr = triggerRef.current?.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - (tr?.bottom || r.bottom);
-    const dropH = 280;
-    const goUp = spaceBelow < dropH && (tr?.top || r.top) > spaceBelow;
-    setPos({
-      top: goUp ? undefined : (tr?.bottom || r.bottom) + 6,
-      bottom: goUp ? window.innerHeight - (tr?.top || r.top) + 6 : undefined,
-      left: r.left,
-      width: Math.max(r.width, 320),
-    });
+    const tr = triggerRef.current;
+    if (!tr) return;
+    const r = tr.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom;
+    const dropH = 340;
+    setDropUp(spaceBelow < dropH && r.top > spaceBelow);
     setOpen(true);
   };
 
@@ -129,11 +121,11 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
         (t._project || "").toLowerCase().includes(search.toLowerCase()))
   );
 
-  const dropdown = open && pos && createPortal(
+  const dropdown = open && (
     <div
       ref={dropRef}
-      className="fixed z-[9999] rounded-xl border border-card-border/80 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden standup-dropdown-in"
-      style={{ top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width }}
+      className={`absolute left-0 right-0 z-[100] rounded-xl border border-card-border/80 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden standup-dropdown-in ${dropUp ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}
+      style={{ minWidth: 320 }}
     >
       <div className="px-3 py-2.5 border-b border-card-border/40 bg-gray-50/50">
         <div className="relative">
@@ -256,47 +248,43 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
           })()
         )}
       </div>
-    </div>,
-    document.body
+    </div>
   );
 
   if (ticket) {
     const chipTitle = ticket.title || ticket.description?.split("\n")[0]?.slice(0, 60) || "";
     return (
-      <>
-        <div ref={triggerRef} className="w-full">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-accent-light/60 via-accent-light/40 to-primary-light/30 border border-accent/10">
-            <button
-              type="button"
-              onClick={openDrop}
-              className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <span className="text-sm font-bold text-accent bg-white/80 px-2 py-0.5 rounded-md shadow-sm shrink-0">#{ticket.ticket_number}</span>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[ticket.status] || STATUS_COLORS.to_be_done}`}>
-                {STATUS_LABELS[ticket.status] || ticket.status}
-              </span>
-              {chipTitle && <span className="text-sm text-foreground/70 truncate">{chipTitle}</span>}
-            </button>
-            <button
-              type="button"
-              onClick={() => onChange("")}
-              className="w-6 h-6 rounded-md flex items-center justify-center text-muted/40 hover:text-danger hover:bg-red-50 transition-all cursor-pointer shrink-0"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+      <div className="relative" ref={triggerRef}>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-accent-light/60 via-accent-light/40 to-primary-light/30 border border-accent/10">
+          <button
+            type="button"
+            onClick={openDrop}
+            className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-bold text-accent bg-white/80 px-2 py-0.5 rounded-md shadow-sm shrink-0">#{ticket.ticket_number}</span>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[ticket.status] || STATUS_COLORS.to_be_done}`}>
+              {STATUS_LABELS[ticket.status] || ticket.status}
+            </span>
+            {chipTitle && <span className="text-sm text-foreground/70 truncate">{chipTitle}</span>}
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="w-6 h-6 rounded-md flex items-center justify-center text-muted/40 hover:text-danger hover:bg-red-50 transition-all cursor-pointer shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
         {dropdown}
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="relative" ref={triggerRef}>
       <button
-        ref={triggerRef}
         type="button"
         onClick={openDrop}
         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-card-border/80 text-xs font-medium text-muted/60 hover:border-primary/40 hover:text-primary hover:bg-primary-light/20 hover:shadow-sm transition-all cursor-pointer"
@@ -307,7 +295,7 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
         Link ticket
       </button>
       {dropdown}
-    </>
+    </div>
   );
 }
 
