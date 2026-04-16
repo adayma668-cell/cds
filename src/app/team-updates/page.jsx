@@ -18,7 +18,52 @@ import MemberPicker from "@/components/MemberPicker";
 import { TeamUpdatesSkeleton } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
 
+function TicketEntries({ entries, badgeClass, bgClass }) {
+  if (!entries || entries.length === 0) return null;
+  const hasContent = entries.some((e) => e.ticket_number || e.description);
+  if (!hasContent) return null;
+
+  return (
+    <div className="space-y-2">
+      {entries.map((entry, i) => {
+        if (!entry.ticket_number && !entry.description) return null;
+        return (
+          <div
+            key={i}
+            className={`rounded-lg bg-white/60 border overflow-hidden ${bgClass || "border-card-border/30"}`}
+          >
+            {entry.ticket_number && (
+              <div className="flex items-start gap-2 px-3 py-2 border-b border-inherit">
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${badgeClass || "text-primary-dark bg-primary-light"}`}>
+                  #{entry.ticket_number}
+                </span>
+                {entry.title && (
+                  <span className="text-[13px] font-semibold text-blue-600 leading-snug">
+                    {entry.title}
+                  </span>
+                )}
+              </div>
+            )}
+            {entry.description && (
+              <p className="text-sm text-foreground whitespace-pre-wrap px-3 py-2">
+                {entry.description}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StandupCard({ standup }) {
+  const hasYesterdayTickets = standup.yesterday_tickets?.length > 0 &&
+    standup.yesterday_tickets.some((e) => e.ticket_number || e.description);
+  const hasTodayTickets = standup.today_tickets?.length > 0 &&
+    standup.today_tickets.some((e) => e.ticket_number || e.description);
+  const hasBlockerTickets = standup.blocker_tickets?.length > 0 &&
+    standup.blocker_tickets.some((e) => e.ticket_number || e.description);
+
   return (
     <div className="bg-card rounded-xl border border-card-border shadow-sm overflow-hidden card-hover">
       <div className="px-5 py-4 flex items-center justify-between border-b border-card-border bg-background/50">
@@ -68,16 +113,28 @@ function StandupCard({ standup }) {
       <div className="p-5 space-y-3">
         <div>
           <p className="text-xs font-semibold text-primary-dark mb-1">Yesterday</p>
-          <p className="text-sm text-foreground whitespace-pre-wrap">{standup.yesterday}</p>
+          {hasYesterdayTickets ? (
+            <TicketEntries entries={standup.yesterday_tickets} badgeClass="text-primary-dark bg-primary-light" bgClass="border-primary/10" />
+          ) : (
+            <p className="text-sm text-foreground whitespace-pre-wrap">{standup.yesterday}</p>
+          )}
         </div>
         <div>
           <p className="text-xs font-semibold text-accent mb-1">Today</p>
-          <p className="text-sm text-foreground whitespace-pre-wrap">{standup.today}</p>
+          {hasTodayTickets ? (
+            <TicketEntries entries={standup.today_tickets} badgeClass="text-accent bg-accent-light" bgClass="border-accent/10" />
+          ) : (
+            <p className="text-sm text-foreground whitespace-pre-wrap">{standup.today}</p>
+          )}
         </div>
-        {standup.blockers && standup.blockers.trim() && (
+        {(standup.blockers?.trim() || hasBlockerTickets) && (
           <div>
             <p className="text-xs font-semibold text-danger mb-1">Blockers</p>
-            <p className="text-sm text-foreground whitespace-pre-wrap">{standup.blockers}</p>
+            {hasBlockerTickets ? (
+              <TicketEntries entries={standup.blocker_tickets} badgeClass="text-danger bg-red-50" bgClass="border-red-100" />
+            ) : (
+              <p className="text-sm text-foreground whitespace-pre-wrap">{standup.blockers}</p>
+            )}
           </div>
         )}
       </div>
