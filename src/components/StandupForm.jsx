@@ -458,8 +458,14 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets, inc
   const remove = (i) => setEntries((prev) => prev.filter((_, idx) => idx !== i));
   const add = () => setEntries((prev) => [...prev, { ticketId: "", description: "" }]);
 
+  // Section wrappers use transform animations (globals.css), which create stacking contexts.
+  // Without explicit z-order, a later section (e.g. Today) paints over an earlier one, so ticket
+  // dropdowns from Yesterday sit underneath the next section. Earlier sections get higher z-index.
+  const sectionStack =
+    label === "Yesterday" ? "relative z-[30]" : label === "Today" ? "relative z-[20]" : "relative z-[10]";
+
   return (
-    <div className="standup-section-in">
+    <div className={`standup-section-in ${sectionStack}`}>
       <div className="flex items-start gap-3 mb-3">
         <div className={`w-8 h-8 rounded-lg ${meta.accentBg} flex items-center justify-center text-white shrink-0 shadow-sm`}>
           {meta.icon}
