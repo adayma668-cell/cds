@@ -73,10 +73,10 @@ const SECTION_META = {
   },
 };
 
-const TicketsCtx = createContext({ tickets: [], activeTickets: [] });
+const TicketsCtx = createContext({ tickets: [], activeTickets: [], ticketsLoading: true });
 
 function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed }) {
-  const { activeTickets, tickets: allTickets } = useContext(TicketsCtx);
+  const { activeTickets, tickets: allTickets, ticketsLoading } = useContext(TicketsCtx);
   const pool = includeClosed ? allTickets : activeTickets;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -143,7 +143,16 @@ function TicketSelect({ value, usedIds, onChange, containerRef, includeClosed })
         </div>
       </div>
       <div className="max-h-[280px] overflow-y-auto">
-        {available.length === 0 ? (
+        {ticketsLoading ? (
+          <div className="text-center py-8 px-4">
+            <svg className="w-6 h-6 text-primary/60 mx-auto mb-3 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <p className="text-sm text-muted/50 font-medium">Loading tickets...</p>
+            <p className="text-xs text-muted/30 mt-1">Fetching from Azure DevOps</p>
+          </div>
+        ) : available.length === 0 ? (
           <div className="text-center py-6 px-4">
             <svg className="w-8 h-8 text-muted/20 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -397,13 +406,13 @@ function BulletTextarea({ value, onChange, placeholder, autoResizeDep }) {
   );
 }
 
-function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descPlaceholder, showTickets, isLast, includeClosed }) {
+function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descPlaceholder, isLast, includeClosed }) {
   const cardRef = useRef(null);
 
   return (
     <div ref={cardRef} className="group relative standup-entry-in">
       <div className="rounded-xl border border-card-border/50 bg-white/80 hover:bg-white hover:border-card-border/80 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all duration-200">
-        {showTickets && entry.ticketId && (
+        {entry.ticketId && (
           <div className="px-3 pt-3">
             <TicketSelect
               value={entry.ticketId}
@@ -423,7 +432,7 @@ function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descP
         </div>
         <div className="flex items-center justify-between px-3 pb-2.5">
           <div className="flex items-center gap-1.5">
-            {showTickets && !entry.ticketId && (
+            {!entry.ticketId && (
               <TicketSelect
                 value={entry.ticketId}
                 usedIds={usedIds}
@@ -451,7 +460,7 @@ function TaskEntry({ entry, index, onUpdate, onRemove, canRemove, usedIds, descP
   );
 }
 
-function Section({ label, entries, setEntries, descPlaceholder, showTickets, includeClosed, onRestore, restoring }) {
+function Section({ label, entries, setEntries, descPlaceholder, includeClosed, onRestore, restoring }) {
   const meta = SECTION_META[label] || SECTION_META.Today;
   const usedIds = entries.map((e) => e.ticketId).filter(Boolean);
   const update = (i, p) => setEntries((prev) => prev.map((e, idx) => idx === i ? { ...e, ...p } : e));
@@ -527,7 +536,6 @@ function Section({ label, entries, setEntries, descPlaceholder, showTickets, inc
             canRemove={entries.length > 1}
             usedIds={usedIds}
             descPlaceholder={descPlaceholder}
-            showTickets={showTickets}
             isLast={i === entries.length - 1}
             includeClosed={includeClosed}
           />
@@ -674,7 +682,6 @@ export default function StandupForm({ onSubmitted, initialData }) {
   }, [fetchWorkItems]);
 
   const activeTickets = tickets.filter((t) => t.status !== "closed");
-  const showTickets = !ticketsLoading && tickets.length > 0;
 
   const handleRestore = async () => {
     setRestoring(true);
@@ -797,7 +804,7 @@ export default function StandupForm({ onSubmitted, initialData }) {
     finally { setLoading(false); }
   };
 
-  const ctxValue = { tickets, activeTickets };
+  const ctxValue = { tickets, activeTickets, ticketsLoading };
 
   return (
     <TicketsCtx.Provider value={ctxValue}>
@@ -813,18 +820,18 @@ export default function StandupForm({ onSubmitted, initialData }) {
         </div>
 
         <Section label="Yesterday" entries={yesterdayEntries} setEntries={setYesterdayEntries}
-          descPlaceholder="What did you accomplish yesterday?" showTickets={showTickets} includeClosed
+          descPlaceholder="What did you accomplish yesterday?" includeClosed
           onRestore={!restored ? handleRestore : undefined} restoring={restoring} />
 
         <div className="border-t border-card-border/30" />
 
         <Section label="Today" entries={todayEntries} setEntries={setTodayEntries}
-          descPlaceholder="What are you planning to work on?" showTickets={showTickets} includeClosed />
+          descPlaceholder="What are you planning to work on?" includeClosed />
 
         <div className="border-t border-card-border/30" />
 
         <Section label="Blockers" entries={blockerEntries} setEntries={setBlockerEntries}
-          descPlaceholder="Any impediments or blockers? (optional)" showTickets={showTickets} includeClosed />
+          descPlaceholder="Any impediments or blockers? (optional)" includeClosed />
 
         {message.text && (
           <div className={`flex items-center gap-2 text-sm rounded-xl px-4 py-3 border ${message.type === "success" ? "text-primary-dark bg-primary-light border-primary/20" : "text-danger bg-red-50 border-red-100"}`}>
