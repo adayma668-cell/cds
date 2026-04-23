@@ -2,8 +2,21 @@ import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis;
 
-const prisma = globalForPrisma.prisma ?? new PrismaClient();
+function createPrismaClient() {
+  return new PrismaClient({
+    datasourceUrl: process.env.DATABASE_URL,
+  });
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+const handler = {
+  get(_, prop) {
+    if (!globalForPrisma.prisma) {
+      globalForPrisma.prisma = createPrismaClient();
+    }
+    return globalForPrisma.prisma[prop];
+  },
+};
+
+const prisma = new Proxy({}, handler);
 
 export default prisma;
