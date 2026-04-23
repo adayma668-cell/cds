@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAudit } from "@/lib/audit";
+import prisma from "@/lib/prisma";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -28,17 +29,21 @@ export async function GET(request) {
   const scope = searchParams.get("scope");
   const date = searchParams.get("date");
 
-  let query = supabaseAdmin.from("standups").select("*");
+  const where = {};
+  const orderBy = [
+    { standup_date: "desc" },
+    { created_at: "desc" },
+  ];
 
   if (scope === "mine") {
-    query = query.eq("user_id", user.id);
+    where.user_id = user.id;
   }
 
   if (date) {
     const dateStr = date === "today"
       ? new Date().toLocaleDateString("en-CA")
       : date;
-    query = query.eq("standup_date", dateStr);
+    where.standup_date = new Date(dateStr);
   }
 
   const before = searchParams.get("before");
@@ -46,58 +51,59 @@ export async function GET(request) {
     const beforeStr = before === "today"
       ? new Date().toLocaleDateString("en-CA")
       : before;
-    query = query.lt("standup_date", beforeStr);
+    where.standup_date = { ...(where.standup_date || {}), lt: new Date(beforeStr) };
   }
 
   const presented = searchParams.get("presented");
   if (presented === "false") {
-    query = query.or("presented.eq.false,presented.is.null");
+    where.OR = [{ presented: false }, { presented: null }];
   } else if (presented === "true") {
-    query = query.eq("presented", true);
+    where.presented = true;
   }
-
-  query = query.order("standup_date", { ascending: false }).order("created_at", { ascending: false });
 
   const limit = parseInt(searchParams.get("limit"), 10);
-  if (limit > 0) {
-    query = query.limit(limit);
+
+  try {
+    const data = await prisma.standup.findMany({
+      where,
+      orderBy,
+      ...(limit > 0 ? { take: limit } : {}),
+    });
+
+    const includeTeams = searchParams.get("include") === "teams";
+    if (includeTeams && data?.length > 0) {
+      const userIds = [...new Set(data.map((s) => s.user_id))];
+      const employees = await prisma.employee.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, teams: true },
+      });
+      const teamMap = {};
+      (employees || []).forEach((e) => {
+        teamMap[e.id] = e.teams || [];
+      });
+      data.forEach((s) => {
+        s.teams = teamMap[s.user_id] || [];
+      });
+    }
+
+    if (data?.length > 0) {
+      const userIds = [...new Set(data.map((s) => s.user_id))];
+      const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      const avatarMap = {};
+      (authUsers || []).forEach((u) => {
+        if (userIds.includes(u.id)) {
+          avatarMap[u.id] = u.user_metadata?.avatar_url || null;
+        }
+      });
+      data.forEach((s) => {
+        s.avatar_url = avatarMap[s.user_id] || null;
+      });
+    }
+
+    return NextResponse.json({ standups: data });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const includeTeams = searchParams.get("include") === "teams";
-  if (includeTeams && data?.length > 0) {
-    const userIds = [...new Set(data.map((s) => s.user_id))];
-    const { data: employees } = await supabaseAdmin
-      .from("employees")
-      .select("id, teams")
-      .in("id", userIds);
-    const teamMap = {};
-    (employees || []).forEach((e) => {
-      teamMap[e.id] = e.teams || [];
-    });
-    data.forEach((s) => {
-      s.teams = teamMap[s.user_id] || [];
-    });
-  }
-
-  if (data?.length > 0) {
-    const userIds = [...new Set(data.map((s) => s.user_id))];
-    const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    const avatarMap = {};
-    (authUsers || []).forEach((u) => {
-      if (userIds.includes(u.id)) {
-        avatarMap[u.id] = u.user_metadata?.avatar_url || null;
-      }
-    });
-    data.forEach((s) => {
-      s.avatar_url = avatarMap[s.user_id] || null;
-    });
-  }
-
-  return NextResponse.json({ standups: data });
 }
 
 export async function POST(request) {
@@ -119,86 +125,79 @@ export async function POST(request) {
 
   const todayStr = new Date().toLocaleDateString("en-CA");
 
-  const { data: existing } = await supabaseAdmin
-    .from("standups")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("standup_date", todayStr)
-    .or("presented.eq.false,presented.is.null")
-    .limit(1);
+  try {
+    const existing = await prisma.standup.findMany({
+      where: {
+        user_id: user.id,
+        standup_date: new Date(todayStr),
+        OR: [{ presented: false }, { presented: null }],
+      },
+      take: 1,
+    });
 
-  const employeeName = user.user_metadata?.name || user.email;
+    const employeeName = user.user_metadata?.name || user.email;
 
-  if (existing && existing.length > 0) {
-    const prev = existing[0];
-    const { data: updated, error } = await supabaseAdmin
-      .from("standups")
-      .update({
+    if (existing && existing.length > 0) {
+      const prev = existing[0];
+      const updated = await prisma.standup.update({
+        where: { id: prev.id },
+        data: {
+          yesterday,
+          today,
+          blockers: blockers || "",
+          ticket_number: ticket_number || prev.ticket_number || null,
+          due_date: due_date ? new Date(due_date) : prev.due_date || null,
+          mood: mood || prev.mood || "good",
+          yesterday_tickets: yesterday_tickets ?? prev.yesterday_tickets ?? [],
+          today_tickets: today_tickets ?? prev.today_tickets ?? [],
+          blocker_tickets: blocker_tickets ?? prev.blocker_tickets ?? [],
+        },
+      });
+
+      await logAudit({
+        entityType: "standup",
+        entityId: prev.id,
+        action: "resubmitted",
+        actorId: user.id,
+        actorName: employeeName,
+        oldData: prev,
+        newData: updated,
+      });
+
+      return NextResponse.json({ message: "Standup updated successfully" });
+    }
+
+    const created = await prisma.standup.create({
+      data: {
+        user_id: user.id,
+        employee_name: employeeName,
+        ticket_number: ticket_number || null,
+        due_date: due_date ? new Date(due_date) : null,
         yesterday,
         today,
         blockers: blockers || "",
-        ticket_number: ticket_number || prev.ticket_number || null,
-        due_date: due_date || prev.due_date || null,
-        mood: mood || prev.mood || "good",
-        yesterday_tickets: yesterday_tickets ?? prev.yesterday_tickets ?? [],
-        today_tickets: today_tickets ?? prev.today_tickets ?? [],
-        blocker_tickets: blocker_tickets ?? prev.blocker_tickets ?? [],
-      })
-      .eq("id", prev.id)
-      .select()
-      .single();
-
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+        mood: mood || "good",
+        standup_date: new Date(todayStr),
+        created_at: new Date(),
+        yesterday_tickets: yesterday_tickets || [],
+        today_tickets: today_tickets || [],
+        blocker_tickets: blocker_tickets || [],
+      },
+    });
 
     await logAudit({
       entityType: "standup",
-      entityId: prev.id,
-      action: "resubmitted",
+      entityId: created.id,
+      action: "submitted",
       actorId: user.id,
       actorName: employeeName,
-      oldData: prev,
-      newData: updated,
+      newData: created,
     });
 
-    return NextResponse.json({ message: "Standup updated successfully" });
+    return NextResponse.json({ message: "Standup submitted successfully" });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  const row = {
-    user_id: user.id,
-    employee_name: employeeName,
-    ticket_number: ticket_number || null,
-    due_date: due_date || null,
-    yesterday,
-    today,
-    blockers: blockers || "",
-    mood: mood || "good",
-    standup_date: todayStr,
-    created_at: new Date().toISOString(),
-    yesterday_tickets: yesterday_tickets || [],
-    today_tickets: today_tickets || [],
-    blocker_tickets: blocker_tickets || [],
-  };
-
-  const { data: created, error } = await supabaseAdmin
-    .from("standups")
-    .insert([row])
-    .select()
-    .single();
-
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await logAudit({
-    entityType: "standup",
-    entityId: created.id,
-    action: "submitted",
-    actorId: user.id,
-    actorName: employeeName,
-    newData: created,
-  });
-
-  return NextResponse.json({ message: "Standup submitted successfully" });
 }
 
 export async function PATCH(request) {
@@ -217,55 +216,50 @@ export async function PATCH(request) {
       { status: 400 }
     );
 
-  const { data: existing } = await supabaseAdmin
-    .from("standups")
-    .select("*")
-    .eq("id", id)
-    .single();
+  try {
+    const existing = await prisma.standup.findUnique({ where: { id } });
 
-  if (!existing || existing.user_id !== user.id)
-    return NextResponse.json(
-      { error: "Not found or not yours" },
-      { status: 403 }
-    );
+    if (!existing || existing.user_id !== user.id)
+      return NextResponse.json(
+        { error: "Not found or not yours" },
+        { status: 403 }
+      );
 
-  if (existing.presented)
-    return NextResponse.json(
-      { error: "Cannot edit a standup after the meeting has finished" },
-      { status: 403 }
-    );
+    if (existing.presented)
+      return NextResponse.json(
+        { error: "Cannot edit a standup after the meeting has finished" },
+        { status: 403 }
+      );
 
-  const updateData = {};
-  if (ticket_number !== undefined) updateData.ticket_number = ticket_number;
-  if (due_date !== undefined) updateData.due_date = due_date;
-  if (yesterday !== undefined) updateData.yesterday = yesterday;
-  if (today !== undefined) updateData.today = today;
-  if (blockers !== undefined) updateData.blockers = blockers;
-  if (mood !== undefined) updateData.mood = mood;
-  if (yesterday_tickets !== undefined) updateData.yesterday_tickets = yesterday_tickets;
-  if (today_tickets !== undefined) updateData.today_tickets = today_tickets;
-  if (blocker_tickets !== undefined) updateData.blocker_tickets = blocker_tickets;
+    const updateData = {};
+    if (ticket_number !== undefined) updateData.ticket_number = ticket_number;
+    if (due_date !== undefined) updateData.due_date = due_date ? new Date(due_date) : null;
+    if (yesterday !== undefined) updateData.yesterday = yesterday;
+    if (today !== undefined) updateData.today = today;
+    if (blockers !== undefined) updateData.blockers = blockers;
+    if (mood !== undefined) updateData.mood = mood;
+    if (yesterday_tickets !== undefined) updateData.yesterday_tickets = yesterday_tickets;
+    if (today_tickets !== undefined) updateData.today_tickets = today_tickets;
+    if (blocker_tickets !== undefined) updateData.blocker_tickets = blocker_tickets;
 
-  const { data: updated, error } = await supabaseAdmin
-    .from("standups")
-    .update(updateData)
-    .eq("id", id)
-    .select()
-    .single();
+    const updated = await prisma.standup.update({
+      where: { id },
+      data: updateData,
+    });
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const actorName = user.user_metadata?.name || user.email;
+    await logAudit({
+      entityType: "standup",
+      entityId: id,
+      action: "updated",
+      actorId: user.id,
+      actorName,
+      oldData: existing,
+      newData: updated,
+    });
 
-  const actorName = user.user_metadata?.name || user.email;
-  await logAudit({
-    entityType: "standup",
-    entityId: id,
-    action: "updated",
-    actorId: user.id,
-    actorName,
-    oldData: existing,
-    newData: updated,
-  });
-
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }

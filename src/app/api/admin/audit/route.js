@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import prisma from "@/lib/prisma";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -13,11 +13,10 @@ async function verifySuperAdmin(req) {
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
 
-  const { data: emp } = await supabaseAdmin
-    .from("employees")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const emp = await prisma.employee.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
 
   if (!emp || emp.role !== "super_admin") return null;
   return user;
@@ -36,26 +35,31 @@ export async function GET(req) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit")) || 50));
   const offset = (page - 1) * limit;
 
-  let query = supabaseAdmin
-    .from("audit_logs")
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  const where = {};
+  if (entityType) where.entity_type = entityType;
+  if (entityId) where.entity_id = entityId;
+  if (actorId) where.actor_id = actorId;
+  if (action) where.action = action;
 
-  if (entityType) query = query.eq("entity_type", entityType);
-  if (entityId) query = query.eq("entity_id", entityId);
-  if (actorId) query = query.eq("actor_id", actorId);
-  if (action) query = query.eq("action", action);
+  try {
+    const [data, count] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { created_at: "desc" },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
 
-  const { data, error, count } = await query;
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({
-    logs: data || [],
-    total: count || 0,
-    page,
-    limit,
-    totalPages: Math.ceil((count || 0) / limit),
-  });
+    return NextResponse.json({
+      logs: data,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }

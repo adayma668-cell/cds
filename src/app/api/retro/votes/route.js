@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAudit } from "@/lib/audit";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -21,15 +21,16 @@ export async function GET(req) {
   const session_id = searchParams.get("session_id");
   if (!session_id) return NextResponse.json({ error: "session_id required" }, { status: 400 });
 
-  const { data, error } = await supabaseAdmin
-    .from("retro_votes")
-    .select("item_id")
-    .eq("session_id", session_id)
-    .eq("user_id", user.id);
+  try {
+    const data = await prisma.retroVote.findMany({
+      where: { session_id, user_id: user.id },
+      select: { item_id: true },
+    });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ votes: (data || []).map((v) => v.item_id) });
+    return NextResponse.json({ votes: (data || []).map((v) => v.item_id) });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 export async function POST(req) {
@@ -40,38 +41,37 @@ export async function POST(req) {
   if (!item_id) return NextResponse.json({ error: "item_id required" }, { status: 400 });
   if (!session_id) return NextResponse.json({ error: "session_id required" }, { status: 400 });
 
-  const { data: existing } = await supabaseAdmin
-    .from("retro_votes")
-    .select("id")
-    .eq("session_id", session_id)
-    .eq("user_id", user.id);
+  try {
+    const existing = await prisma.retroVote.findMany({
+      where: { session_id, user_id: user.id },
+      select: { id: true },
+    });
 
-  if ((existing || []).length >= 5) {
-    return NextResponse.json({ error: "Maximum 5 votes reached" }, { status: 400 });
+    if ((existing || []).length >= 5) {
+      return NextResponse.json({ error: "Maximum 5 votes reached" }, { status: 400 });
+    }
+
+    await prisma.retroVote.create({
+      data: { session_id, user_id: user.id, item_id },
+    });
+
+    await prisma.$executeRaw`UPDATE retro_items SET votes = COALESCE(votes, 0) + 1 WHERE id = ${item_id}::uuid`;
+
+    const actorName = user.user_metadata?.name || user.email;
+    await logAudit({
+      entityType: "retro_vote",
+      entityId: `${user.id}_${item_id}`,
+      action: "cast",
+      actorId: user.id,
+      actorName,
+      newData: { item_id, session_id },
+      metadata: { session_id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  const { error: insertErr } = await supabaseAdmin.from("retro_votes").insert({
-    session_id,
-    user_id: user.id,
-    item_id,
-  });
-
-  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
-
-  await supabaseAdmin.rpc("increment_votes", { row_id: item_id });
-
-  const actorName = user.user_metadata?.name || user.email;
-  await logAudit({
-    entityType: "retro_vote",
-    entityId: `${user.id}_${item_id}`,
-    action: "cast",
-    actorId: user.id,
-    actorName,
-    newData: { item_id, session_id },
-    metadata: { session_id },
-  });
-
-  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(req) {
@@ -82,37 +82,34 @@ export async function DELETE(req) {
   if (!item_id) return NextResponse.json({ error: "item_id required" }, { status: 400 });
   if (!session_id) return NextResponse.json({ error: "session_id required" }, { status: 400 });
 
-  const { data: voteRows } = await supabaseAdmin
-    .from("retro_votes")
-    .select("id")
-    .eq("session_id", session_id)
-    .eq("user_id", user.id)
-    .eq("item_id", item_id)
-    .limit(1);
+  try {
+    const voteRows = await prisma.retroVote.findMany({
+      where: { session_id, user_id: user.id, item_id },
+      select: { id: true },
+      take: 1,
+    });
 
-  if (!voteRows || voteRows.length === 0) {
-    return NextResponse.json({ error: "No vote to remove" }, { status: 400 });
+    if (!voteRows || voteRows.length === 0) {
+      return NextResponse.json({ error: "No vote to remove" }, { status: 400 });
+    }
+
+    await prisma.retroVote.delete({ where: { id: voteRows[0].id } });
+
+    await prisma.$executeRaw`UPDATE retro_items SET votes = GREATEST(COALESCE(votes, 0) - 1, 0) WHERE id = ${item_id}::uuid`;
+
+    const actorName = user.user_metadata?.name || user.email;
+    await logAudit({
+      entityType: "retro_vote",
+      entityId: `${user.id}_${item_id}`,
+      action: "removed",
+      actorId: user.id,
+      actorName,
+      oldData: { item_id, session_id },
+      metadata: { session_id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  const { error: delErr } = await supabaseAdmin
-    .from("retro_votes")
-    .delete()
-    .eq("id", voteRows[0].id);
-
-  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
-
-  await supabaseAdmin.rpc("decrement_votes", { row_id: item_id });
-
-  const actorName = user.user_metadata?.name || user.email;
-  await logAudit({
-    entityType: "retro_vote",
-    entityId: `${user.id}_${item_id}`,
-    action: "removed",
-    actorId: user.id,
-    actorName,
-    oldData: { item_id, session_id },
-    metadata: { session_id },
-  });
-
-  return NextResponse.json({ success: true });
 }

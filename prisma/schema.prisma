@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AuditLog {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type String
+  entity_id   String
+  action      String
+  actor_id    String?   @db.Uuid
+  actor_name  String?
+  old_data    Json?
+  new_data    Json?
+  changes     Json?
+  metadata    Json?
+  created_at  DateTime? @default(now()) @db.Timestamptz
+
+  @@index([entity_type, entity_id], map: "idx_audit_entity")
+  @@index([actor_id], map: "idx_audit_actor")
+  @@index([created_at(sort: Desc)], map: "idx_audit_time")
+  @@index([entity_type, action], map: "idx_audit_action")
+  @@map("audit_logs")
+}
+
+model Employee {
+  id           String    @id @db.Uuid
+  name         String?
+  email        String?
+  role         String?   @default("employee")
+  created_at   DateTime? @default(now()) @db.Timestamp
+  teams        String[]  @default([])
+  password_set Boolean?  @default(true)
+
+  meetings Meeting[] @relation("MeetingStarter")
+  standups Standup[] @relation("StandupEmployee")
+
+  @@map("employees")
+}
+
+model Meeting {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  started_by String?   @db.Uuid
+  status     String?   @default("open")
+  created_at DateTime? @default(now()) @db.Timestamp
+
+  starter  Employee? @relation("MeetingStarter", fields: [started_by], references: [id])
+  standups Standup[] @relation("StandupMeeting")
+
+  @@map("meetings")
+}
+
+model RetroItem {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_date String
+  phase        String
+  user_id      String    @db.Uuid
+  user_name    String
+  avatar_url   String?
+  content      String
+  assignee     String?
+  done         Boolean?  @default(false)
+  created_at   DateTime? @default(now()) @db.Timestamptz
+  due_date     String?
+  session_id   String?   @db.Uuid
+  votes        Int?      @default(0)
+  group_name   String?
+
+  retro_votes RetroVote[]
+
+  @@index([session_date, phase], map: "idx_retro_items_session")
+  @@map("retro_items")
+}
+
+model RetroMeetingWorth {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  user_name    String
+  vote         String
+  session_id   String    @db.Uuid
+  session_date DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  avatar_url   String?
+  created_at   DateTime? @default(now()) @db.Timestamptz
+
+  @@unique([user_id, session_id])
+  @@map("retro_meeting_worth")
+}
+
+model RetroMood {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  user_name    String
+  mood         String
+  avatar_url   String?
+  session_date String
+  created_at   DateTime? @default(now()) @db.Timestamptz
+  session_id   String?   @db.Uuid
+
+  @@unique([user_id, session_id], map: "retro_moods_user_session")
+  @@map("retro_moods")
+}
+
+model RetroSession {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_by    String    @db.Uuid
+  status        String    @default("active")
+  created_at    DateTime? @default(now()) @db.Timestamptz
+  finished_at   DateTime? @db.Timestamptz
+  current_phase Int?      @default(0)
+  team_id       String?
+  title         String?
+  pdf_url       String?
+
+  @@index([status], map: "retro_sessions_status")
+  @@map("retro_sessions")
+}
+
+model RetroVote {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id String?   @db.Uuid
+  user_id    String    @db.Uuid
+  item_id    String    @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz
+
+  item RetroItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@unique([session_id, user_id, item_id], map: "retro_votes_unique")
+  @@index([session_id, user_id], map: "retro_votes_session_user")
+  @@map("retro_votes")
+}
+
+model Standup {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String?   @db.Uuid
+  meeting_id        String?   @db.Uuid
+  yesterday         String?
+  today             String?
+  blockers          String?
+  created_at        DateTime? @default(now()) @db.Timestamp
+  employee_name     String?
+  mood              String?   @default("good")
+  ticket_number     String?
+  due_date          DateTime? @db.Date
+  presented         Boolean?  @default(false)
+  standup_date      DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  yesterday_tickets Json?     @default("[]")
+  today_tickets     Json?     @default("[]")
+  blocker_tickets   Json?     @default("[]")
+
+  employee Employee? @relation("StandupEmployee", fields: [user_id], references: [id])
+  meeting  Meeting?  @relation("StandupMeeting", fields: [meeting_id], references: [id])
+
+  @@index([standup_date], map: "idx_standups_standup_date")
+  @@map("standups")
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import prisma from "@/lib/prisma";
 
 export async function POST(req) {
   const { token, userId, password } = await req.json();
@@ -74,12 +75,12 @@ export async function POST(req) {
     );
   }
 
-  const { error: empError } = await supabaseAdmin
-    .from("employees")
-    .update({ password_set: true })
-    .eq("id", userId);
-
-  if (empError) {
+  try {
+    await prisma.employee.update({
+      where: { id: userId },
+      data: { password_set: true },
+    });
+  } catch (empError) {
     console.error("[set-password] Employee password_set update failed:", empError.message);
   }
 

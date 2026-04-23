@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import prisma from "@/lib/prisma";
 import Groq from "groq-sdk";
 
 export const dynamic = "force-dynamic";
@@ -27,14 +27,10 @@ export async function GET(req) {
   const session_id = searchParams.get("session_id");
   if (!session_id) return NextResponse.json({ error: "session_id is required" }, { status: 400 });
 
-  const { data, error } = await supabaseAdmin
-    .from("retro_items")
-    .select("*")
-    .eq("session_id", session_id)
-    .in("phase", BOARD_PHASES)
-    .order("created_at", { ascending: true });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const data = await prisma.retroItem.findMany({
+    where: { session_id, phase: { in: BOARD_PHASES } },
+    orderBy: { created_at: "asc" },
+  });
 
   const groups = {};
   const ungrouped = [];
@@ -57,14 +53,10 @@ export async function POST(req) {
   const { session_id } = await req.json();
   if (!session_id) return NextResponse.json({ error: "session_id is required" }, { status: 400 });
 
-  const { data: items, error: fetchErr } = await supabaseAdmin
-    .from("retro_items")
-    .select("*")
-    .eq("session_id", session_id)
-    .in("phase", BOARD_PHASES)
-    .order("created_at", { ascending: true });
-
-  if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+  const items = await prisma.retroItem.findMany({
+    where: { session_id, phase: { in: BOARD_PHASES } },
+    orderBy: { created_at: "asc" },
+  });
   if (!items || items.length === 0) {
     return NextResponse.json({ groups: {}, ungrouped: [] });
   }
@@ -160,23 +152,20 @@ export async function PATCH(req) {
     if (!old_name || !new_name || !session_id) {
       return NextResponse.json({ error: "old_name, new_name, and session_id are required" }, { status: 400 });
     }
-    const { error } = await supabaseAdmin
-      .from("retro_items")
-      .update({ group_name: new_name.trim() })
-      .eq("session_id", session_id)
-      .eq("group_name", old_name);
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await prisma.retroItem.updateMany({
+      where: { session_id, group_name: old_name },
+      data: { group_name: new_name.trim() },
+    });
     return NextResponse.json({ success: true });
   }
 
   if (body.items && Array.isArray(body.items)) {
     for (const { id, group_name } of body.items) {
       if (!id || !group_name) continue;
-      await supabaseAdmin
-        .from("retro_items")
-        .update({ group_name: group_name.trim() })
-        .eq("id", id);
+      await prisma.retroItem.update({
+        where: { id },
+        data: { group_name: group_name.trim() },
+      });
     }
     return NextResponse.json({ success: true });
   }
@@ -234,11 +223,12 @@ async function persistGroups(groupMap) {
   for (const [groupName, items] of Object.entries(groupMap)) {
     const ids = items.map((it) => it.id);
     if (ids.length === 0) continue;
-    const { error } = await supabaseAdmin
-      .from("retro_items")
-      .update({ group_name: groupName })
-      .in("id", ids);
-    if (error) {
+    try {
+      await prisma.retroItem.updateMany({
+        where: { id: { in: ids } },
+        data: { group_name: groupName },
+      });
+    } catch (error) {
       console.error(`persistGroups failed for "${groupName}" (${ids.length} items):`, error.message);
       hasError = true;
     }

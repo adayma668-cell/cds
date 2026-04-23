@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import prisma from "@/lib/prisma";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -19,12 +19,10 @@ export async function GET(req) {
   if (authError || !user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Use admin client - bypasses RLS, always returns correct role
-  const { data: employee } = await supabaseAdmin
-    .from("employees")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const employee = await prisma.employee.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
 
   const role = employee?.role ?? "employee";
 

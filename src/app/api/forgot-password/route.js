@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendPasswordResetEmail } from "@/lib/sendEmail";
+import prisma from "@/lib/prisma";
 
 export async function POST(req) {
   const { email } = await req.json();
@@ -35,11 +36,10 @@ export async function POST(req) {
       return successResponse;
     }
 
-    const { data: employee } = await supabaseAdmin
-      .from("employees")
-      .select("name")
-      .eq("id", user.id)
-      .single();
+    const employee = await prisma.employee.findUnique({
+      where: { id: user.id },
+      select: { name: true },
+    });
 
     const resetToken = randomUUID();
     const resetExpires = new Date(Date.now() + 60 * 60 * 1000).toISOString();

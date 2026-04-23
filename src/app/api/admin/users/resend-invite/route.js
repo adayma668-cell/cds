@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendInviteEmail } from "@/lib/sendEmail";
+import prisma from "@/lib/prisma";
 
 async function verifySuperAdmin(req) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -10,11 +11,10 @@ async function verifySuperAdmin(req) {
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
 
-  const { data: emp } = await supabaseAdmin
-    .from("employees")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const emp = await prisma.employee.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
 
   if (emp?.role !== "super_admin") return null;
   return user;

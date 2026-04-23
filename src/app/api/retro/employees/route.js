@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -8,11 +9,9 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const teamId = searchParams.get("team_id");
 
-    const { data: employees, error } = await supabaseAdmin
-      .from("employees")
-      .select("id, name, email, teams");
-
-    if (error) throw error;
+    const employees = await prisma.employee.findMany({
+      select: { id: true, name: true, email: true, teams: true },
+    });
 
     const {
       data: { users },

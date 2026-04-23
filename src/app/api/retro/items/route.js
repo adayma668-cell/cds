@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAudit } from "@/lib/audit";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -24,25 +24,27 @@ export async function GET(req) {
   const all = searchParams.get("all") === "true";
   const session_id = searchParams.get("session_id");
 
-  let query = supabaseAdmin
-    .from("retro_items")
-    .select("*")
-    .order("created_at", { ascending: true });
+  const where = {};
 
   if (!all && session_id) {
-    query = query.eq("session_id", session_id);
+    where.session_id = session_id;
   }
 
   if (phase === "all_board") {
-    query = query.in("phase", ["went_well", "didnt_go_well", "should_try", "puzzles_us"]);
+    where.phase = { in: ["went_well", "didnt_go_well", "should_try", "puzzles_us"] };
   } else if (phase && VALID_PHASES.includes(phase)) {
-    query = query.eq("phase", phase);
+    where.phase = phase;
   }
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ items: data || [] });
+  try {
+    const data = await prisma.retroItem.findMany({
+      where,
+      orderBy: { created_at: "asc" },
+    });
+    return NextResponse.json({ items: data || [] });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 export async function POST(req) {
@@ -57,7 +59,6 @@ export async function POST(req) {
     return NextResponse.json({ error: "Content is required" }, { status: 400 });
 
   const userName = user.user_metadata?.name || user.email?.split("@")[0] || "Unknown";
-
   const today = new Date().toISOString().slice(0, 10);
 
   const row = {
@@ -73,21 +74,23 @@ export async function POST(req) {
 
   if (session_id) row.session_id = session_id;
 
-  const { data, error } = await supabaseAdmin.from("retro_items").insert(row).select().single();
+  try {
+    const data = await prisma.retroItem.create({ data: row });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logAudit({
+      entityType: "retro_item",
+      entityId: data.id,
+      action: "created",
+      actorId: user.id,
+      actorName: userName,
+      newData: data,
+      metadata: { phase, session_id: data.session_id },
+    });
 
-  await logAudit({
-    entityType: "retro_item",
-    entityId: data.id,
-    action: "created",
-    actorId: user.id,
-    actorName: userName,
-    newData: data,
-    metadata: { phase, session_id: data.session_id },
-  });
-
-  return NextResponse.json({ item: data });
+    return NextResponse.json({ item: data });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 export async function PATCH(req) {
@@ -97,67 +100,57 @@ export async function PATCH(req) {
   const { id, done, content, assignee, due_date } = await req.json();
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-  const { data: oldItem } = await supabaseAdmin
-    .from("retro_items")
-    .select("*")
-    .eq("id", id)
-    .single();
+  try {
+    const oldItem = await prisma.retroItem.findUnique({ where: { id } });
 
-  if (content !== undefined || assignee !== undefined || due_date !== undefined) {
-    const updates = {};
-    if (content !== undefined) {
-      if (!content?.trim())
-        return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
-      updates.content = content.trim();
+    if (content !== undefined || assignee !== undefined || due_date !== undefined) {
+      const updates = {};
+      if (content !== undefined) {
+        if (!content?.trim())
+          return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
+        updates.content = content.trim();
+      }
+      if (assignee !== undefined) updates.assignee = assignee?.trim() || null;
+      if (due_date !== undefined) updates.due_date = due_date || null;
+
+      if (Object.keys(updates).length === 0)
+        return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+
+      await prisma.retroItem.update({ where: { id }, data: updates });
+
+      const actorName = user.user_metadata?.name || user.email;
+      await logAudit({
+        entityType: "retro_item",
+        entityId: id,
+        action: "edited",
+        actorId: user.id,
+        actorName,
+        oldData: oldItem,
+        newData: { ...oldItem, ...updates },
+        metadata: { phase: oldItem?.phase, session_id: oldItem?.session_id },
+      });
+
+      return NextResponse.json({ success: true, item: { ...oldItem, ...updates } });
     }
-    if (assignee !== undefined) updates.assignee = assignee?.trim() || null;
-    if (due_date !== undefined) updates.due_date = due_date || null;
 
-    if (Object.keys(updates).length === 0)
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
-
-    const { error } = await supabaseAdmin
-      .from("retro_items")
-      .update(updates)
-      .eq("id", id);
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await prisma.retroItem.update({ where: { id }, data: { done } });
 
     const actorName = user.user_metadata?.name || user.email;
     await logAudit({
       entityType: "retro_item",
       entityId: id,
-      action: "edited",
+      action: done ? "completed" : "reopened",
       actorId: user.id,
       actorName,
       oldData: oldItem,
-      newData: { ...oldItem, ...updates },
-      metadata: { phase: oldItem?.phase, session_id: oldItem?.session_id },
+      newData: { ...oldItem, done },
+      metadata: { session_id: oldItem?.session_id },
     });
 
-    return NextResponse.json({ success: true, item: { ...oldItem, ...updates } });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  const { error } = await supabaseAdmin
-    .from("retro_items")
-    .update({ done })
-    .eq("id", id);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const actorName = user.user_metadata?.name || user.email;
-  await logAudit({
-    entityType: "retro_item",
-    entityId: id,
-    action: done ? "completed" : "reopened",
-    actorId: user.id,
-    actorName,
-    oldData: oldItem,
-    newData: { ...oldItem, done },
-    metadata: { session_id: oldItem?.session_id },
-  });
-
-  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(req) {
@@ -167,29 +160,24 @@ export async function DELETE(req) {
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-  const { data: oldItem } = await supabaseAdmin
-    .from("retro_items")
-    .select("*")
-    .eq("id", id)
-    .single();
+  try {
+    const oldItem = await prisma.retroItem.findUnique({ where: { id } });
 
-  const { error } = await supabaseAdmin
-    .from("retro_items")
-    .delete()
-    .eq("id", id);
+    await prisma.retroItem.delete({ where: { id } });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const actorName = user.user_metadata?.name || user.email;
+    await logAudit({
+      entityType: "retro_item",
+      entityId: id,
+      action: "deleted",
+      actorId: user.id,
+      actorName,
+      oldData: oldItem,
+      metadata: { phase: oldItem?.phase, session_id: oldItem?.session_id },
+    });
 
-  const actorName = user.user_metadata?.name || user.email;
-  await logAudit({
-    entityType: "retro_item",
-    entityId: id,
-    action: "deleted",
-    actorId: user.id,
-    actorName,
-    oldData: oldItem,
-    metadata: { phase: oldItem?.phase, session_id: oldItem?.session_id },
-  });
-
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }

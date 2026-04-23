@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -64,12 +65,12 @@ export async function POST(req) {
       .from(BUCKET)
       .getPublicUrl(filename);
 
-    const { error: updateError } = await supabaseAdmin
-      .from("retro_sessions")
-      .update({ pdf_url: urlData.publicUrl })
-      .eq("id", sessionId);
-
-    if (updateError) {
+    try {
+      await prisma.retroSession.update({
+        where: { id: sessionId },
+        data: { pdf_url: urlData.publicUrl },
+      });
+    } catch (updateError) {
       console.error("Failed to save pdf_url:", updateError);
     }
 

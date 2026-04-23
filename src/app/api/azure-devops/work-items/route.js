@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import { supabase } from "@/lib/supabase";
+import prisma from "@/lib/prisma";
 
 const ORG = process.env.AZURE_DEVOPS_ORG;
 const PAT = process.env.AZURE_DEVOPS_PAT;
@@ -69,11 +64,10 @@ export async function GET(request) {
   const search = searchParams.get("search") || "";
   const refresh = searchParams.get("refresh") === "true";
 
-  const { data: employee } = await supabaseAdmin
-    .from("employees")
-    .select("email")
-    .eq("id", user.id)
-    .single();
+  const employee = await prisma.employee.findUnique({
+    where: { id: user.id },
+    select: { email: true },
+  });
 
   const devopsEmail = mapEmailForDevOps(employee?.email || user.email);
   const cacheKey = `${devopsEmail}:${search}`;

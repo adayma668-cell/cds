@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendInviteEmail } from "@/lib/sendEmail";
 import { logAudit } from "@/lib/audit";
+import prisma from "@/lib/prisma";
 
 async function verifySuperAdmin(req) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -15,11 +16,10 @@ async function verifySuperAdmin(req) {
   } = await supabase.auth.getUser(token);
   if (error || !user) return null;
 
-  const { data: employee } = await supabaseAdmin
-    .from("employees")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const employee = await prisma.employee.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
 
   if (employee?.role !== "super_admin") return null;
   return user;
@@ -37,9 +37,7 @@ export async function GET(req) {
   if (listError)
     return NextResponse.json({ error: listError.message }, { status: 500 });
 
-  const { data: employees } = await supabaseAdmin
-    .from("employees")
-    .select("*");
+  const employees = await prisma.employee.findMany();
 
   const merged = users.map((u) => {
     const emp = employees?.find((e) => e.id === u.id);
@@ -109,13 +107,15 @@ export async function POST(req) {
   const inviteLink = `${appUrl}/set-password?token=${inviteToken}&uid=${userId}`;
   console.log("[invite] Invite link generated:", inviteLink);
 
-  const { error: insertError } = await supabaseAdmin
-    .from("employees")
-    .upsert({ id: userId, name: name || "", email, role, teams: teams || [], password_set: false });
-
-  if (insertError) {
-    console.error("[invite] Employee upsert failed:", insertError.message);
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  try {
+    await prisma.employee.upsert({
+      where: { id: userId },
+      create: { id: userId, name: name || "", email, role, teams: teams || [], password_set: false },
+      update: { name: name || "", email, role, teams: teams || [], password_set: false },
+    });
+  } catch (err) {
+    console.error("[invite] Employee upsert failed:", err.message);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
   console.log("[invite] Employee record upserted with password_set=false");
 
@@ -176,7 +176,7 @@ export async function PATCH(req) {
       return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
-  const employeeUpdate = { id: userId };
+  const employeeUpdate = {};
   let hasEmployeeUpdate = false;
   if (role !== undefined) { employeeUpdate.role = role; hasEmployeeUpdate = true; }
   if (teams !== undefined) { employeeUpdate.teams = teams; hasEmployeeUpdate = true; }
@@ -184,11 +184,15 @@ export async function PATCH(req) {
   if (email !== undefined) { employeeUpdate.email = email; hasEmployeeUpdate = true; }
 
   if (hasEmployeeUpdate) {
-    const { error } = await supabaseAdmin
-      .from("employees")
-      .upsert(employeeUpdate);
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+      await prisma.employee.upsert({
+        where: { id: userId },
+        create: { id: userId, ...employeeUpdate },
+        update: employeeUpdate,
+      });
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ success: true });
@@ -215,7 +219,7 @@ export async function DELETE(req) {
     );
   }
 
-  await supabaseAdmin.from("employees").delete().eq("id", userId);
+  await prisma.employee.delete({ where: { id: userId } });
 
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
   if (error)

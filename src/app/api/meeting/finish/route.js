@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAudit } from "@/lib/audit";
+import prisma from "@/lib/prisma";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -14,11 +14,10 @@ async function getLeader(req) {
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
 
-  const { data: employee } = await supabaseAdmin
-    .from("employees")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const employee = await prisma.employee.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
 
   if (!employee || !["super_admin", "scrum_master"].includes(employee.role))
     return null;
@@ -38,10 +37,10 @@ export async function POST(req) {
   const actorName = user.user_metadata?.name || user.email;
 
   if (standupIds && standupIds.length > 0) {
-    await supabaseAdmin
-      .from("standups")
-      .update({ presented: true })
-      .in("id", standupIds);
+    await prisma.standup.updateMany({
+      where: { id: { in: standupIds } },
+      data: { presented: true },
+    });
   }
 
   await logAudit({

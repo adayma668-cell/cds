@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import prisma from "@/lib/prisma";
 
 export async function GET(req) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -14,11 +15,10 @@ export async function GET(req) {
   if (authError || !user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: employee } = await supabaseAdmin
-    .from("employees")
-    .select("name, email")
-    .eq("id", user.id)
-    .single();
+  const employee = await prisma.employee.findUnique({
+    where: { id: user.id },
+    select: { name: true, email: true },
+  });
 
   const name = employee?.name ?? user.user_metadata?.name ?? "";
   const email = user.email ?? employee?.email ?? "";
@@ -80,10 +80,10 @@ export async function PATCH(req) {
     );
 
   if (typeof name === "string") {
-    await supabaseAdmin
-      .from("employees")
-      .update({ name: name.trim() })
-      .eq("id", user.id);
+    await prisma.employee.update({
+      where: { id: user.id },
+      data: { name: name.trim() },
+    });
   }
 
   return NextResponse.json({ success: true });
