@@ -67,6 +67,7 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") || "";
+  const refresh = searchParams.get("refresh") === "true";
 
   const { data: employee } = await supabaseAdmin
     .from("employees")
@@ -76,8 +77,10 @@ export async function GET(request) {
 
   const devopsEmail = mapEmailForDevOps(employee?.email || user.email);
   const cacheKey = `${devopsEmail}:${search}`;
-  const cached = getCached(cacheKey);
-  if (cached) return NextResponse.json(cached);
+  if (!refresh) {
+    const cached = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
+  }
 
   try {
     const authHeader = buildAuthHeader();

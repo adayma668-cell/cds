@@ -635,31 +635,43 @@ export default function StandupForm({ onSubmitted, initialData }) {
     saveDraft(userId, yesterdayEntries, todayEntries, blockerEntries);
   }, [yesterdayEntries, todayEntries, blockerEntries, draftLoaded, userId]);
 
-  useEffect(() => {
-    async function fetchWorkItems() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const res = await fetch("/api/azure-devops/work-items", {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (!res.ok) return;
-        const { workItems } = await res.json();
-        const mapped = (workItems || []).map((wi) => ({
-          id: String(wi.id),
-          ticket_number: String(wi.id),
-          title: wi.title || "",
-          status: mapAzureState(wi.state),
-          description: "",
-          _type: wi.type,
-          _state: wi.state,
-          _project: wi.project,
-        }));
-        setTickets(mapped);
-      } catch { /* silent */ } finally { setTicketsLoading(false); }
-    }
-    fetchWorkItems();
+  const fetchWorkItems = useCallback(async ({ refresh = false } = {}) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const url = refresh
+        ? "/api/azure-devops/work-items?refresh=true"
+        : "/api/azure-devops/work-items";
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) return;
+      const { workItems } = await res.json();
+      const mapped = (workItems || []).map((wi) => ({
+        id: String(wi.id),
+        ticket_number: String(wi.id),
+        title: wi.title || "",
+        status: mapAzureState(wi.state),
+        description: "",
+        _type: wi.type,
+        _state: wi.state,
+        _project: wi.project,
+      }));
+      setTickets(mapped);
+    } catch { /* silent */ } finally { setTicketsLoading(false); }
   }, []);
+
+  useEffect(() => {
+    fetchWorkItems();
+  }, [fetchWorkItems]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchWorkItems({ refresh: true });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchWorkItems]);
 
   const activeTickets = tickets.filter((t) => t.status !== "closed");
   const showTickets = !ticketsLoading && tickets.length > 0;
