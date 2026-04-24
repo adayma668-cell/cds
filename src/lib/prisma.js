@@ -1,6 +1,9 @@
+import dns from "dns";
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
+
+dns.setDefaultResultOrder("ipv4first");
 
 const globalForPrisma = globalThis;
 
@@ -9,7 +12,6 @@ const handler = {
     if (!globalForPrisma.prisma) {
       const pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
-        family: 4,
       });
       const adapter = new PrismaPg(pool);
       globalForPrisma.prisma = new PrismaClient({ adapter });
