@@ -14,10 +14,19 @@ export async function GET(req) {
   if (authError || !user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const employee = await prisma.employee.findUnique({
-    where: { id: user.id },
-    select: { role: true },
-  });
+  let employee;
+  try {
+    employee = await prisma.employee.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+  } catch (err) {
+    console.error("Failed to fetch employee from DB:", err.message);
+    return NextResponse.json(
+      { error: "Database unavailable" },
+      { status: 503 }
+    );
+  }
 
   const role = employee?.role ?? "employee";
 
